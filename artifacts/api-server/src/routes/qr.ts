@@ -87,11 +87,14 @@ function calcLayout(docXml: string, tblXml: string): {
 } {
   // 1. Page geometry (from the full document)
   const pgSzM  = /<w:pgSz\b[^>]*\/>/.exec(docXml);
-  const pgMarM = /<w:pgMar\b[^>]*\/>/.exec(docXml);
+  const pgMarM = /<w:pgMar\b[^>]*(?:\/>|>)/.exec(docXml);
   const pageW  = pgSzM  ? parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10) : 11906;
   const leftM  = pgMarM ? parseInt(pgMarM[0].match(/w:left="(\d+)"/)?.[1]  ?? "720",  10) : 720;
   const rightM = pgMarM ? parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720",  10) : 720;
-  const printable = pageW - leftM - rightM;
+  // Never fill the printer's non-printable border zone.
+  // Enforce a minimum 12.7 mm (720 Twips) safe margin on each side.
+  const MIN_MARGIN = 720;
+  const printable = pageW - Math.max(leftM, MIN_MARGIN) - Math.max(rightM, MIN_MARGIN);
 
   // 2. Read existing gridCol widths from the data table specifically
   const tblGridM = /<w:tblGrid\b[^>]*>([\s\S]*?)<\/w:tblGrid>/.exec(tblXml);
@@ -407,22 +410,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   const dataTblXml = docXml.slice(dataTblStart, dataTblEnd);
 
-  // ── DEBUG ─────────────────────────────────────────────────────────────────
-  console.log("[QR] total rows:", rows.length, "| dataRows:", dataRows.length, "| hdrRows:", hdrRows.length);
-  console.log("[QR] dataTblStart:", dataTblStart, "| dataTblEnd:", dataTblEnd, "| dataTblXml len:", dataTblXml.length);
-  // Count tables in full doc vs data table slice
-  const totalTblCount = (docXml.match(/<w:tbl[ >]/g) || []).length;
-  const tblGridInSlice = (dataTblXml.match(/<w:tblGrid\b/g) || []).length;
-  const tblWInSlice    = (dataTblXml.match(/<w:tblW\b/g) || []).length;
-  const tcWInSlice     = (dataTblXml.match(/<w:tcW\b/g) || []).length;
-  console.log("[QR] tables in doc:", totalTblCount, "| tblGrid in slice:", tblGridInSlice, "| tblW in slice:", tblWInSlice, "| tcW in slice:", tcWInSlice);
-
   // ── STEP 3: Calculate layout using the CORRECT (data) table's grid ────────
   const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
     calcLayout(docXml, dataTblXml);
-
-  console.log("[QR] origTableW:", origTableW, "| newTableW:", newTableW, "| qrColWidth:", qrColWidth);
-  console.log("[QR] scaledGridCols (", scaledGridCols.length, "cols ):", scaledGridCols.join(","));
 
   // ── STEP 4: Rewrite <w:tblGrid> in the data table only ───────────────────
   const tblGridRe = /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/;
@@ -439,13 +429,20 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   // ── STEP 5: Update <w:tblW> in the data table only ───────────────────────
-  const tblWRe = /<w:tblW\b[^>]*\/>/;
+  // Match both self-closing <w:tblW .../> and non-self-closing <w:tblW ...>
+  const tblWRe = /<w:tblW\b[^>]*\/?>/;
   const tblWM  = tblWRe.exec(dataTblXml);
   if (tblWM) {
     const absStart = dataTblStart + tblWM.index;
-    const updated  = tblWM[0]
-      .replace(/w:w="\d+"/, `w:w="${newTableW}"`)
-      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+    let updated = tblWM[0];
+    // Update or insert w:w attribute
+    updated = updated.includes('w:w="')
+      ? updated.replace(/w:w="\d+"/, `w:w="${newTableW}"`)
+      : updated.replace('<w:tblW', `<w:tblW w:w="${newTableW}"`);
+    // Update or insert w:type attribute
+    updated = updated.includes('w:type="')
+      ? updated.replace(/w:type="[^"]*"/, `w:type="dxa"`)
+      : updated.replace('<w:tblW', `<w:tblW w:type="dxa"`);
     mods.push({ start: absStart, end: absStart + tblWM[0].length, replacement: updated });
   }
 
