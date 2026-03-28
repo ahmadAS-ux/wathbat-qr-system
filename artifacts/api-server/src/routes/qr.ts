@@ -27,6 +27,10 @@ interface PositionItem {
   quantity?: string;
   width?: string;
   height?: string;
+  area?: string;
+  perimeter?: string;
+  price?: string;
+  total?: string;
   qrDataUrl: string;
 }
 
@@ -87,12 +91,17 @@ async function parseAndInjectQR(
   }
 
   // Find position rows (pattern: "01 / 1", "02 / 3", etc.)
+  // Document column order: position, qty, width, height, area, perimeter, price, total
   const POSITION_RE = /^\d{2}\s*\/\s*\d+$/;
   const positionSegments: Array<{
     position: string;
     quantity: string;
     width: string;
     height: string;
+    area: string;
+    perimeter: string;
+    price: string;
+    total: string;
     textIndex: number;
   }> = [];
 
@@ -103,6 +112,10 @@ async function parseAndInjectQR(
         quantity: segments[i + 1]?.text || "",
         width: segments[i + 2]?.text || "",
         height: segments[i + 3]?.text || "",
+        area: segments[i + 4]?.text || "",
+        perimeter: segments[i + 5]?.text || "",
+        price: segments[i + 6]?.text || "",
+        total: segments[i + 7]?.text || "",
         textIndex: segments[i].index,
       });
     }
@@ -161,6 +174,10 @@ async function parseAndInjectQR(
     quantity: seg.quantity,
     width: seg.width,
     height: seg.height,
+    area: seg.area,
+    perimeter: seg.perimeter,
+    price: seg.price,
+    total: seg.total,
     qrDataUrl: qrEntries[i]?.dataUrl || "",
   }));
 
@@ -319,7 +336,7 @@ router.post(
 
 // GET /api/qr/download/:fileId
 router.get("/qr/download/:fileId", (req: Request, res: Response): void => {
-  const { fileId } = req.params;
+  const fileId = req.params.fileId as string;
   const entry = processedFiles.get(fileId);
 
   if (!entry) {

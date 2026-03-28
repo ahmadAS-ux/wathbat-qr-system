@@ -13,8 +13,18 @@ export interface PositionItem {
   /** Position/Number identifier (e.g., "01 / 1") */
   position: string;
   quantity?: string;
+  /** Width in mm */
   width?: string;
+  /** Height in mm */
   height?: string;
+  /** Area in m²/Pcs. */
+  area?: string;
+  /** Perimeter in m/Pcs. */
+  perimeter?: string;
+  /** Price in SAR */
+  price?: string;
+  /** Total price in SAR */
+  total?: string;
   /** Base64 data URL of the QR code image */
   qrDataUrl: string;
 }

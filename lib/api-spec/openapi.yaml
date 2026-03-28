@@ -130,8 +130,22 @@ components:
           type: string
         width:
           type: string
+          description: Width in mm
         height:
           type: string
+          description: Height in mm
+        area:
+          type: string
+          description: Area in m²/Pcs.
+        perimeter:
+          type: string
+          description: Perimeter in m/Pcs.
+        price:
+          type: string
+          description: Price in SAR
+        total:
+          type: string
+          description: Total price in SAR
         qrDataUrl:
           type: string
           description: Base64 data URL of the QR code image

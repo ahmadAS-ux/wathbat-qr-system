@@ -37,6 +37,9 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
     disabled: isLoading
   });
 
+  // Separate onDrag from root props to avoid framer-motion type conflict
+  const { onDrag: _onDrag, ...safeRootProps } = getRootProps() as any;
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <motion.div
@@ -47,7 +50,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
           isDragActive ? "border-accent bg-accent/5 scale-[1.02]" : "border-primary/20 bg-white hover:border-primary/50 hover:bg-primary/5",
           isLoading && "opacity-50 pointer-events-none"
         )}
-        {...getRootProps()}
+        {...safeRootProps}
       >
         <input {...getInputProps()} />
         
