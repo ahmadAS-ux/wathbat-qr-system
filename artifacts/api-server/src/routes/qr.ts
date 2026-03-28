@@ -556,6 +556,35 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     });
   }
 
+  // Diagnostic: confirm all rows were processed
+  console.log(
+    `[QR] dataTblRows=${dataTblRows.length}  dataRowsMatched=${dataTblRows.filter(r => [...r.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].some(m => POSITION_RE.test(m[1].trim()))).length}  qrEntries=${qrEntries.length}  qrInjected=${qrIdx}`,
+  );
+
+  // ── POST-PASS: guarantee <w:cantSplit/> on every <w:tr> in the document ───
+  // This runs on the original docXml (before mods) which is fine — the mod
+  // applier works by absolute index so writing two insertions at the same spot
+  // just produces <w:cantSplit/><w:cantSplit/>, which Word silently ignores.
+  const postTrRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
+  let   postTrM: RegExpExecArray | null;
+  while ((postTrM = postTrRe.exec(docXml)) !== null) {
+    const trContent = postTrM[0];
+    const trStart   = postTrM.index;
+    const trPrM     = /<w:trPr\b[^>]*>/.exec(trContent);
+    if (trPrM) {
+      const closeIdx = trContent.indexOf("</w:trPr>", trPrM.index);
+      const inner    = trContent.slice(trPrM.index, closeIdx);
+      if (!inner.includes("<w:cantSplit")) {
+        const insPos = trStart + trPrM.index + trPrM[0].length;
+        mods.push({ start: insPos, end: insPos, replacement: "<w:cantSplit/>" });
+      }
+    } else {
+      const trOpenEnd = trContent.indexOf(">") + 1;
+      const insPos    = trStart + trOpenEnd;
+      mods.push({ start: insPos, end: insPos, replacement: "<w:trPr><w:cantSplit/></w:trPr>" });
+    }
+  }
+
   // 4. Apply all modifications in reverse order (high index → low index)
   mods.sort((a, b) => b.start - a.start);
   let modXml = docXml;
