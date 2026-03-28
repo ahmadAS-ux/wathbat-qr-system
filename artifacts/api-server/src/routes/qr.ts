@@ -457,8 +457,14 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   // ── STEP 7: Inject QR cells into each row ────────────────────────────────
+  // Only process rows that belong to the data table (by start position).
+  // Using r.start < dataTblEnd (not <=) so the </w:tbl> boundary is exclusive.
+  const dataTblRows = rows.filter(
+    (r) => r.start >= dataTblStart && r.start < dataTblEnd,
+  );
+
   let qrIdx = 0;
-  for (const row of rows) {
+  for (const row of dataTblRows) {
     const texts = [...row.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
       .map((m) => m[1].trim())
       .filter(Boolean);
@@ -469,71 +475,75 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const isHeaderRow = texts.some((t) => t.includes("Position") && t.includes("Number"));
     const isDataRow   = texts.some((t) => POSITION_RE.test(t));
 
+    // ── cantSplit: apply to EVERY row in the data table unconditionally ──────
+    const trPrOpenM = /<w:trPr\b[^>]*>/.exec(row.content);
+    if (trPrOpenM) {
+      const trPrCloseIdx = row.content.indexOf("</w:trPr>", trPrOpenM.index);
+      const trPrInner    = row.content.slice(trPrOpenM.index, trPrCloseIdx);
+      if (!trPrInner.includes("<w:cantSplit")) {
+        const insPos = row.start + trPrOpenM.index + trPrOpenM[0].length;
+        mods.push({ start: insPos, end: insPos, replacement: "<w:cantSplit/>" });
+      }
+    } else {
+      // No <w:trPr> at all — insert one after the opening <w:tr...> tag
+      const trOpenEnd = row.content.indexOf(">") + 1;
+      const insPos    = row.start + trOpenEnd;
+      mods.push({ start: insPos, end: insPos, replacement: "<w:trPr><w:cantSplit/></w:trPr>" });
+    }
+
     if (isHeaderRow) {
       cellXml = makeQRHeaderCell(qrColWidth);
-    } else if (isDataRow && qrIdx < qrEntries.length) {
-      cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU);
-      qrIdx++;
-
-      // ── Fix A: prevent row from splitting across a page break ────────────
-      const trPrOpenM = /<w:trPr\b[^>]*>/.exec(row.content);
-      if (trPrOpenM) {
-        const trPrCloseIdx = row.content.indexOf("</w:trPr>", trPrOpenM.index);
-        const trPrInner    = row.content.slice(trPrOpenM.index, trPrCloseIdx);
-        if (!trPrInner.includes("<w:cantSplit")) {
-          const insPos = row.start + trPrOpenM.index + trPrOpenM[0].length;
-          mods.push({ start: insPos, end: insPos, replacement: "<w:cantSplit/>" });
-        }
+    } else if (isDataRow) {
+      if (qrIdx >= qrEntries.length) {
+        // Safety: more isDataRow matches than QR entries — give an empty cell
+        cellXml = makeEmptyCell(qrColWidth, true);
       } else {
-        // No <w:trPr> at all — insert one right after the opening <w:tr...> tag
-        const trOpenEnd = row.content.indexOf(">") + 1;
-        const insPos    = row.start + trOpenEnd;
-        mods.push({ start: insPos, end: insPos, replacement: "<w:trPr><w:cantSplit/></w:trPr>" });
-      }
+        cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU);
+        qrIdx++;
 
-      // ── Fix B: vertically center-align all existing cells in this row ─────
-      // Walk every </w:tcPr> and add <w:vAlign center> if not already there.
-      const tcPrCloseRe = /<\/w:tcPr>/g;
-      let   tcPrCloseM: RegExpExecArray | null;
-      while ((tcPrCloseM = tcPrCloseRe.exec(row.content)) !== null) {
-        const tcPrOpenIdx = row.content.lastIndexOf("<w:tcPr", tcPrCloseM.index);
-        const tcPrBlock   = row.content.slice(tcPrOpenIdx, tcPrCloseM.index);
-        if (!tcPrBlock.includes("<w:vAlign")) {
-          const insPos = row.start + tcPrCloseM.index; // insert before </w:tcPr>
-          mods.push({ start: insPos, end: insPos, replacement: '<w:vAlign w:val="center"/>' });
+        // ── Fix B: vertically center-align all existing cells in this row ───
+        // Walk every </w:tcPr> and inject <w:vAlign center> if not already there.
+        const tcPrCloseRe = /<\/w:tcPr>/g;
+        let   tcPrCloseM: RegExpExecArray | null;
+        while ((tcPrCloseM = tcPrCloseRe.exec(row.content)) !== null) {
+          const tcPrOpenIdx = row.content.lastIndexOf("<w:tcPr", tcPrCloseM.index);
+          const tcPrBlock   = row.content.slice(tcPrOpenIdx, tcPrCloseM.index);
+          if (!tcPrBlock.includes("<w:vAlign")) {
+            const insPos = row.start + tcPrCloseM.index; // insert before </w:tcPr>
+            mods.push({ start: insPos, end: insPos, replacement: '<w:vAlign w:val="center"/>' });
+          }
         }
-      }
-      // Also handle cells that have <w:tcPr/> (self-closing) → replace with full element
-      for (const scM of row.content.matchAll(/<w:tcPr\/>/g)) {
-        const absPos = row.start + scM.index;
-        mods.push({
-          start: absPos, end: absPos + scM[0].length,
-          replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
-        });
-      }
-      // Also handle cells with NO <w:tcPr> at all — inject one after <w:tc>
-      for (const tcM of row.content.matchAll(/<w:tc>/g)) {
-        const after = row.content.slice(tcM.index + 6).trimStart(); // skip '<w:tc>'
-        if (!after.startsWith('<w:tcPr')) {
-          const insPos = row.start + tcM.index + 6;
+        // Self-closing <w:tcPr/> → replace with full element + vAlign
+        for (const scM of row.content.matchAll(/<w:tcPr\/>/g)) {
+          const absPos = row.start + scM.index;
           mods.push({
-            start: insPos, end: insPos,
+            start: absPos, end: absPos + scM[0].length,
             replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
           });
         }
-      }
+        // Cells with NO <w:tcPr> at all — inject one after <w:tc>
+        for (const tcM of row.content.matchAll(/<w:tc>/g)) {
+          const after = row.content.slice(tcM.index + 6).trimStart();
+          if (!after.startsWith("<w:tcPr")) {
+            const insPos = row.start + tcM.index + 6;
+            mods.push({
+              start: insPos, end: insPos,
+              replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
+            });
+          }
+        }
 
-      // ── Fix C: set row height to auto so it shrinks to fit the QR image ────
-      const trHeightRe = /<w:trHeight\b[^>]*\/>/;
-      const trHm = trHeightRe.exec(row.content);
-      if (trHm) {
-        // Replace whatever trHeight is set with auto (val=0, hRule=auto)
-        const absPos = row.start + trHm.index;
-        mods.push({
-          start: absPos,
-          end:   absPos + trHm[0].length,
-          replacement: '<w:trHeight w:val="0" w:hRule="auto"/>',
-        });
+        // ── Fix C: set row height to auto so rows shrink to fit ─────────────
+        const trHeightRe = /<w:trHeight\b[^>]*\/>/;
+        const trHm = trHeightRe.exec(row.content);
+        if (trHm) {
+          const absPos = row.start + trHm.index;
+          mods.push({
+            start: absPos,
+            end:   absPos + trHm[0].length,
+            replacement: '<w:trHeight w:val="0" w:hRule="auto"/>',
+          });
+        }
       }
     } else {
       cellXml = makeEmptyCell(qrColWidth, true);
