@@ -60,11 +60,12 @@ setInterval(
 );
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const QR_ROW_MIN_HEIGHT = 1450; // Twips – minimum data row height for QR image
-// QR column target: ~15 mm = 850 Twips (850 * 635 EMU/Twip ≈ 539750 EMU)
-const QR_COL_TARGET = 850;      // Twips
-// Image size: 15 mm = 539750 EMU (locks within the cell)
-const QR_IMAGE_EMU  = 539750;
+const QR_ROW_MIN_HEIGHT = 1700; // Twips – minimum data row height for QR image (~30mm)
+// QR column: 857250 EMU image + 56 Twip padding → 1430 Twip cell
+// 857250 EMU / 635 (EMU per Twip) ≈ 1350 Twips + 2×28 margins = 1406 → use 1430
+const QR_COL_TARGET = 1430;     // Twips  (cell width)
+// Image size as specified: 857250 EMU × 857250 EMU
+const QR_IMAGE_EMU  = 857250;
 
 /**
  * Compute layout for adding the QR column.
@@ -177,8 +178,8 @@ function makeQRImageCell(rId: string, docPrId: number, qrColWidth: number, qrEMU
     `<wp:inline distT="0" distB="0" distL="0" distR="0">` +
     `<wp:extent cx="${qrEMU}" cy="${qrEMU}"/>` +
     `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-    `<wp:docPr id="${docPrId}" name="QRCode${docPrId}"/>` +
-    `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<wp:docPr id="${docPrId}" name="QR${docPrId}"/>` +
+    `<wp:cNvGraphicFramePr/>` +
     `<a:graphic>` +
     `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
     `<pic:pic>` +
