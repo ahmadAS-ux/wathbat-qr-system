@@ -91,6 +91,17 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/qr-manager` (`@workspace/qr-manager`)
+
+Bilingual (Arabic/English, RTL/LTR) QR Asset Manager web app for **Wathbat** (wathbat.sa). Built with React + Vite.
+
+- **Purpose**: Users upload Orgadata LogiKal Glass/Panel Order `.docx` files. The app parses each "Position / Number" row (e.g., "01 / 1"), generates square QR codes for each position, embeds them into the document, and provides a downloadable output `.docx`.
+- **Brand**: Navy blue `#1a3a5c` (primary) + Golden amber `#c8962a` (accent)
+- **Bilingual**: Full AR/EN translations in `src/lib/i18n.ts`. Language switcher in header triggers RTL/LTR via `document.documentElement.dir`.
+- **Components**: `FileUpload`, `ResultsView`, `Header`, `Button` (with `variant="accent"`)
+- **Key hooks**: `useLanguage` (RTL/LTR + translations), `useProcessDocument` (generated React Query mutation)
+- **Parsing approach**: Text-segment scan — extracts all `<w:t>` elements in order from the docx XML, locates position patterns `/^\d{2}\s*\/\s*\d+$/`, grabs adjacent segments for qty/width/height. This handles the document's complex nested table structure that breaks `<w:tr>` regex approaches.
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

@@ -1,0 +1,13 @@
+packages:
+  "framer-motion": "Smooth layout and element animations"
+  "react-dropzone": "Drag and drop file upload functionality"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to cleanly merge tailwind classes"
+  "lucide-react": "Beautiful consistent icon set"
+
+images: []
+
+notes:
+  - "Using context-based lightweight i18n for English/Arabic (RTL) support."
+  - "React Query hooks imported from @workspace/api-client-react as specified."
+  - "Using Wathbat brand colors: Navy Blue (#1a3a5c) and Golden Amber (#c8962a)."

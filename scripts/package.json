@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "adm-zip": "^0.5.16",
     "tsx": "catalog:"
   }
 }
