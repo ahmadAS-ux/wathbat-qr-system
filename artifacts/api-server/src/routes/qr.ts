@@ -407,9 +407,22 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   const dataTblXml = docXml.slice(dataTblStart, dataTblEnd);
 
+  // ── DEBUG ─────────────────────────────────────────────────────────────────
+  console.log("[QR] total rows:", rows.length, "| dataRows:", dataRows.length, "| hdrRows:", hdrRows.length);
+  console.log("[QR] dataTblStart:", dataTblStart, "| dataTblEnd:", dataTblEnd, "| dataTblXml len:", dataTblXml.length);
+  // Count tables in full doc vs data table slice
+  const totalTblCount = (docXml.match(/<w:tbl[ >]/g) || []).length;
+  const tblGridInSlice = (dataTblXml.match(/<w:tblGrid\b/g) || []).length;
+  const tblWInSlice    = (dataTblXml.match(/<w:tblW\b/g) || []).length;
+  const tcWInSlice     = (dataTblXml.match(/<w:tcW\b/g) || []).length;
+  console.log("[QR] tables in doc:", totalTblCount, "| tblGrid in slice:", tblGridInSlice, "| tblW in slice:", tblWInSlice, "| tcW in slice:", tcWInSlice);
+
   // ── STEP 3: Calculate layout using the CORRECT (data) table's grid ────────
   const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
     calcLayout(docXml, dataTblXml);
+
+  console.log("[QR] origTableW:", origTableW, "| newTableW:", newTableW, "| qrColWidth:", qrColWidth);
+  console.log("[QR] scaledGridCols (", scaledGridCols.length, "cols ):", scaledGridCols.join(","));
 
   // ── STEP 4: Rewrite <w:tblGrid> in the data table only ───────────────────
   const tblGridRe = /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/;
