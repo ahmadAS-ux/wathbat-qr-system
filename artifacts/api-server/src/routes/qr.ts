@@ -3,6 +3,7 @@ import multer from "multer";
 import AdmZip from "adm-zip";
 import QRCode from "qrcode";
 import { randomUUID } from "node:crypto";
+import { recordProcessed } from "../lib/stats.js";
 
 const router: IRouter = Router();
 
@@ -61,7 +62,8 @@ setInterval(
 // ─── Constants ────────────────────────────────────────────────────────────────
 // A4 portrait = 11906 Twips wide, existing table = 9924 Twips → 1982 Twips free
 const QR_COL_WIDTH = 1982; // Twips
-const QR_EMU = 560000; // ≈ 15.5 mm – compact but scannable QR size
+const QR_EMU = 857250; // ≈ 24 mm – inline image, fully inside cell
+const QR_ROW_MIN_HEIGHT = 1450; // Twips – forces row to expand for the image
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -317,6 +319,21 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     } else if (isDataRow && qrIdx < qrEntries.length) {
       cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx);
       qrIdx++;
+
+      // Expand the row height so the QR image is fully visible inside the cell
+      const trHeightRe = /<w:trHeight[^/]*\/>/;
+      const trHm = trHeightRe.exec(row.content);
+      if (trHm) {
+        const absPos = row.start + trHm.index;
+        const currentVal = parseInt(trHm[0].match(/w:val="(\d+)"/)?.[1] ?? "0", 10);
+        if (currentVal < QR_ROW_MIN_HEIGHT) {
+          mods.push({
+            start: absPos,
+            end: absPos + trHm[0].length,
+            replacement: trHm[0].replace(/w:val="\d+"/, `w:val="${QR_ROW_MIN_HEIGHT}"`),
+          });
+        }
+      }
     } else {
       cellXml = makeEmptyCell(true);
     }
@@ -413,6 +430,7 @@ router.post(
         filename: `${originalName}_with_QR.docx`,
         expiresAt: Date.now() + 60 * 60 * 1000,
       });
+      recordProcessed(result.positions.length);
 
       res.json({
         fileId,

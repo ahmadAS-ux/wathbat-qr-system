@@ -68,7 +68,7 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/requests.ts` — `requests` table (id, positionId, requestType, customerPhone, invoiceNumber, message, status, createdAt)
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
@@ -96,11 +96,14 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 Bilingual (Arabic/English, RTL/LTR) QR Asset Manager web app for **Wathbat** (wathbat.sa). Built with React + Vite.
 
 - **Purpose**: Users upload Orgadata LogiKal Glass/Panel Order `.docx` files. The app parses each "Position / Number" row (e.g., "01 / 1"), generates square QR codes for each position, embeds them into the document, and provides a downloadable output `.docx`.
-- **Brand**: Navy blue `#1a3a5c` (primary) + Golden amber `#c8962a` (accent)
+- **Brand**: Navy blue `#1B2A4A` (primary) + Golden amber `#C89B3C` (accent)
 - **Bilingual**: Full AR/EN translations in `src/lib/i18n.ts`. Language switcher in header triggers RTL/LTR via `document.documentElement.dir`.
-- **Components**: `FileUpload`, `ResultsView`, `Header`, `Button` (with `variant="accent"`)
-- **Key hooks**: `useLanguage` (RTL/LTR + translations), `useProcessDocument` (generated React Query mutation)
+- **Components**: `FileUpload`, `ResultsView`, `Header`, `Admin`
+- **Key hooks**: `useLanguage` (RTL/LTR + translations), `useProcessDocument` (generated React Query mutation), `useToast`
 - **Parsing approach**: Text-segment scan — extracts all `<w:t>` elements in order from the docx XML, locates position patterns `/^\d{2}\s*\/\s*\d+$/`, grabs adjacent segments for qty/width/height. This handles the document's complex nested table structure that breaks `<w:tr>` regex approaches.
+- **QR injection**: Adds 15th column (1982 Twips) to existing table. QR_EMU=857250 (≈24mm), QR_ROW_MIN_HEIGHT=1450 Twips. All namespace declarations (`wp:`, `a:`, `pic:`, `r:`) at document root. rId2000+ used to avoid conflicts.
+- **Admin Dashboard**: `/admin` route with metrics cards (docs processed, QRs generated, monthly requests, success rate), filterable requests table, inline status update dropdown, Excel export via `xlsx`.
+- **Routes**: `/` (upload & process), `/admin` (dashboard)
 
 ### `scripts` (`@workspace/scripts`)
 

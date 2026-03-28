@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { UploadCloud, FileText, X, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { cn, formatBytes } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -17,27 +16,24 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     setError(null);
-    
     if (rejectedFiles.length > 0) {
       setError(t('error_file_type'));
       return;
     }
-
     if (acceptedFiles.length > 0) {
       onFileSelect(acceptedFiles[0]);
     }
   }, [onFileSelect, t]);
 
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     },
     maxFiles: 1,
-    disabled: isLoading
+    disabled: isLoading,
   });
 
-  // Separate onDrag from root props to avoid framer-motion type conflict
   const { onDrag: _onDrag, ...safeRootProps } = getRootProps() as any;
 
   return (
@@ -46,41 +42,55 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          "relative group overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-500 ease-out",
-          isDragActive ? "border-accent bg-accent/5 scale-[1.02]" : "border-primary/20 bg-white hover:border-primary/50 hover:bg-primary/5",
+          "relative group overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-500 ease-out cursor-pointer",
+          isDragActive
+            ? "border-[#C89B3C] bg-[#C89B3C]/5 scale-[1.02] shadow-xl shadow-[#C89B3C]/10"
+            : "border-[#1B2A4A]/20 bg-white hover:border-[#1B2A4A]/40 hover:bg-[#1B2A4A]/[0.02] hover:shadow-xl hover:shadow-[#1B2A4A]/5",
           isLoading && "opacity-50 pointer-events-none"
         )}
         {...safeRootProps}
       >
         <input {...getInputProps()} />
-        
-        <div className="px-6 py-20 flex flex-col items-center justify-center text-center">
-          <div className="relative mb-6">
+
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#C89B3C]/[0.03] via-transparent to-[#1B2A4A]/[0.03] pointer-events-none" />
+
+        <div className="relative px-8 py-20 flex flex-col items-center justify-center text-center">
+          {/* Icon */}
+          <div className="relative mb-8">
             <div className={cn(
-              "absolute inset-0 rounded-full blur-xl transition-all duration-500",
-              isDragActive ? "bg-accent/40" : "bg-primary/20 group-hover:bg-primary/30"
-            )}></div>
-            <div className={cn(
-              "relative flex items-center justify-center w-20 h-20 rounded-2xl shadow-lg transition-transform duration-500",
-              isDragActive ? "bg-accent text-white scale-110" : "bg-white text-primary group-hover:scale-110"
-            )}>
-              <UploadCloud className="w-10 h-10" />
-            </div>
+              "absolute inset-0 rounded-full blur-2xl transition-all duration-500",
+              isDragActive ? "bg-[#C89B3C]/40 scale-125" : "bg-[#1B2A4A]/15 group-hover:bg-[#1B2A4A]/25"
+            )} />
+            <motion.div
+              animate={isDragActive ? { scale: 1.12, rotate: -3 } : { scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className={cn(
+                "relative flex items-center justify-center w-28 h-28 rounded-3xl shadow-xl transition-all duration-300",
+                isDragActive
+                  ? "bg-[#C89B3C] text-white"
+                  : "bg-white text-[#1B2A4A] group-hover:bg-[#1B2A4A] group-hover:text-white"
+              )}
+            >
+              <UploadCloud className="w-14 h-14" strokeWidth={1.5} />
+            </motion.div>
           </div>
-          
-          <h3 className="text-2xl font-bold text-foreground mb-3">
+
+          <h3 className="text-2xl md:text-3xl font-bold text-[#1B2A4A] mb-3">
             {isDragActive ? t('drop_active') : t('drop_idle')}
           </h3>
-          
-          <p className="text-muted-foreground mb-8 max-w-md">
+
+          <p className="text-muted-foreground mb-8 max-w-sm text-base leading-relaxed">
             {t('upload_desc')}
           </p>
-          
-          <Button variant="default" size="lg" className="pointer-events-none rounded-full px-8">
-            {t('browse_files')}
-          </Button>
 
-          <p className="mt-6 text-sm font-medium text-primary/60 flex items-center gap-2">
+          <div className="flex items-center justify-center gap-3">
+            <div className="px-8 py-3.5 bg-[#1B2A4A] text-white font-bold text-base rounded-2xl shadow-lg shadow-[#1B2A4A]/20 group-hover:bg-[#C89B3C] transition-colors duration-300">
+              {t('browse_files')}
+            </div>
+          </div>
+
+          <p className="mt-7 text-sm font-medium text-[#1B2A4A]/50 flex items-center gap-2">
             <FileText className="w-4 h-4" />
             {t('file_type_hint')}
           </p>
@@ -89,15 +99,15 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 
       <AnimatePresence>
         {error && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
             animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            className="flex items-center gap-3 p-4 rounded-xl bg-destructive/10 text-destructive border border-destructive/20"
+            className="flex items-center gap-3 p-4 rounded-2xl bg-destructive/10 text-destructive border border-destructive/20"
           >
             <AlertCircle className="w-5 h-5 shrink-0" />
             <p className="text-sm font-medium">{error}</p>
-            <button onClick={() => setError(null)} className="ms-auto p-1 hover:bg-destructive/20 rounded-md transition-colors">
+            <button onClick={() => setError(null)} className="ms-auto p-1 hover:bg-destructive/20 rounded-lg transition-colors">
               <X className="w-4 h-4" />
             </button>
           </motion.div>

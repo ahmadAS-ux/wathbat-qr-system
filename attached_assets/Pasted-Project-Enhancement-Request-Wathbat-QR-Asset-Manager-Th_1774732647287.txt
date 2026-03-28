@@ -1,0 +1,44 @@
+Project Enhancement Request — Wathbat QR Asset Manager
+This is an existing working project. Do NOT rebuild from scratch. Enhance the current codebase only.
+
+🔴 PRIORITY 1 — Critical Bug Fix (QR code overflowing Word document)
+The current POST /qr/process endpoint generates QR codes but they render outside the table cell boundaries in the downloaded .docx file.
+Fix the QR image injection in artifacts/api-server/src/routes/qr.ts:
+
+The QR image must be constrained to fit inside its table cell — maximum size 15mm x 15mm
+Set the image's extent (width/height in EMUs) to exactly 857250 x 857250 (15mm each)
+Make sure distT, distB, distL, distR are all set to 0
+Use inline wrapping type, NOT anchor — anchor causes the image to float outside the table
+The row height must expand to fit the image — set minimum row height to 1700000 EMUs
+Test: after fix, every QR code must be fully visible inside its cell with no overflow
+
+
+🟡 PRIORITY 2 — Admin Dashboard (new page)
+Add a new protected Admin page at route /admin to the existing React frontend (artifacts/qr-manager/src/).
+The Admin page must include:
+
+Metrics row — 4 stat cards: Total Documents Processed, Total QR Codes Generated, Requests This Month, Success Rate
+Requests table — shows all incoming customer requests with columns: Request ID, Position Number, Request Type (dropdown: Replacement / Complaint / Maintenance / Inquiry), Customer Phone, Invoice Number, Date, Status (New / In Progress / Done)
+Status filter chips — filter table by: All / New / In Progress / Done
+Export button — exports the requests table as Excel file
+Bilingual support — all text must use the existing i18n.ts system (Arabic + English)
+
+Store requests data in the existing database. Add a new requests table with fields: id, position_id, request_type, customer_phone, invoice_number, message, date, status.
+
+🟢 PRIORITY 3 — UI Improvements
+Improve the visual design of the existing frontend without changing functionality:
+
+Make the upload zone more visually prominent — larger icon, clearer call-to-action text
+Improve the results table — add alternating row colors, better spacing, clearer QR preview size
+Add a success animation/toast when the document is processed successfully
+Improve Arabic RTL layout — make sure all Arabic text aligns right and spacing looks correct
+Use a consistent color system: primary dark navy #1B2A4A, accent gold #C89B3C, background #F8F9FB
+
+
+⚙️ Technical Constraints
+
+Keep all existing API endpoints working — do not change POST /qr/process or GET /qr/download/:fileId signatures
+Do not change the project structure or rename files
+All new code must be TypeScript
+Keep the bilingual system — use i18n.ts for any new text strings
+Test the QR fix with the attached sample document format (Glass/Panel Order with Position/Number column)

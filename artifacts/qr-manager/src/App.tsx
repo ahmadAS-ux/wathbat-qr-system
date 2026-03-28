@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/hooks/use-language";
 import { Header } from "@/components/layout/Header";
 
 import Home from "@/pages/Home";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -21,6 +22,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
