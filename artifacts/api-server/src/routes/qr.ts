@@ -356,13 +356,46 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     mods.push({ start: nwM.index!, end: nwM.index! + nwM[0].length, replacement: "" });
   }
 
-  // ── STEP 1: Collect ALL rows ──────────────────────────────────────────────
+  // ── STEP 1: Collect ALL rows (depth-aware — handles nested tables) ───────
+  // A simple non-greedy regex stops at the first </w:tr>, which is WRONG when
+  // a row contains a nested table.  This depth-aware scanner matches each outer
+  // <w:tr> to its true closing </w:tr>, skipping over any inner <w:tr> pairs.
   const TR_CLOSE = "</w:tr>";
-  const trRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
   const rows: Array<{ start: number; end: number; content: string }> = [];
-  let trM: RegExpExecArray | null;
-  while ((trM = trRe.exec(docXml)) !== null) {
-    rows.push({ start: trM.index, end: trM.index + trM[0].length, content: trM[0] });
+  {
+    let i = 0;
+    while (i < docXml.length) {
+      const trOpen = docXml.indexOf("<w:tr", i);
+      if (trOpen < 0) break;
+      const afterTag = docXml[trOpen + 5];
+      if (afterTag !== ">" && afterTag !== " ") { i = trOpen + 6; continue; }
+
+      // Walk forward tracking nesting depth to find the matching </w:tr>
+      let depth = 1;
+      let pos   = trOpen + 5;
+      while (depth > 0 && pos < docXml.length) {
+        const nextOpen  = docXml.indexOf("<w:tr", pos);
+        const nextClose = docXml.indexOf("</w:tr>", pos);
+        if (nextClose < 0) break; // malformed XML — give up
+        if (nextOpen >= 0 && nextOpen < nextClose) {
+          // Another opening tag appears first — increase depth if it's a real <w:tr>
+          const c = docXml[nextOpen + 5];
+          if (c === ">" || c === " ") depth++;
+          pos = nextOpen + 6;
+        } else {
+          depth--;
+          pos = nextClose + 7; // step past </w:tr>
+        }
+      }
+
+      if (depth === 0) {
+        const end = pos; // character after the matching </w:tr>
+        rows.push({ start: trOpen, end, content: docXml.slice(trOpen, end) });
+        i = end; // continue from after this row — inner rows are NOT re-scanned
+      } else {
+        i = trOpen + 6;
+      }
+    }
   }
 
   // ── STEP 2: Find the data table (the one with Position/Number rows) ────────
@@ -558,7 +591,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   // Diagnostic: confirm all rows were processed
   console.log(
-    `[QR] dataTblRows=${dataTblRows.length}  dataRowsMatched=${dataTblRows.filter(r => [...r.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].some(m => POSITION_RE.test(m[1].trim()))).length}  qrEntries=${qrEntries.length}  qrInjected=${qrIdx}`,
+    `[QR] totalRows=${rows.length}  dataTblRows=${dataTblRows.length}  dataRowsMatched=${dataTblRows.filter(r => [...r.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].some(m => POSITION_RE.test(m[1].trim()))).length}  qrEntries=${qrEntries.length}  qrInjected=${qrIdx}`,
   );
 
   // ── POST-PASS: guarantee <w:cantSplit/> on every <w:tr> in the document ───
