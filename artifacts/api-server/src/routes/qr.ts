@@ -34,13 +34,20 @@ interface PositionItem {
   qrDataUrl: string;
 }
 
-// In-memory store for processed files
+interface QREntry {
+  position: string;
+  rId: string;
+  mediaName: string;
+  buffer: Buffer;
+  dataUrl: string;
+}
+
+// In-memory store
 const processedFiles = new Map<
   string,
   { buffer: Buffer; filename: string; expiresAt: number }
 >();
 
-// Cleanup old files every 10 minutes
 setInterval(
   () => {
     const now = Date.now();
@@ -51,37 +58,132 @@ setInterval(
   10 * 60 * 1000,
 );
 
-/** Extract all non-empty text segments from docx XML with their byte offsets */
-function extractTextSegments(docXml: string): Array<{ text: string; index: number }> {
-  const textRe = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-  const segments: Array<{ text: string; index: number }> = [];
+// ─── Constants ────────────────────────────────────────────────────────────────
+// A4 portrait = 11906 Twips wide, existing table = 9924 Twips → 1982 Twips free
+const QR_COL_WIDTH = 1982; // Twips
+const QR_EMU = 560000; // ≈ 15.5 mm – compact but scannable QR size
+
+// ─── XML helpers ──────────────────────────────────────────────────────────────
+
+/** Extract all non-empty <w:t> segments with byte offsets */
+function extractTextSegments(xml: string): Array<{ text: string; index: number }> {
+  const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  const out: Array<{ text: string; index: number }> = [];
   let m: RegExpExecArray | null;
-  while ((m = textRe.exec(docXml)) !== null) {
-    if (m[1].trim()) segments.push({ text: m[1], index: m.index });
+  while ((m = re.exec(xml)) !== null) {
+    if (m[1].trim()) out.push({ text: m[1], index: m.index });
   }
-  return segments;
+  return out;
 }
 
-/** Find the index of the closing </w:tc> after a given position in the XML */
-function findCellEnd(docXml: string, afterIdx: number): number {
-  return docXml.indexOf("</w:tc>", afterIdx);
+/** Cell to add to every header row (containing "Position / Number") */
+function makeQRHeaderCell(): string {
+  return (
+    `<w:tc>` +
+    `<w:tcPr>` +
+    `<w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>` +
+    `<w:tcBorders>` +
+    `<w:top w:val="single" w:color="000000" w:sz="4"/>` +
+    `<w:left w:val="single" w:color="000000" w:sz="4"/>` +
+    `<w:bottom w:val="single" w:color="000000" w:sz="4"/>` +
+    `<w:right w:val="single" w:color="000000" w:sz="4"/>` +
+    `</w:tcBorders>` +
+    `<w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/>` +
+    `<w:tcMar><w:top w:w="56" w:type="dxa"/><w:left w:w="56" w:type="dxa"/><w:bottom w:w="56" w:type="dxa"/><w:right w:w="56" w:type="dxa"/></w:tcMar>` +
+    `<w:vAlign w:val="center"/>` +
+    `</w:tcPr>` +
+    `<w:p>` +
+    `<w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0" w:line="200" w:lineRule="exact"/></w:pPr>` +
+    `<w:r><w:rPr><w:b/><w:sz w:val="16"/><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/></w:rPr>` +
+    `<w:t>QR</w:t></w:r>` +
+    `</w:p>` +
+    `</w:tc>`
+  );
 }
 
-/** Find the index just AFTER the closing </w:p> that contains a text at textIdx */
-function findParagraphEnd(docXml: string, textIdx: number): number {
-  const closeP = docXml.indexOf("</w:p>", textIdx);
-  return closeP >= 0 ? closeP + "</w:p>".length : -1;
+/** Cell containing a QR code image for a data row */
+function makeQRImageCell(rId: string, docPrId: number): string {
+  return (
+    `<w:tc>` +
+    `<w:tcPr>` +
+    `<w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>` +
+    `<w:tcBorders>` +
+    `<w:top w:val="nil" w:color="000000" w:sz="0"/>` +
+    `<w:left w:val="single" w:color="000000" w:sz="4"/>` +
+    `<w:bottom w:val="nil" w:color="000000" w:sz="0"/>` +
+    `<w:right w:val="single" w:color="000000" w:sz="4"/>` +
+    `</w:tcBorders>` +
+    `<w:tcMar><w:top w:w="28" w:type="dxa"/><w:left w:w="28" w:type="dxa"/><w:bottom w:w="28" w:type="dxa"/><w:right w:w="28" w:type="dxa"/></w:tcMar>` +
+    `<w:vAlign w:val="center"/>` +
+    `</w:tcPr>` +
+    `<w:p>` +
+    `<w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr>` +
+    `<w:r><w:rPr/>` +
+    `<w:drawing>` +
+    `<wp:inline distT="0" distB="0" distL="0" distR="0">` +
+    `<wp:extent cx="${QR_EMU}" cy="${QR_EMU}"/>` +
+    `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:docPr id="${docPrId}" name="QRCode${docPrId}"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic>` +
+    `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic>` +
+    `<pic:nvPicPr>` +
+    `<pic:cNvPr id="${docPrId}" name="QRCode${docPrId}"/>` +
+    `<pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr>` +
+    `</pic:nvPicPr>` +
+    `<pic:blipFill>` +
+    `<a:blip r:embed="${rId}"/>` +
+    `<a:stretch><a:fillRect/></a:stretch>` +
+    `</pic:blipFill>` +
+    `<pic:spPr bwMode="auto">` +
+    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${QR_EMU}" cy="${QR_EMU}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+    `<a:noFill/>` +
+    `</pic:spPr>` +
+    `</pic:pic>` +
+    `</a:graphicData>` +
+    `</a:graphic>` +
+    `</wp:inline>` +
+    `</w:drawing>` +
+    `</w:r>` +
+    `</w:p>` +
+    `</w:tc>`
+  );
 }
 
-async function parseAndInjectQR(
-  docxBuffer: Buffer,
-): Promise<{ positions: PositionItem[]; projectName: string; date: string; outputBuffer: Buffer }> {
+/** Empty filler cell for non-data rows */
+function makeEmptyCell(withBorders = false): string {
+  const borders = withBorders
+    ? `<w:tcBorders>` +
+      `<w:top w:val="nil" w:color="000000" w:sz="0"/>` +
+      `<w:left w:val="nil" w:color="000000" w:sz="0"/>` +
+      `<w:bottom w:val="nil" w:color="000000" w:sz="0"/>` +
+      `<w:right w:val="nil" w:color="000000" w:sz="0"/>` +
+      `</w:tcBorders>`
+    : "";
+  return (
+    `<w:tc>` +
+    `<w:tcPr><w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>${borders}</w:tcPr>` +
+    `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>` +
+    `</w:tc>`
+  );
+}
+
+// ─── Main processor ───────────────────────────────────────────────────────────
+
+async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
+  positions: PositionItem[];
+  projectName: string;
+  date: string;
+  outputBuffer: Buffer;
+}> {
   const zip = new AdmZip(docxBuffer);
   const docXml = zip.readAsText("word/document.xml");
 
   const segments = extractTextSegments(docXml);
 
-  // Find project name and date
+  // Find project metadata
   let projectName = "";
   let date = "";
   for (let i = 0; i < segments.length; i++) {
@@ -90,10 +192,9 @@ async function parseAndInjectQR(
     if (t === "Project name:" && segments[i + 2]) projectName = segments[i + 2].text;
   }
 
-  // Find position rows (pattern: "01 / 1", "02 / 3", etc.)
-  // Document column order: position, qty, width, height, area, perimeter, price, total
+  // Find position rows — column order: pos, qty, width, height, area, perimeter, price, total
   const POSITION_RE = /^\d{2}\s*\/\s*\d+$/;
-  const positionSegments: Array<{
+  const positionData: Array<{
     position: string;
     quantity: string;
     width: string;
@@ -102,12 +203,11 @@ async function parseAndInjectQR(
     perimeter: string;
     price: string;
     total: string;
-    textIndex: number;
   }> = [];
 
   for (let i = 0; i < segments.length; i++) {
     if (POSITION_RE.test(segments[i].text)) {
-      positionSegments.push({
+      positionData.push({
         position: segments[i].text,
         quantity: segments[i + 1]?.text || "",
         width: segments[i + 2]?.text || "",
@@ -116,37 +216,30 @@ async function parseAndInjectQR(
         perimeter: segments[i + 5]?.text || "",
         price: segments[i + 6]?.text || "",
         total: segments[i + 7]?.text || "",
-        textIndex: segments[i].index,
       });
     }
   }
 
-  // Generate QR codes for each position
-  type QREntry = {
-    position: string;
-    buffer: Buffer;
-    dataUrl: string;
-    mediaName: string;
-    rId: string;
-    textIndex: number;
-  };
+  if (positionData.length === 0) {
+    throw new Error("NO_POSITIONS");
+  }
 
+  // Generate QR codes
   const qrEntries: QREntry[] = [];
-  for (let i = 0; i < positionSegments.length; i++) {
-    const seg = positionSegments[i];
+  for (let i = 0; i < positionData.length; i++) {
+    const p = positionData[i];
     const qrText = [
-      `Pos: ${seg.position}`,
-      seg.quantity ? `Qty: ${seg.quantity}` : "",
-      seg.width ? `W: ${seg.width}mm` : "",
-      seg.height ? `H: ${seg.height}mm` : "",
-      projectName ? `Proj: ${projectName}` : "",
+      p.position,
+      p.quantity ? `Qty:${p.quantity}` : "",
+      p.width && p.height ? `${p.width}x${p.height}mm` : "",
+      projectName || "",
     ]
       .filter(Boolean)
       .join(" | ");
 
-    const qrBuffer = await QRCode.toBuffer(qrText, {
+    const buf = await QRCode.toBuffer(qrText, {
       type: "png",
-      width: 200,
+      width: 300,
       margin: 1,
       errorCorrectionLevel: "M",
     });
@@ -157,125 +250,126 @@ async function parseAndInjectQR(
       errorCorrectionLevel: "M",
     });
 
-    const safeName = seg.position.replace(/\s*\/\s*/g, "_").replace(/\s/g, "");
+    const safeName = p.position.replace(/\s*\/\s*/g, "_").replace(/\s/g, "");
     qrEntries.push({
-      position: seg.position,
-      buffer: qrBuffer,
+      position: p.position,
+      rId: `rIdQR${2000 + i}`,
+      mediaName: `qr_pos_${safeName}_${i}.png`,
+      buffer: buf,
       dataUrl,
-      mediaName: `qr_${safeName}_${i}.png`,
-      rId: `rIdQR${i + 100}`,
-      textIndex: seg.textIndex,
     });
   }
 
-  // Build PositionItems with data URLs for the frontend
-  const positionItems: PositionItem[] = positionSegments.map((seg, i) => ({
-    position: seg.position,
-    quantity: seg.quantity,
-    width: seg.width,
-    height: seg.height,
-    area: seg.area,
-    perimeter: seg.perimeter,
-    price: seg.price,
-    total: seg.total,
-    qrDataUrl: qrEntries[i]?.dataUrl || "",
-  }));
+  // ── Build all XML modifications as {start, end, replacement} in original docXml ──
+  interface Mod {
+    start: number;
+    end: number;
+    replacement: string;
+  }
+  const mods: Mod[] = [];
 
-  // Inject QR images into the docx XML
-  // Strategy: for each position, find the paragraph containing it, then find the
-  // end of the parent <w:tc> and insert an image paragraph right before </w:tc>
-  const EMU = 800000; // 800000 EMU ≈ 2.2cm — square QR code (width = height)
-
-  // We'll build injection points: { insertAfterIdx, xml }
-  // Process in reverse order so insertions don't shift earlier indices
-  const injections: Array<{ insertAfterIdx: number; xml: string }> = [];
-
-  for (const qr of qrEntries) {
-    const paraEnd = findParagraphEnd(docXml, qr.textIndex);
-    if (paraEnd < 0) continue;
-
-    const cellEnd = findCellEnd(docXml, qr.textIndex);
-    if (cellEnd < 0) continue;
-
-    const insertIdx = cellEnd; // insert before </w:tc>
-
-    const imgId = qrEntries.indexOf(qr) + 100;
-    const imageXml =
-      `<w:p>` +
-      `<w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr>` +
-      `<w:r><w:rPr/>` +
-      `<w:drawing>` +
-      `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0">` +
-      `<wp:extent cx="${EMU}" cy="${EMU}"/>` +
-      `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-      `<wp:docPr id="${imgId}" name="QR-${imgId}"/>` +
-      `<wp:cNvGraphicFramePr>` +
-      `<a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>` +
-      `</wp:cNvGraphicFramePr>` +
-      `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
-      `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-      `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-      `<pic:nvPicPr>` +
-      `<pic:cNvPr id="${imgId}" name="QR-${imgId}"/>` +
-      `<pic:cNvPicPr/>` +
-      `</pic:nvPicPr>` +
-      `<pic:blipFill>` +
-      `<a:blip r:embed="${qr.rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>` +
-      `<a:stretch><a:fillRect/></a:stretch>` +
-      `</pic:blipFill>` +
-      `<pic:spPr>` +
-      `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${EMU}" cy="${EMU}"/></a:xfrm>` +
-      `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
-      `</pic:spPr>` +
-      `</pic:pic>` +
-      `</a:graphicData>` +
-      `</a:graphic>` +
-      `</wp:inline>` +
-      `</w:drawing>` +
-      `</w:r>` +
-      `</w:p>`;
-
-    injections.push({ insertAfterIdx: insertIdx, xml: imageXml });
+  // 1. Extend <w:tblGrid> with the new QR column
+  const tblGridCloseTag = "</w:tblGrid>";
+  const tblGridCloseIdx = docXml.indexOf(tblGridCloseTag);
+  if (tblGridCloseIdx >= 0) {
+    mods.push({
+      start: tblGridCloseIdx,
+      end: tblGridCloseIdx + tblGridCloseTag.length,
+      replacement: `<w:gridCol w:w="${QR_COL_WIDTH}"/>${tblGridCloseTag}`,
+    });
   }
 
-  // Apply injections in reverse order
-  injections.sort((a, b) => b.insertAfterIdx - a.insertAfterIdx);
-  let modifiedDocXml = docXml;
-  for (const inj of injections) {
-    modifiedDocXml =
-      modifiedDocXml.slice(0, inj.insertAfterIdx) +
-      inj.xml +
-      modifiedDocXml.slice(inj.insertAfterIdx);
+  // 2. Update <w:tblW> to new total width (9924 + 1982 = 11906)
+  const tblWRe = /<w:tblW[^/]*\/>/;
+  const tblWMatch = tblWRe.exec(docXml);
+  if (tblWMatch && tblWMatch.index !== undefined) {
+    const updated = tblWMatch[0].replace(/w:w="\d+"/, `w:w="11906"`);
+    mods.push({
+      start: tblWMatch.index,
+      end: tblWMatch.index + tblWMatch[0].length,
+      replacement: updated,
+    });
   }
 
-  // Update the zip
-  zip.updateFile("word/document.xml", Buffer.from(modifiedDocXml, "utf8"));
+  // 3. Find all <w:tr> rows and inject the right cell before </w:tr>
+  const TR_CLOSE = "</w:tr>";
+  const trRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
+  const rows: Array<{ start: number; end: number; content: string }> = [];
+  let trM: RegExpExecArray | null;
+  while ((trM = trRe.exec(docXml)) !== null) {
+    rows.push({ start: trM.index, end: trM.index + trM[0].length, content: trM[0] });
+  }
 
-  // Add QR images to the zip
+  let qrIdx = 0;
+  for (const row of rows) {
+    const texts = [...row.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+      .map((m) => m[1].trim())
+      .filter(Boolean);
+
+    const insertAt = row.end - TR_CLOSE.length;
+    let cellXml: string;
+
+    const isHeaderRow = texts.some((t) => t.includes("Position") && t.includes("Number"));
+    const isDataRow = texts.some((t) => POSITION_RE.test(t));
+
+    if (isHeaderRow) {
+      cellXml = makeQRHeaderCell();
+    } else if (isDataRow && qrIdx < qrEntries.length) {
+      cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx);
+      qrIdx++;
+    } else {
+      cellXml = makeEmptyCell(true);
+    }
+
+    mods.push({
+      start: insertAt,
+      end: insertAt + TR_CLOSE.length,
+      replacement: cellXml + TR_CLOSE,
+    });
+  }
+
+  // 4. Apply all modifications in reverse order (high index → low index)
+  mods.sort((a, b) => b.start - a.start);
+  let modXml = docXml;
+  for (const mod of mods) {
+    modXml = modXml.slice(0, mod.start) + mod.replacement + modXml.slice(mod.end);
+  }
+
+  // 5. Update zip entries
+  zip.updateFile("word/document.xml", Buffer.from(modXml, "utf8"));
+
   for (const qr of qrEntries) {
     zip.addFile(`word/media/${qr.mediaName}`, qr.buffer);
   }
 
-  // Update content types
-  let contentTypesXml = zip.readAsText("[Content_Types].xml");
-  if (!contentTypesXml.includes('Extension="png"')) {
-    contentTypesXml = contentTypesXml.replace(
+  // 6. Content types — add PNG if missing
+  let ctXml = zip.readAsText("[Content_Types].xml");
+  if (!ctXml.includes('Extension="png"')) {
+    ctXml = ctXml.replace(
       "</Types>",
       `<Default Extension="png" ContentType="image/png"/></Types>`,
     );
-    zip.updateFile("[Content_Types].xml", Buffer.from(contentTypesXml, "utf8"));
+    zip.updateFile("[Content_Types].xml", Buffer.from(ctXml, "utf8"));
   }
 
-  // Update document relationships
+  // 7. Relationships
   let relsXml = zip.readAsText("word/_rels/document.xml.rels");
-  const relEntries = qrEntries
+  const newRels = qrEntries
     .map(
       (qr) =>
-        `<Relationship Id="${qr.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${qr.mediaName}"/>`,
+        `<Relationship Id="${qr.rId}" ` +
+        `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" ` +
+        `Target="media/${qr.mediaName}"/>`,
     )
     .join("\n");
-  relsXml = relsXml.replace("</Relationships>", `${relEntries}\n</Relationships>`);
+  relsXml = relsXml.replace("</Relationships>", `${newRels}\n</Relationships>`);
   zip.updateFile("word/_rels/document.xml.rels", Buffer.from(relsXml, "utf8"));
+
+  // 8. Build result
+  const positionItems: PositionItem[] = positionData.map((p, i) => ({
+    ...p,
+    qrDataUrl: qrEntries[i]?.dataUrl || "",
+  }));
 
   return {
     positions: positionItems,
@@ -285,7 +379,8 @@ async function parseAndInjectQR(
   };
 }
 
-// POST /api/qr/process
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
 router.post(
   "/qr/process",
   upload.single("file"),
@@ -296,45 +391,43 @@ router.post(
         return;
       }
 
-      const { positions, projectName, date, outputBuffer } = await parseAndInjectQR(
-        req.file.buffer,
-      );
-
-      if (positions.length === 0) {
-        res.status(400).json({
-          error: "ParseError",
-          message:
-            "No position/number rows found in the document. Please upload an Orgadata Glass/Panel Order (.docx) file.",
-        });
-        return;
+      let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
+      try {
+        result = await parseAndInjectQR(req.file.buffer);
+      } catch (err: any) {
+        if (err?.message === "NO_POSITIONS") {
+          res.status(400).json({
+            error: "ParseError",
+            message:
+              "No position/number rows found. Please upload an Orgadata Glass/Panel Order (.docx) file.",
+          });
+          return;
+        }
+        throw err;
       }
 
       const fileId = randomUUID();
       const originalName = req.file.originalname.replace(/\.docx$/i, "");
       processedFiles.set(fileId, {
-        buffer: outputBuffer,
+        buffer: result.outputBuffer,
         filename: `${originalName}_with_QR.docx`,
-        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour TTL
+        expiresAt: Date.now() + 60 * 60 * 1000,
       });
 
       res.json({
         fileId,
-        positions,
-        projectName,
-        date,
-        totalPositions: positions.length,
+        positions: result.positions,
+        projectName: result.projectName,
+        date: result.date,
+        totalPositions: result.positions.length,
       });
     } catch (err) {
       req.log.error({ err }, "Error processing document");
-      res.status(500).json({
-        error: "InternalError",
-        message: "Failed to process document",
-      });
+      res.status(500).json({ error: "InternalError", message: "Failed to process document" });
     }
   },
 );
 
-// GET /api/qr/download/:fileId
 router.get("/qr/download/:fileId", (req: Request, res: Response): void => {
   const fileId = req.params.fileId as string;
   const entry = processedFiles.get(fileId);
