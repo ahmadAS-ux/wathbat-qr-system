@@ -78,25 +78,14 @@ const QR_IMAGE_EMU  = 539750;
  *  3. Scale every existing column proportionally so the table + QR column
  *     exactly fits the printable width.
  */
-function calcLayout(docXml: string, tblXml: string): {
+function calcLayout(_docXml: string, tblXml: string): {
   qrColWidth: number;
   qrEMU: number;
   scaledGridCols: number[];
   newTableW: number;
   origTableW: number;
 } {
-  // 1. Page geometry (from the full document)
-  const pgSzM  = /<w:pgSz\b[^>]*\/>/.exec(docXml);
-  const pgMarM = /<w:pgMar\b[^>]*(?:\/>|>)/.exec(docXml);
-  const pageW  = pgSzM  ? parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10) : 11906;
-  const leftM  = pgMarM ? parseInt(pgMarM[0].match(/w:left="(\d+)"/)?.[1]  ?? "720",  10) : 720;
-  const rightM = pgMarM ? parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720",  10) : 720;
-  // Never fill the printer's non-printable border zone.
-  // Enforce a minimum 12.7 mm (720 Twips) safe margin on each side.
-  const MIN_MARGIN = 720;
-  const printable = pageW - Math.max(leftM, MIN_MARGIN) - Math.max(rightM, MIN_MARGIN);
-
-  // 2. Read existing gridCol widths from the data table specifically
+  // 1. Read existing gridCol widths from the data table
   const tblGridM = /<w:tblGrid\b[^>]*>([\s\S]*?)<\/w:tblGrid>/.exec(tblXml);
   const existingCols: number[] = [];
   if (tblGridM) {
@@ -106,8 +95,11 @@ function calcLayout(docXml: string, tblXml: string): {
   }
   const origTableW = existingCols.reduce((s, c) => s + c, 0) || 9924;
 
-  // 3. Scale existing columns so origTableW * scale + QR_COL_TARGET = printable
-  const availableForExisting = printable - QR_COL_TARGET;
+  // 2. Keep the total table width IDENTICAL to the original — the document was
+  //    already calibrated for the page.  Shrink the 14 existing columns
+  //    proportionally to make room for the new QR column.
+  //    newTableW = origTableW  (no change to total width)
+  const availableForExisting = origTableW - QR_COL_TARGET;
   const scale = existingCols.length > 0 ? availableForExisting / origTableW : 1;
 
   const scaledGridCols = existingCols.map(c => Math.round(c * scale));
@@ -120,7 +112,7 @@ function calcLayout(docXml: string, tblXml: string): {
     qrColWidth: QR_COL_TARGET,
     qrEMU: QR_IMAGE_EMU,
     scaledGridCols,
-    newTableW: availableForExisting + QR_COL_TARGET, // === printable
+    newTableW: origTableW, // total stays the same as original
     origTableW,
   };
 }
