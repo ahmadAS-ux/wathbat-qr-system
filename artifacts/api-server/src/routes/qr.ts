@@ -60,10 +60,51 @@ setInterval(
 );
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// A4 portrait = 11906 Twips wide, existing table = 9924 Twips → 1982 Twips free
-const QR_COL_WIDTH = 1982; // Twips
-const QR_EMU = 857250; // ≈ 24 mm – inline image, fully inside cell
-const QR_ROW_MIN_HEIGHT = 1450; // Twips – forces row to expand for the image
+const QR_ROW_MIN_HEIGHT = 1450; // Twips – minimum data row height for QR image
+const MIN_QR_COL = 1100;        // Twips – smallest acceptable QR column
+const MAX_QR_COL = 2200;        // Twips – largest acceptable QR column
+const MIN_MARGIN  = 360;        // Twips – ~6 mm hard floor for page margins
+
+/** Derive the QR column width (Twips) and image EMU from the document's own page geometry.
+ *  If the existing table already fills the printable area, we reduce the page margins
+ *  to the minimum needed (floored at MIN_MARGIN) and record the mod to apply later. */
+function calcQrDimensions(
+  docXml: string,
+  mods: Array<{ start: number; end: number; replacement: string }>,
+): { qrColWidth: number; qrEMU: number } {
+  // -- page width (default A4 portrait)
+  const pgSzM  = /<w:pgSz\b[^>]*\/>/.exec(docXml);
+  const pgMarM = /<w:pgMar\b[^>]*\/>/.exec(docXml);
+  const tblWM  = /<w:tblW\b[^>]*\/>/.exec(docXml);
+
+  const pageW   = pgSzM  ? (parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10)) : 11906;
+  let leftMar   = pgMarM ? (parseInt(pgMarM[0].match(/w:left="(\d+)"/)?.[1]  ?? "720", 10)) : 720;
+  let rightMar  = pgMarM ? (parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720", 10)) : 720;
+  const tableW  = tblWM  ? (parseInt(tblWM[0].match(/w:w="(\d+)"/)?.[1]  ?? "9924", 10)) : 9924;
+
+  let printable = pageW - leftMar - rightMar;
+  let available = printable - tableW;
+
+  // If there isn't room for a decent QR column, shrink the margins
+  if (available < MIN_QR_COL && pgMarM) {
+    // Compute minimum margin each side so that tableW + MIN_QR_COL fits
+    const targetEach = Math.floor((pageW - tableW - MIN_QR_COL) / 2);
+    const newMar     = Math.max(targetEach, MIN_MARGIN);
+    const updated    = pgMarM[0]
+      .replace(/w:left="(\d+)"/,  `w:left="${newMar}"`)
+      .replace(/w:right="(\d+)"/, `w:right="${newMar}"`);
+    mods.push({ start: pgMarM.index!, end: pgMarM.index! + pgMarM[0].length, replacement: updated });
+    leftMar  = newMar;
+    rightMar = newMar;
+    printable = pageW - leftMar - rightMar;
+    available = printable - tableW;
+  }
+
+  const qrColWidth = Math.min(Math.max(available, MIN_QR_COL), MAX_QR_COL);
+  // Use 82 % of the column width as the image extent so there is a small padding
+  const qrEMU = Math.round(qrColWidth * 635 * 0.82);
+  return { qrColWidth, qrEMU };
+}
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -79,11 +120,11 @@ function extractTextSegments(xml: string): Array<{ text: string; index: number }
 }
 
 /** Cell to add to every header row (containing "Position / Number") */
-function makeQRHeaderCell(): string {
+function makeQRHeaderCell(qrColWidth: number): string {
   return (
     `<w:tc>` +
     `<w:tcPr>` +
-    `<w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>` +
+    `<w:tcW w:w="${qrColWidth}" w:type="dxa"/>` +
     `<w:tcBorders>` +
     `<w:top w:val="single" w:color="000000" w:sz="4"/>` +
     `<w:left w:val="single" w:color="000000" w:sz="4"/>` +
@@ -104,11 +145,11 @@ function makeQRHeaderCell(): string {
 }
 
 /** Cell containing a QR code image for a data row */
-function makeQRImageCell(rId: string, docPrId: number): string {
+function makeQRImageCell(rId: string, docPrId: number, qrColWidth: number, qrEMU: number): string {
   return (
     `<w:tc>` +
     `<w:tcPr>` +
-    `<w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>` +
+    `<w:tcW w:w="${qrColWidth}" w:type="dxa"/>` +
     `<w:tcBorders>` +
     `<w:top w:val="nil" w:color="000000" w:sz="0"/>` +
     `<w:left w:val="single" w:color="000000" w:sz="4"/>` +
@@ -123,7 +164,7 @@ function makeQRImageCell(rId: string, docPrId: number): string {
     `<w:r><w:rPr/>` +
     `<w:drawing>` +
     `<wp:inline distT="0" distB="0" distL="0" distR="0">` +
-    `<wp:extent cx="${QR_EMU}" cy="${QR_EMU}"/>` +
+    `<wp:extent cx="${qrEMU}" cy="${qrEMU}"/>` +
     `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
     `<wp:docPr id="${docPrId}" name="QRCode${docPrId}"/>` +
     `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
@@ -139,7 +180,7 @@ function makeQRImageCell(rId: string, docPrId: number): string {
     `<a:stretch><a:fillRect/></a:stretch>` +
     `</pic:blipFill>` +
     `<pic:spPr bwMode="auto">` +
-    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${QR_EMU}" cy="${QR_EMU}"/></a:xfrm>` +
+    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${qrEMU}" cy="${qrEMU}"/></a:xfrm>` +
     `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
     `<a:noFill/>` +
     `</pic:spPr>` +
@@ -155,7 +196,7 @@ function makeQRImageCell(rId: string, docPrId: number): string {
 }
 
 /** Empty filler cell for non-data rows */
-function makeEmptyCell(withBorders = false): string {
+function makeEmptyCell(qrColWidth: number, withBorders = false): string {
   const borders = withBorders
     ? `<w:tcBorders>` +
       `<w:top w:val="nil" w:color="000000" w:sz="0"/>` +
@@ -166,7 +207,7 @@ function makeEmptyCell(withBorders = false): string {
     : "";
   return (
     `<w:tc>` +
-    `<w:tcPr><w:tcW w:w="${QR_COL_WIDTH}" w:type="dxa"/>${borders}</w:tcPr>` +
+    `<w:tcPr><w:tcW w:w="${qrColWidth}" w:type="dxa"/>${borders}</w:tcPr>` +
     `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>` +
     `</w:tc>`
   );
@@ -301,6 +342,15 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   }
 
+  // 0a. Calculate QR column dimensions from the document's own page geometry
+  //     (calcQrDimensions may also push a page-margin mod into mods[])
+  const { qrColWidth, qrEMU } = calcQrDimensions(docXml, mods);
+
+  // 0b. Remove every <w:noWrap/> in the document so numbers can wrap inside cells
+  for (const nwM of docXml.matchAll(/<w:noWrap\/>/g)) {
+    mods.push({ start: nwM.index!, end: nwM.index! + nwM[0].length, replacement: "" });
+  }
+
   // 1. Extend <w:tblGrid> with the new QR column
   const tblGridCloseTag = "</w:tblGrid>";
   const tblGridCloseIdx = docXml.indexOf(tblGridCloseTag);
@@ -308,15 +358,16 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     mods.push({
       start: tblGridCloseIdx,
       end: tblGridCloseIdx + tblGridCloseTag.length,
-      replacement: `<w:gridCol w:w="${QR_COL_WIDTH}"/>${tblGridCloseTag}`,
+      replacement: `<w:gridCol w:w="${qrColWidth}"/>${tblGridCloseTag}`,
     });
   }
 
-  // 2. Update <w:tblW> to new total width (9924 + 1982 = 11906)
+  // 2. Update <w:tblW> to the new total = original + qrColWidth
   const tblWRe = /<w:tblW[^/]*\/>/;
   const tblWMatch = tblWRe.exec(docXml);
   if (tblWMatch && tblWMatch.index !== undefined) {
-    const updated = tblWMatch[0].replace(/w:w="\d+"/, `w:w="11906"`);
+    const origTableW = parseInt(tblWMatch[0].match(/w:w="(\d+)"/)?.[1] ?? "9924", 10);
+    const updated = tblWMatch[0].replace(/w:w="\d+"/, `w:w="${origTableW + qrColWidth}"`);
     mods.push({
       start: tblWMatch.index,
       end: tblWMatch.index + tblWMatch[0].length,
@@ -346,9 +397,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const isDataRow = texts.some((t) => POSITION_RE.test(t));
 
     if (isHeaderRow) {
-      cellXml = makeQRHeaderCell();
+      cellXml = makeQRHeaderCell(qrColWidth);
     } else if (isDataRow && qrIdx < qrEntries.length) {
-      cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx);
+      cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU);
       qrIdx++;
 
       // Expand the row height so the QR image is fully visible inside the cell
@@ -366,7 +417,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
         }
       }
     } else {
-      cellXml = makeEmptyCell(true);
+      cellXml = makeEmptyCell(qrColWidth, true);
     }
 
     mods.push({
