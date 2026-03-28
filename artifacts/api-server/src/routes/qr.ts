@@ -61,49 +61,63 @@ setInterval(
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const QR_ROW_MIN_HEIGHT = 1450; // Twips – minimum data row height for QR image
-const MIN_QR_COL = 1100;        // Twips – smallest acceptable QR column
-const MAX_QR_COL = 2200;        // Twips – largest acceptable QR column
-const MIN_MARGIN  = 360;        // Twips – ~6 mm hard floor for page margins
+// QR column target: ~15 mm = 850 Twips (850 * 635 EMU/Twip ≈ 539750 EMU)
+const QR_COL_TARGET = 850;      // Twips
+// Image size: 15 mm = 539750 EMU (locks within the cell)
+const QR_IMAGE_EMU  = 539750;
 
-/** Derive the QR column width (Twips) and image EMU from the document's own page geometry.
- *  If the existing table already fills the printable area, we reduce the page margins
- *  to the minimum needed (floored at MIN_MARGIN) and record the mod to apply later. */
-function calcQrDimensions(
-  docXml: string,
-  mods: Array<{ start: number; end: number; replacement: string }>,
-): { qrColWidth: number; qrEMU: number } {
-  // -- page width (default A4 portrait)
+/**
+ * Compute layout for adding the QR column.
+ *
+ * Strategy:
+ *  1. Read the printable width from <w:pgSz> and <w:pgMar>.
+ *  2. Read all existing gridCol widths from <w:tblGrid>.
+ *  3. Scale every existing column proportionally so the table + QR column
+ *     exactly fits the printable width. This keeps all columns visible and
+ *     avoids any overflow.
+ *  4. Return the computed qrColWidth and the scaled column widths.
+ */
+function calcLayout(docXml: string): {
+  qrColWidth: number;
+  qrEMU: number;
+  scaledGridCols: number[];
+  newTableW: number;
+} {
+  // 1. Page geometry
   const pgSzM  = /<w:pgSz\b[^>]*\/>/.exec(docXml);
   const pgMarM = /<w:pgMar\b[^>]*\/>/.exec(docXml);
-  const tblWM  = /<w:tblW\b[^>]*\/>/.exec(docXml);
+  const pageW  = pgSzM  ? parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10) : 11906;
+  const leftM  = pgMarM ? parseInt(pgMarM[0].match(/w:left="(\d+)"/)?.[1]  ?? "720",  10) : 720;
+  const rightM = pgMarM ? parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720",  10) : 720;
+  const printable = pageW - leftM - rightM;
 
-  const pageW   = pgSzM  ? (parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10)) : 11906;
-  let leftMar   = pgMarM ? (parseInt(pgMarM[0].match(/w:left="(\d+)"/)?.[1]  ?? "720", 10)) : 720;
-  let rightMar  = pgMarM ? (parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720", 10)) : 720;
-  const tableW  = tblWM  ? (parseInt(tblWM[0].match(/w:w="(\d+)"/)?.[1]  ?? "9924", 10)) : 9924;
-
-  let printable = pageW - leftMar - rightMar;
-  let available = printable - tableW;
-
-  // If there isn't room for a decent QR column, shrink the margins
-  if (available < MIN_QR_COL && pgMarM) {
-    // Compute minimum margin each side so that tableW + MIN_QR_COL fits
-    const targetEach = Math.floor((pageW - tableW - MIN_QR_COL) / 2);
-    const newMar     = Math.max(targetEach, MIN_MARGIN);
-    const updated    = pgMarM[0]
-      .replace(/w:left="(\d+)"/,  `w:left="${newMar}"`)
-      .replace(/w:right="(\d+)"/, `w:right="${newMar}"`);
-    mods.push({ start: pgMarM.index!, end: pgMarM.index! + pgMarM[0].length, replacement: updated });
-    leftMar  = newMar;
-    rightMar = newMar;
-    printable = pageW - leftMar - rightMar;
-    available = printable - tableW;
+  // 2. Read existing gridCol widths
+  const tblGridM = /<w:tblGrid\b[^>]*>([\s\S]*?)<\/w:tblGrid>/.exec(docXml);
+  const existingCols: number[] = [];
+  if (tblGridM) {
+    for (const m of tblGridM[1].matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)) {
+      existingCols.push(parseInt(m[1], 10));
+    }
   }
+  const origTableW = existingCols.reduce((s, c) => s + c, 0) || 9924;
 
-  const qrColWidth = Math.min(Math.max(available, MIN_QR_COL), MAX_QR_COL);
-  // Use 82 % of the column width as the image extent so there is a small padding
-  const qrEMU = Math.round(qrColWidth * 635 * 0.82);
-  return { qrColWidth, qrEMU };
+  // 3. Scale existing columns so origTableW * scale + QR_COL_TARGET = printable
+  const availableForExisting = printable - QR_COL_TARGET;
+  const scale = existingCols.length > 0
+    ? availableForExisting / origTableW
+    : 1;
+
+  // Scale each column, ensuring integers sum exactly to availableForExisting
+  const scaledGridCols = existingCols.map(c => Math.round(c * scale));
+  const scaledSum = scaledGridCols.reduce((s, c) => s + c, 0);
+  // Fix rounding drift on the largest column
+  const maxIdx = scaledGridCols.indexOf(Math.max(...scaledGridCols));
+  scaledGridCols[maxIdx] += availableForExisting - scaledSum;
+
+  const qrColWidth = QR_COL_TARGET;
+  const newTableW  = availableForExisting + qrColWidth; // === printable
+
+  return { qrColWidth, qrEMU: QR_IMAGE_EMU, scaledGridCols, newTableW };
 }
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
@@ -342,37 +356,66 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   }
 
-  // 0a. Calculate QR column dimensions from the document's own page geometry
-  //     (calcQrDimensions may also push a page-margin mod into mods[])
-  const { qrColWidth, qrEMU } = calcQrDimensions(docXml, mods);
+  // 0a. Calculate layout: proportionally scale existing columns + add QR column
+  const { qrColWidth, qrEMU, scaledGridCols, newTableW } = calcLayout(docXml);
 
-  // 0b. Remove every <w:noWrap/> in the document so numbers can wrap inside cells
+  // 0b. Remove every <w:noWrap/> so numbers can wrap inside narrower cells
   for (const nwM of docXml.matchAll(/<w:noWrap\/>/g)) {
     mods.push({ start: nwM.index!, end: nwM.index! + nwM[0].length, replacement: "" });
   }
 
-  // 1. Extend <w:tblGrid> with the new QR column
-  const tblGridCloseTag = "</w:tblGrid>";
-  const tblGridCloseIdx = docXml.indexOf(tblGridCloseTag);
-  if (tblGridCloseIdx >= 0) {
+  // 1. Rewrite the entire <w:tblGrid> block with scaled columns + new QR gridCol
+  const tblGridFullRe = /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/;
+  const tblGridFullM = tblGridFullRe.exec(docXml);
+  if (tblGridFullM) {
+    const newGridCols = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
+                        `<w:gridCol w:w="${qrColWidth}"/>`;
+    const newTblGrid = `<w:tblGrid>${newGridCols}</w:tblGrid>`;
     mods.push({
-      start: tblGridCloseIdx,
-      end: tblGridCloseIdx + tblGridCloseTag.length,
-      replacement: `<w:gridCol w:w="${qrColWidth}"/>${tblGridCloseTag}`,
+      start: tblGridFullM.index,
+      end: tblGridFullM.index + tblGridFullM[0].length,
+      replacement: newTblGrid,
     });
   }
 
-  // 2. Update <w:tblW> to the new total = original + qrColWidth
+  // 2. Update <w:tblW> to the new printable total and force dxa type
   const tblWRe = /<w:tblW[^/]*\/>/;
   const tblWMatch = tblWRe.exec(docXml);
   if (tblWMatch && tblWMatch.index !== undefined) {
-    const origTableW = parseInt(tblWMatch[0].match(/w:w="(\d+)"/)?.[1] ?? "9924", 10);
-    const updated = tblWMatch[0].replace(/w:w="\d+"/, `w:w="${origTableW + qrColWidth}"`);
+    const updated = tblWMatch[0]
+      .replace(/w:w="\d+"/, `w:w="${newTableW}"`)
+      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
     mods.push({
       start: tblWMatch.index,
       end: tblWMatch.index + tblWMatch[0].length,
       replacement: updated,
     });
+  }
+
+  // 2b. Rescale every existing <w:tcW> proportionally to match the new column widths
+  const existingPrintable = newTableW - qrColWidth;
+  const existingOrigTotal = (() => {
+    // Re-derive from the original tblGrid in docXml before our mods touch it
+    const tgM = tblGridFullM;
+    if (!tgM) return 9924;
+    let sum = 0;
+    for (const m of tgM[0].matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)) sum += parseInt(m[1], 10);
+    return sum || 9924;
+  })();
+  const colScale = existingPrintable / existingOrigTotal;
+
+  const tcWRe = /<w:tcW\b[^>]*\/>/g;
+  let tcWM: RegExpExecArray | null;
+  while ((tcWM = tcWRe.exec(docXml)) !== null) {
+    const origW = parseInt(tcWM[0].match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
+    if (origW === 0) continue;
+    const newW = Math.round(origW * colScale);
+    const updated = tcWM[0]
+      .replace(/w:w="\d+"/, `w:w="${newW}"`)
+      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+    if (updated !== tcWM[0]) {
+      mods.push({ start: tcWM.index, end: tcWM.index + tcWM[0].length, replacement: updated });
+    }
   }
 
   // 3. Find all <w:tr> rows and inject the right cell before </w:tr>
