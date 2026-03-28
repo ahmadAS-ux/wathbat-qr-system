@@ -1,8 +1,9 @@
 import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
-import { Globe, FileBox, LayoutDashboard } from 'lucide-react';
+import { Globe, LayoutDashboard } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
+import logo from '@assets/image_1774733777220.png';
 
 export function Header() {
   const { language, setLanguage, t } = useLanguage();
@@ -24,14 +25,12 @@ export function Header() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#1B2A4A] text-white shadow-lg shadow-[#1B2A4A]/20 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#C89B3C]/30 to-transparent" />
-                <FileBox className="w-5 h-5 relative z-10" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-xl leading-tight text-[#1B2A4A] tracking-tight">Wathbat</span>
-                <span className="text-xs font-medium text-[#C89B3C] tracking-wide">{t('app_title')}</span>
-              </div>
+              <img
+                src={logo}
+                alt="Wathbat Logo"
+                className="h-10 w-auto object-contain"
+              />
+              <span className="text-xs font-medium text-[#C89B3C] tracking-wide hidden sm:block">{t('app_title')}</span>
             </motion.div>
           </Link>
 
