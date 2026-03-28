@@ -69,21 +69,23 @@ const QR_IMAGE_EMU  = 539750;
 /**
  * Compute layout for adding the QR column.
  *
+ * @param docXml  Full document XML (for page size / margins).
+ * @param tblXml  The XML of the specific data table (for column widths).
+ *
  * Strategy:
- *  1. Read the printable width from <w:pgSz> and <w:pgMar>.
- *  2. Read all existing gridCol widths from <w:tblGrid>.
+ *  1. Read the printable width from <w:pgSz> and <w:pgMar> in docXml.
+ *  2. Read existing gridCol widths from the data table's <w:tblGrid> in tblXml.
  *  3. Scale every existing column proportionally so the table + QR column
- *     exactly fits the printable width. This keeps all columns visible and
- *     avoids any overflow.
- *  4. Return the computed qrColWidth and the scaled column widths.
+ *     exactly fits the printable width.
  */
-function calcLayout(docXml: string): {
+function calcLayout(docXml: string, tblXml: string): {
   qrColWidth: number;
   qrEMU: number;
   scaledGridCols: number[];
   newTableW: number;
+  origTableW: number;
 } {
-  // 1. Page geometry
+  // 1. Page geometry (from the full document)
   const pgSzM  = /<w:pgSz\b[^>]*\/>/.exec(docXml);
   const pgMarM = /<w:pgMar\b[^>]*\/>/.exec(docXml);
   const pageW  = pgSzM  ? parseInt(pgSzM[0].match(/w:w="(\d+)"/)?.[1]  ?? "11906", 10) : 11906;
@@ -91,8 +93,8 @@ function calcLayout(docXml: string): {
   const rightM = pgMarM ? parseInt(pgMarM[0].match(/w:right="(\d+)"/)?.[1] ?? "720",  10) : 720;
   const printable = pageW - leftM - rightM;
 
-  // 2. Read existing gridCol widths
-  const tblGridM = /<w:tblGrid\b[^>]*>([\s\S]*?)<\/w:tblGrid>/.exec(docXml);
+  // 2. Read existing gridCol widths from the data table specifically
+  const tblGridM = /<w:tblGrid\b[^>]*>([\s\S]*?)<\/w:tblGrid>/.exec(tblXml);
   const existingCols: number[] = [];
   if (tblGridM) {
     for (const m of tblGridM[1].matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)) {
@@ -103,21 +105,21 @@ function calcLayout(docXml: string): {
 
   // 3. Scale existing columns so origTableW * scale + QR_COL_TARGET = printable
   const availableForExisting = printable - QR_COL_TARGET;
-  const scale = existingCols.length > 0
-    ? availableForExisting / origTableW
-    : 1;
+  const scale = existingCols.length > 0 ? availableForExisting / origTableW : 1;
 
-  // Scale each column, ensuring integers sum exactly to availableForExisting
   const scaledGridCols = existingCols.map(c => Math.round(c * scale));
   const scaledSum = scaledGridCols.reduce((s, c) => s + c, 0);
-  // Fix rounding drift on the largest column
+  // Fix integer rounding drift on the largest column
   const maxIdx = scaledGridCols.indexOf(Math.max(...scaledGridCols));
-  scaledGridCols[maxIdx] += availableForExisting - scaledSum;
+  if (maxIdx >= 0) scaledGridCols[maxIdx] += availableForExisting - scaledSum;
 
-  const qrColWidth = QR_COL_TARGET;
-  const newTableW  = availableForExisting + qrColWidth; // === printable
-
-  return { qrColWidth, qrEMU: QR_IMAGE_EMU, scaledGridCols, newTableW };
+  return {
+    qrColWidth: QR_COL_TARGET,
+    qrEMU: QR_IMAGE_EMU,
+    scaledGridCols,
+    newTableW: availableForExisting + QR_COL_TARGET, // === printable
+    origTableW,
+  };
 }
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
@@ -356,69 +358,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   }
 
-  // 0a. Calculate layout: proportionally scale existing columns + add QR column
-  const { qrColWidth, qrEMU, scaledGridCols, newTableW } = calcLayout(docXml);
-
   // 0b. Remove every <w:noWrap/> so numbers can wrap inside narrower cells
   for (const nwM of docXml.matchAll(/<w:noWrap\/>/g)) {
     mods.push({ start: nwM.index!, end: nwM.index! + nwM[0].length, replacement: "" });
   }
 
-  // 1. Rewrite the entire <w:tblGrid> block with scaled columns + new QR gridCol
-  const tblGridFullRe = /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/;
-  const tblGridFullM = tblGridFullRe.exec(docXml);
-  if (tblGridFullM) {
-    const newGridCols = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
-                        `<w:gridCol w:w="${qrColWidth}"/>`;
-    const newTblGrid = `<w:tblGrid>${newGridCols}</w:tblGrid>`;
-    mods.push({
-      start: tblGridFullM.index,
-      end: tblGridFullM.index + tblGridFullM[0].length,
-      replacement: newTblGrid,
-    });
-  }
-
-  // 2. Update <w:tblW> to the new printable total and force dxa type
-  const tblWRe = /<w:tblW[^/]*\/>/;
-  const tblWMatch = tblWRe.exec(docXml);
-  if (tblWMatch && tblWMatch.index !== undefined) {
-    const updated = tblWMatch[0]
-      .replace(/w:w="\d+"/, `w:w="${newTableW}"`)
-      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
-    mods.push({
-      start: tblWMatch.index,
-      end: tblWMatch.index + tblWMatch[0].length,
-      replacement: updated,
-    });
-  }
-
-  // 2b. Rescale every existing <w:tcW> proportionally to match the new column widths
-  const existingPrintable = newTableW - qrColWidth;
-  const existingOrigTotal = (() => {
-    // Re-derive from the original tblGrid in docXml before our mods touch it
-    const tgM = tblGridFullM;
-    if (!tgM) return 9924;
-    let sum = 0;
-    for (const m of tgM[0].matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)) sum += parseInt(m[1], 10);
-    return sum || 9924;
-  })();
-  const colScale = existingPrintable / existingOrigTotal;
-
-  const tcWRe = /<w:tcW\b[^>]*\/>/g;
-  let tcWM: RegExpExecArray | null;
-  while ((tcWM = tcWRe.exec(docXml)) !== null) {
-    const origW = parseInt(tcWM[0].match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
-    if (origW === 0) continue;
-    const newW = Math.round(origW * colScale);
-    const updated = tcWM[0]
-      .replace(/w:w="\d+"/, `w:w="${newW}"`)
-      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
-    if (updated !== tcWM[0]) {
-      mods.push({ start: tcWM.index, end: tcWM.index + tcWM[0].length, replacement: updated });
-    }
-  }
-
-  // 3. Find all <w:tr> rows and inject the right cell before </w:tr>
+  // ── STEP 1: Collect ALL rows ──────────────────────────────────────────────
   const TR_CLOSE = "</w:tr>";
   const trRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
   const rows: Array<{ start: number; end: number; content: string }> = [];
@@ -427,6 +372,91 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     rows.push({ start: trM.index, end: trM.index + trM[0].length, content: trM[0] });
   }
 
+  // ── STEP 2: Find the data table (the one with Position/Number rows) ────────
+  // We locate the specific <w:tbl> so we only modify its tblGrid/tblW/tcW,
+  // not the header tables above it.
+  const dataRows  = rows.filter(r =>
+    [...r.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].some(m => POSITION_RE.test(m[1].trim()))
+  );
+  const hdrRows   = rows.filter(r =>
+    r.content.includes("Position") && r.content.includes("Number")
+  );
+  const refRows   = [...hdrRows, ...dataRows].sort((a, b) => a.start - b.start);
+
+  let dataTblStart = 0;
+  let dataTblEnd   = docXml.length;
+
+  if (refRows.length > 0) {
+    const firstRefPos = refRows[0].start;
+    const lastRefPos  = refRows[refRows.length - 1].end;
+
+    // Last <w:tbl opening that appears before the first reference row
+    const tblOpenRe = /<w:tbl[ >]/g;
+    let tblOM: RegExpExecArray | null;
+    let lastTblOpen = 0;
+    while ((tblOM = tblOpenRe.exec(docXml)) !== null) {
+      if (tblOM.index < firstRefPos) lastTblOpen = tblOM.index;
+      else break;
+    }
+    dataTblStart = lastTblOpen;
+
+    // First </w:tbl> that ends after the last reference row
+    const closeIdx = docXml.indexOf("</w:tbl>", lastRefPos);
+    dataTblEnd = closeIdx >= 0 ? closeIdx + 8 : docXml.length; // 8 = "</w:tbl>".length
+  }
+
+  const dataTblXml = docXml.slice(dataTblStart, dataTblEnd);
+
+  // ── STEP 3: Calculate layout using the CORRECT (data) table's grid ────────
+  const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
+    calcLayout(docXml, dataTblXml);
+
+  // ── STEP 4: Rewrite <w:tblGrid> in the data table only ───────────────────
+  const tblGridRe = /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/;
+  const tblGridM  = tblGridRe.exec(dataTblXml);
+  if (tblGridM) {
+    const absStart  = dataTblStart + tblGridM.index;
+    const newGrid   = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
+                      `<w:gridCol w:w="${qrColWidth}"/>`;
+    mods.push({
+      start: absStart,
+      end:   absStart + tblGridM[0].length,
+      replacement: `<w:tblGrid>${newGrid}</w:tblGrid>`,
+    });
+  }
+
+  // ── STEP 5: Update <w:tblW> in the data table only ───────────────────────
+  const tblWRe = /<w:tblW\b[^>]*\/>/;
+  const tblWM  = tblWRe.exec(dataTblXml);
+  if (tblWM) {
+    const absStart = dataTblStart + tblWM.index;
+    const updated  = tblWM[0]
+      .replace(/w:w="\d+"/, `w:w="${newTableW}"`)
+      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+    mods.push({ start: absStart, end: absStart + tblWM[0].length, replacement: updated });
+  }
+
+  // ── STEP 6: Rescale every <w:tcW> that is inside the data table only ──────
+  // Skip cells using pct/auto/nil types — only dxa values are in absolute Twips.
+  const colScale = origTableW > 0 ? (newTableW - qrColWidth) / origTableW : 1;
+  const tcWRe    = /<w:tcW\b[^>]*\/>/g;
+  let   tcWM: RegExpExecArray | null;
+  while ((tcWM = tcWRe.exec(dataTblXml)) !== null) {
+    const origType = tcWM[0].match(/w:type="([^"]*)"/)?.[1] ?? "dxa";
+    if (origType === "pct" || origType === "auto" || origType === "nil") continue;
+    const origW = parseInt(tcWM[0].match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
+    if (origW === 0) continue;
+    const newW  = Math.round(origW * colScale);
+    const updated = tcWM[0]
+      .replace(/w:w="\d+"/, `w:w="${newW}"`)
+      .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+    if (updated !== tcWM[0]) {
+      const absStart = dataTblStart + tcWM.index;
+      mods.push({ start: absStart, end: absStart + tcWM[0].length, replacement: updated });
+    }
+  }
+
+  // ── STEP 7: Inject QR cells into each row ────────────────────────────────
   let qrIdx = 0;
   for (const row of rows) {
     const texts = [...row.content.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
@@ -437,7 +467,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     let cellXml: string;
 
     const isHeaderRow = texts.some((t) => t.includes("Position") && t.includes("Number"));
-    const isDataRow = texts.some((t) => POSITION_RE.test(t));
+    const isDataRow   = texts.some((t) => POSITION_RE.test(t));
 
     if (isHeaderRow) {
       cellXml = makeQRHeaderCell(qrColWidth);
@@ -449,12 +479,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       const trHeightRe = /<w:trHeight[^/]*\/>/;
       const trHm = trHeightRe.exec(row.content);
       if (trHm) {
-        const absPos = row.start + trHm.index;
+        const absPos     = row.start + trHm.index;
         const currentVal = parseInt(trHm[0].match(/w:val="(\d+)"/)?.[1] ?? "0", 10);
         if (currentVal < QR_ROW_MIN_HEIGHT) {
           mods.push({
             start: absPos,
-            end: absPos + trHm[0].length,
+            end:   absPos + trHm[0].length,
             replacement: trHm[0].replace(/w:val="\d+"/, `w:val="${QR_ROW_MIN_HEIGHT}"`),
           });
         }
@@ -465,7 +495,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
     mods.push({
       start: insertAt,
-      end: insertAt + TR_CLOSE.length,
+      end:   insertAt + TR_CLOSE.length,
       replacement: cellXml + TR_CLOSE,
     });
   }
