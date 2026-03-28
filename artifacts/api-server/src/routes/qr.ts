@@ -493,7 +493,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   // Only process rows that belong to the data table (by start position).
   // Using r.start < dataTblEnd (not <=) so the </w:tbl> boundary is exclusive.
   const dataTblRows = rows.filter(
-    (r) => r.start >= dataTblStart && r.start < dataTblEnd,
+    (r) => r.start >= dataTblStart && r.end <= dataTblEnd,
   );
 
   let qrIdx = 0;
