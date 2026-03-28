@@ -477,18 +477,58 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       cellXml = makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU);
       qrIdx++;
 
-      // Expand the row height so the QR image is fully visible inside the cell
-      const trHeightRe = /<w:trHeight[^/]*\/>/;
+      // ── Fix A: prevent row from splitting across a page break ────────────
+      const trPrOpenM = /<w:trPr\b[^>]*>/.exec(row.content);
+      if (trPrOpenM) {
+        const trPrCloseIdx = row.content.indexOf("</w:trPr>", trPrOpenM.index);
+        const trPrInner    = row.content.slice(trPrOpenM.index, trPrCloseIdx);
+        if (!trPrInner.includes("<w:cantSplit")) {
+          const insPos = row.start + trPrOpenM.index + trPrOpenM[0].length;
+          mods.push({ start: insPos, end: insPos, replacement: "<w:cantSplit/>" });
+        }
+      } else {
+        // No <w:trPr> at all — insert one right after the opening <w:tr...> tag
+        const trOpenEnd = row.content.indexOf(">") + 1;
+        const insPos    = row.start + trOpenEnd;
+        mods.push({ start: insPos, end: insPos, replacement: "<w:trPr><w:cantSplit/></w:trPr>" });
+      }
+
+      // ── Fix B: vertically center-align all existing cells in this row ─────
+      // Walk every </w:tcPr> and add <w:vAlign center> if not already there.
+      const tcPrCloseRe = /<\/w:tcPr>/g;
+      let   tcPrCloseM: RegExpExecArray | null;
+      while ((tcPrCloseM = tcPrCloseRe.exec(row.content)) !== null) {
+        const tcPrOpenIdx = row.content.lastIndexOf("<w:tcPr", tcPrCloseM.index);
+        const tcPrBlock   = row.content.slice(tcPrOpenIdx, tcPrCloseM.index);
+        if (!tcPrBlock.includes("<w:vAlign")) {
+          const insPos = row.start + tcPrCloseM.index; // insert before </w:tcPr>
+          mods.push({ start: insPos, end: insPos, replacement: '<w:vAlign w:val="center"/>' });
+        }
+      }
+      // Also handle cells that have <w:tcPr/> (self-closing) — unlikely but safe
+      // (self-closing tcPr means no children → replace with full element + vAlign)
+      for (const scM of row.content.matchAll(/<w:tcPr\/>/g)) {
+        const absPos = row.start + scM.index;
+        mods.push({
+          start: absPos, end: absPos + scM[0].length,
+          replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
+        });
+      }
+
+      // ── Fix C: enforce minimum row height so QR image is fully visible ────
+      const trHeightRe = /<w:trHeight\b[^/]*\/>/;
       const trHm = trHeightRe.exec(row.content);
       if (trHm) {
         const absPos     = row.start + trHm.index;
         const currentVal = parseInt(trHm[0].match(/w:val="(\d+)"/)?.[1] ?? "0", 10);
-        if (currentVal < QR_ROW_MIN_HEIGHT) {
-          mods.push({
-            start: absPos,
-            end:   absPos + trHm[0].length,
-            replacement: trHm[0].replace(/w:val="\d+"/, `w:val="${QR_ROW_MIN_HEIGHT}"`),
-          });
+        const hRule      = trHm[0].match(/w:hRule="([^"]*)"/)?.[1] ?? "";
+        if (currentVal < QR_ROW_MIN_HEIGHT || hRule === "exact") {
+          // Set height to at-least QR_ROW_MIN_HEIGHT and allow growth
+          let updated = trHm[0].replace(/w:val="\d+"/, `w:val="${QR_ROW_MIN_HEIGHT}"`);
+          updated = updated.includes('w:hRule="')
+            ? updated.replace(/w:hRule="[^"]*"/, 'w:hRule="atLeast"')
+            : updated.replace('<w:trHeight', '<w:trHeight w:hRule="atLeast"');
+          mods.push({ start: absPos, end: absPos + trHm[0].length, replacement: updated });
         }
       }
     } else {
