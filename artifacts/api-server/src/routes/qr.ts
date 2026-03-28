@@ -60,12 +60,9 @@ setInterval(
 );
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const QR_ROW_MIN_HEIGHT = 1700; // Twips – minimum data row height for QR image (~30mm)
-// QR column: 857250 EMU image + 56 Twip padding → 1430 Twip cell
-// 857250 EMU / 635 (EMU per Twip) ≈ 1350 Twips + 2×28 margins = 1406 → use 1430
-const QR_COL_TARGET = 1430;     // Twips  (cell width)
-// Image size as specified: 857250 EMU × 857250 EMU
-const QR_IMAGE_EMU  = 857250;
+// 500000 EMU ≈ 13.9 mm. Cell width: 500000/635 ≈ 787 Twips + 2×28 margins = 843 → 900
+const QR_COL_TARGET = 900;     // Twips (cell width for QR column)
+const QR_IMAGE_EMU  = 500000;  // 500000 × 500000 EMU ≈ 13.9 mm × 13.9 mm
 
 /**
  * Compute layout for adding the QR column.
@@ -506,8 +503,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
           mods.push({ start: insPos, end: insPos, replacement: '<w:vAlign w:val="center"/>' });
         }
       }
-      // Also handle cells that have <w:tcPr/> (self-closing) — unlikely but safe
-      // (self-closing tcPr means no children → replace with full element + vAlign)
+      // Also handle cells that have <w:tcPr/> (self-closing) → replace with full element
       for (const scM of row.content.matchAll(/<w:tcPr\/>/g)) {
         const absPos = row.start + scM.index;
         mods.push({
@@ -515,22 +511,29 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
           replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
         });
       }
+      // Also handle cells with NO <w:tcPr> at all — inject one after <w:tc>
+      for (const tcM of row.content.matchAll(/<w:tc>/g)) {
+        const after = row.content.slice(tcM.index + 6).trimStart(); // skip '<w:tc>'
+        if (!after.startsWith('<w:tcPr')) {
+          const insPos = row.start + tcM.index + 6;
+          mods.push({
+            start: insPos, end: insPos,
+            replacement: '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>',
+          });
+        }
+      }
 
-      // ── Fix C: enforce minimum row height so QR image is fully visible ────
-      const trHeightRe = /<w:trHeight\b[^/]*\/>/;
+      // ── Fix C: set row height to auto so it shrinks to fit the QR image ────
+      const trHeightRe = /<w:trHeight\b[^>]*\/>/;
       const trHm = trHeightRe.exec(row.content);
       if (trHm) {
-        const absPos     = row.start + trHm.index;
-        const currentVal = parseInt(trHm[0].match(/w:val="(\d+)"/)?.[1] ?? "0", 10);
-        const hRule      = trHm[0].match(/w:hRule="([^"]*)"/)?.[1] ?? "";
-        if (currentVal < QR_ROW_MIN_HEIGHT || hRule === "exact") {
-          // Set height to at-least QR_ROW_MIN_HEIGHT and allow growth
-          let updated = trHm[0].replace(/w:val="\d+"/, `w:val="${QR_ROW_MIN_HEIGHT}"`);
-          updated = updated.includes('w:hRule="')
-            ? updated.replace(/w:hRule="[^"]*"/, 'w:hRule="atLeast"')
-            : updated.replace('<w:trHeight', '<w:trHeight w:hRule="atLeast"');
-          mods.push({ start: absPos, end: absPos + trHm[0].length, replacement: updated });
-        }
+        // Replace whatever trHeight is set with auto (val=0, hRule=auto)
+        const absPos = row.start + trHm.index;
+        mods.push({
+          start: absPos,
+          end:   absPos + trHm[0].length,
+          replacement: '<w:trHeight w:val="0" w:hRule="auto"/>',
+        });
       }
     } else {
       cellXml = makeEmptyCell(qrColWidth, true);
