@@ -270,6 +270,37 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
   const mods: Mod[] = [];
 
+  // 0. Ensure required drawing/image namespaces are declared on the root <w:document> element.
+  //    Plain LogiKal exports contain no images so these prefixes are absent; without them
+  //    Word's XML parser rejects the file the moment it encounters wp:inline / a:graphic etc.
+  const REQUIRED_NS: Record<string, string> = {
+    wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+    a: "http://schemas.openxmlformats.org/drawingml/2006/main",
+    pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
+    r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+  };
+  const docElemRe = /<w:document\b[^>]*>/;
+  const docElemMatch = docElemRe.exec(docXml);
+  if (docElemMatch) {
+    let docElem = docElemMatch[0];
+    let nsAdditions = "";
+    for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
+      if (!docElem.includes(`xmlns:${prefix}=`)) {
+        nsAdditions += ` xmlns:${prefix}="${uri}"`;
+      }
+    }
+    if (nsAdditions) {
+      // Insert before the closing '>' of the opening tag
+      const closeGt = docElem.lastIndexOf(">");
+      const newDocElem = docElem.slice(0, closeGt) + nsAdditions + docElem.slice(closeGt);
+      mods.push({
+        start: docElemMatch.index,
+        end: docElemMatch.index + docElemMatch[0].length,
+        replacement: newDocElem,
+      });
+    }
+  }
+
   // 1. Extend <w:tblGrid> with the new QR column
   const tblGridCloseTag = "</w:tblGrid>";
   const tblGridCloseIdx = docXml.indexOf(tblGridCloseTag);
