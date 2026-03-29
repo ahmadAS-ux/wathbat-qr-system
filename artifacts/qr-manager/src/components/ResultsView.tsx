@@ -26,7 +26,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Wathbat_QR_${result.projectName || 'Document'}.docx`;
+      a.download = `Wathbat_QR_${result.projectName || 'Document'}.html`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
