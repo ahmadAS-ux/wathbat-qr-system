@@ -243,28 +243,37 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     if (t === "Project name:" && segments[i + 2]) projectName = segments[i + 2].text;
   }
 
-  const POSITION_RE = /^\d{2}\s*\/\s*\d+$/;
+  // Read positions row-by-row from XML so overlapping lookaheads never skip rows.
+  // Using rawDocXml (before any namespace/noWrap modifications) for clean matching.
+  const POSITION_RE = /^\d{1,2}\s*\/\s*\d+$/;
+  const rawDocXml   = zip.readAsText("word/document.xml");
+
   const positionData: Array<{
     position: string; quantity: string; width: string;
     height: string; area: string; perimeter: string;
     price: string; total: string;
   }> = [];
 
-  for (let i = 0; i < segments.length; i++) {
-    if (POSITION_RE.test(segments[i].text)) {
-      positionData.push({
-        position:  segments[i].text,
-        quantity:  segments[i + 1]?.text || "",
-        width:     segments[i + 2]?.text || "",
-        height:    segments[i + 3]?.text || "",
-        area:      segments[i + 4]?.text || "",
-        perimeter: segments[i + 5]?.text || "",
-        price:     segments[i + 6]?.text || "",
-        total:     segments[i + 7]?.text || "",
-      });
-    }
+  const posXmlRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
+  let posMatch: RegExpExecArray | null;
+  while ((posMatch = posXmlRe.exec(rawDocXml)) !== null) {
+    const rowTexts = [...posMatch[0].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+      .map(m => m[1].trim()).filter(Boolean);
+    const posIdx = rowTexts.findIndex(t => POSITION_RE.test(t));
+    if (posIdx === -1) continue;
+    positionData.push({
+      position:  rowTexts[posIdx]     || "",
+      quantity:  rowTexts[posIdx + 1] || "",
+      width:     rowTexts[posIdx + 2] || "",
+      height:    rowTexts[posIdx + 3] || "",
+      area:      rowTexts[posIdx + 4] || "",
+      perimeter: rowTexts[posIdx + 5] || "",
+      price:     rowTexts[posIdx + 6] || "",
+      total:     rowTexts[posIdx + 7] || "",
+    });
   }
 
+  console.log(`[QR] Found ${positionData.length} positions`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
   const qrEntries: QREntry[] = [];
