@@ -8,8 +8,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
+    "@types/node": "^25.3.3",
     "adm-zip": "^0.5.16",
-    "tsx": "catalog:"
+    "tsx": "^4.21.0"
   }
 }
