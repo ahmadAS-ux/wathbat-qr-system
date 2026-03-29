@@ -19,37 +19,20 @@ if (Number.isNaN(port) || port <= 0) {
 
 async function runStartupMigrations() {
   try {
-    // Step 1: Undo bad previous backfill — clear project_name values that are not
-    // real project names (i.e. they don't exist in processed_docs)
-    const undo = await db.execute(sql`
-      UPDATE requests r
-      SET project_name = NULL
-      WHERE r.project_name IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM processed_docs p WHERE p.project_name = r.project_name
-        )
-    `);
-    const undoCount = (undo as any).rowCount ?? 0;
-    if (undoCount > 0) {
-      logger.info({ count: undoCount }, "Migration: cleared wrongly-backfilled project_name values");
-    }
-
-    // Step 2: Correct backfill — move invoice_number → project_name only when
-    // that value IS a real project in processed_docs (i.e. it was the QR ref param,
-    // not an actual invoice number). Clear invoice_number for those rows.
+    // Backfill: the old scan page sent the QR ref param as `invoiceNumber` instead
+    // of `projectName`. The scan form has no manual invoice-number input, so any
+    // request where project_name is NULL and invoice_number is set must be holding
+    // a project reference in the wrong column. Move it unconditionally.
     const fix = await db.execute(sql`
-      UPDATE requests r
-      SET project_name = r.invoice_number,
+      UPDATE requests
+      SET project_name = invoice_number,
           invoice_number = NULL
-      WHERE r.project_name IS NULL
-        AND r.invoice_number IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM processed_docs p WHERE p.project_name = r.invoice_number
-        )
+      WHERE project_name IS NULL
+        AND invoice_number IS NOT NULL
     `);
     const fixCount = (fix as any).rowCount ?? 0;
     if (fixCount > 0) {
-      logger.info({ count: fixCount }, "Migration: moved project names from invoice_number to project_name");
+      logger.info({ count: fixCount }, "Migration: moved project ref from invoice_number to project_name");
     }
   } catch (err) {
     logger.error({ err }, "Startup migration failed — server will still start");
