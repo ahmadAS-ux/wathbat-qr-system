@@ -111,6 +111,14 @@ export const translations = {
     scan_footer_cs: "Customer Service",
     scan_footer_website: "wathbat.sa",
     scan_footer_follow: "Follow Us",
+    admin_new_request: "New Request",
+    admin_create_request_title: "Create Service Request",
+    admin_select_project: "Select Project",
+    admin_position_placeholder: "Position ID (e.g. P01)",
+    admin_cancel: "Cancel",
+    admin_submit_btn: "Create Request",
+    admin_creating: "Creating...",
+    admin_request_created: "Request created successfully.",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -222,6 +230,14 @@ export const translations = {
     scan_footer_cs: "خدمة العملاء",
     scan_footer_website: "wathbat.sa",
     scan_footer_follow: "تابعنا",
+    admin_new_request: "طلب جديد",
+    admin_create_request_title: "إنشاء طلب صيانة",
+    admin_select_project: "اختر المشروع",
+    admin_position_placeholder: "رقم الموضع (مثال: P01)",
+    admin_cancel: "إلغاء",
+    admin_submit_btn: "إنشاء الطلب",
+    admin_creating: "جاري الإنشاء...",
+    admin_request_created: "تم إنشاء الطلب بنجاح.",
   }
 };
 

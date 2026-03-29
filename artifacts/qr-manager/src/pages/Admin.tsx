@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X } from 'lucide-react';
+import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X, Plus, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { Link } from 'wouter';
 
@@ -53,6 +53,12 @@ export default function Admin() {
   const [historyVisible, setHistoryVisible] = useState(PREVIEW_COUNT);
   const [requestsVisible, setRequestsVisible] = useState(PREVIEW_COUNT);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
+
+  const [showNewReq, setShowNewReq] = useState(false);
+  const [projects, setProjects] = useState<string[]>([]);
+  const [newReq, setNewReq] = useState({ projectName: '', positionId: '', requestType: '', customerPhone: '', invoiceNumber: '', message: '' });
+  const [newReqSubmitting, setNewReqSubmitting] = useState(false);
+  const [newReqSuccess, setNewReqSuccess] = useState(false);
 
   const archiveRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +116,43 @@ export default function Admin() {
     setHistoryVisible(PREVIEW_COUNT);
   };
 
+  const openNewReq = async () => {
+    setNewReq({ projectName: '', positionId: '', requestType: '', customerPhone: '', invoiceNumber: '', message: '' });
+    setNewReqSuccess(false);
+    setShowNewReq(true);
+    if (projects.length === 0) {
+      const res = await fetch(`${BASE}/api/admin/projects`);
+      if (res.ok) setProjects(await res.json());
+    }
+  };
+
+  const submitNewReq = async () => {
+    if (!newReq.projectName || !newReq.positionId || !newReq.requestType) return;
+    setNewReqSubmitting(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: newReq.projectName,
+          positionId: newReq.positionId,
+          requestType: newReq.requestType,
+          customerPhone: newReq.customerPhone || undefined,
+          invoiceNumber: newReq.invoiceNumber || undefined,
+          message: newReq.message || undefined,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setRequests(prev => [created, ...prev]);
+        setNewReqSuccess(true);
+        setTimeout(() => setShowNewReq(false), 1200);
+      }
+    } finally {
+      setNewReqSubmitting(false);
+    }
+  };
+
   const clearProjectFilter = () => {
     setProjectFilter(null);
     setHistoryVisible(PREVIEW_COUNT);
@@ -147,6 +190,7 @@ export default function Admin() {
   const shownRequests = requests.slice(0, requestsVisible);
 
   return (
+    <>
     <div className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
 
@@ -286,12 +330,21 @@ export default function Admin() {
               <Wrench className="w-5 h-5 text-[#4A6FA5]" />
               <h2 className="font-bold text-lg text-[#1B2A4A]">{t('requests_title')}</h2>
             </div>
-            <Link href="/admin/requests">
-              <button className={`flex items-center gap-1.5 text-sm font-semibold text-[#4A6FA5] hover:text-[#3d5f94] transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
-                {t('view_all')}
-                {isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+            <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button
+                onClick={openNewReq}
+                className={`flex items-center gap-1.5 text-sm font-semibold bg-[#1B2A4A] hover:bg-[#142240] text-white px-3 py-1.5 rounded-lg transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}
+              >
+                <Plus className="w-4 h-4" />
+                {t('admin_new_request')}
               </button>
-            </Link>
+              <Link href="/admin/requests">
+                <button className={`flex items-center gap-1.5 text-sm font-semibold text-[#4A6FA5] hover:text-[#3d5f94] transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  {t('view_all')}
+                  {isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                </button>
+              </Link>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -372,5 +425,138 @@ export default function Admin() {
 
       </div>
     </div>
+
+    {/* ── New Request Modal ── */}
+    {showNewReq && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowNewReq(false)}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
+          dir={isRtl ? 'rtl' : 'ltr'}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Modal header */}
+          <div className={`flex items-center justify-between px-6 py-4 border-b border-border/40 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <h3 className="font-bold text-lg text-[#1B2A4A]">{t('admin_create_request_title')}</h3>
+            <button onClick={() => setShowNewReq(false)} className="text-muted-foreground hover:text-[#1B2A4A] transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {newReqSuccess ? (
+            <div className="px-6 py-12 text-center">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <p className="font-semibold text-[#1B2A4A]">{t('admin_request_created')}</p>
+            </div>
+          ) : (
+            <div className="px-6 py-5 space-y-4">
+              {/* Project Name */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_history_project')} *</label>
+                <div className="relative">
+                  <select
+                    value={newReq.projectName}
+                    onChange={e => setNewReq(p => ({ ...p, projectName: e.target.value }))}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30 pr-8"
+                  >
+                    <option value="">{t('admin_select_project')}</option>
+                    {projects.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <ChevronDown className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${isRtl ? 'left-3' : 'right-3'}`} />
+                </div>
+              </div>
+
+              {/* Position ID */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_col_position')} *</label>
+                <input
+                  type="text"
+                  value={newReq.positionId}
+                  onChange={e => setNewReq(p => ({ ...p, positionId: e.target.value }))}
+                  placeholder={t('admin_position_placeholder')}
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30"
+                />
+              </div>
+
+              {/* Request Type */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_col_type')} *</label>
+                <div className="relative">
+                  <select
+                    value={newReq.requestType}
+                    onChange={e => setNewReq(p => ({ ...p, requestType: e.target.value }))}
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30 pr-8"
+                  >
+                    <option value="">{t('scan_reason_placeholder')}</option>
+                    <option value={t('scan_reason_received')}>{t('scan_reason_received')}</option>
+                    <option value={t('scan_reason_defect')}>{t('scan_reason_defect')}</option>
+                    <option value={t('scan_reason_maintenance')}>{t('scan_reason_maintenance')}</option>
+                    <option value={t('scan_reason_replacement')}>{t('scan_reason_replacement')}</option>
+                    <option value={t('scan_reason_inquiry')}>{t('scan_reason_inquiry')}</option>
+                  </select>
+                  <ChevronDown className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${isRtl ? 'left-3' : 'right-3'}`} />
+                </div>
+              </div>
+
+              {/* Phone & Invoice (side by side) */}
+              <div className={`grid grid-cols-2 gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <div>
+                  <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_col_phone')}</label>
+                  <input
+                    type="text"
+                    value={newReq.customerPhone}
+                    onChange={e => setNewReq(p => ({ ...p, customerPhone: e.target.value }))}
+                    placeholder="05XXXXXXXX"
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_col_invoice')}</label>
+                  <input
+                    type="text"
+                    value={newReq.invoiceNumber}
+                    onChange={e => setNewReq(p => ({ ...p, invoiceNumber: e.target.value }))}
+                    placeholder="INV-2025-001"
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-semibold text-[#1B2A4A] mb-1.5">{t('admin_col_message')}</label>
+                <textarea
+                  value={newReq.message}
+                  onChange={e => setNewReq(p => ({ ...p, message: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className={`flex items-center justify-end gap-3 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <button
+                  onClick={() => setShowNewReq(false)}
+                  className="px-4 py-2 text-sm font-medium text-[#1B2A4A] border border-[#1B2A4A]/20 rounded-xl hover:bg-[#1B2A4A]/5 transition-colors"
+                >
+                  {t('admin_cancel')}
+                </button>
+                <button
+                  onClick={submitNewReq}
+                  disabled={newReqSubmitting || !newReq.projectName || !newReq.positionId || !newReq.requestType}
+                  className="px-5 py-2 text-sm font-semibold bg-[#1B2A4A] hover:bg-[#142240] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+                >
+                  {newReqSubmitting ? t('admin_creating') : t('admin_submit_btn')}
+                </button>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    )}
+    </>
   );
 }

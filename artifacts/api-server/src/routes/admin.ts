@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, requestsTable, processedDocsTable } from "@workspace/db";
-import { eq, and, gte, count, sql } from "drizzle-orm";
+import { eq, and, gte, count, sql, isNotNull } from "drizzle-orm";
 import { totalDocsProcessed, totalQRsGenerated } from "../lib/stats.js";
 
 const router: IRouter = Router();
@@ -89,6 +89,20 @@ router.patch("/admin/requests/:id", async (req: Request, res: Response): Promise
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Failed to update request" });
+  }
+});
+
+router.get("/admin/projects", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await db
+      .select({ projectName: processedDocsTable.projectName })
+      .from(processedDocsTable)
+      .where(isNotNull(processedDocsTable.projectName))
+      .orderBy(processedDocsTable.projectName);
+    const names = [...new Set(rows.map(r => r.projectName).filter(Boolean))];
+    res.json(names);
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Failed to fetch projects" });
   }
 });
 
