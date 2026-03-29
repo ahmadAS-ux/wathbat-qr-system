@@ -36,6 +36,8 @@ export interface ProcessResult {
   projectName?: string;
   date?: string;
   totalPositions: number;
+  /** Total positions found in the file before any deduplication/filtering */
+  rawPositionCount?: number;
 }
 
 export interface ErrorResponse {

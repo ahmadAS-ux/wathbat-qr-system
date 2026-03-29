@@ -229,6 +229,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   projectName: string;
   date: string;
   outputBuffer: Buffer;
+  rawPositionCount: number;
 }> {
   const zip = new AdmZip(docxBuffer);
   let docXml = zip.readAsText("word/document.xml");
@@ -376,10 +377,15 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     ))
     .map(c => c.tIdx);
 
+  // Raw count = total unique positions across all fingerprint-unique candidates
+  // (before the subset-filter).  Exposed in the API response so the UI can
+  // show the user "detected X in file, processed Y after dedup".
+  const rawPositionCount = candidates.reduce((acc, c) => acc + c.posSet.size, 0);
+
   candidates.forEach((c, i) =>
     console.log(`[QR] candidate[${i}] tIdx=${c.tIdx} posCount=${c.posSet.size} positions=${[...c.posSet].join("|")}`)
   );
-  console.log(`[QR] candidates=${candidates.length}, after subset-filter=${dataTableIndices.length}`);
+  console.log(`[QR] candidates=${candidates.length}, rawPositionCount=${rawPositionCount}, after subset-filter=${dataTableIndices.length}`);
   if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 3: Extract positionData from unique tables only ─────────────────────
@@ -613,6 +619,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     projectName,
     date,
     outputBuffer: zip.toBuffer(),
+    rawPositionCount,
   };
 }
 
@@ -658,6 +665,7 @@ router.post(
         projectName: result.projectName,
         date: result.date,
         totalPositions: result.positions.length,
+        rawPositionCount: result.rawPositionCount,
       });
     } catch (err) {
       req.log.error({ err }, "Error processing document");

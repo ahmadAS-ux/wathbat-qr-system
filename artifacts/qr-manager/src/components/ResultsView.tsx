@@ -91,9 +91,19 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         {[
-          { label: t('total_positions'), value: result.totalPositions?.toString(), icon: Box },
+          {
+            label: t('positions_in_file'),
+            value: result.rawPositionCount?.toString() ?? result.totalPositions?.toString(),
+            icon: FileText,
+          },
+          {
+            label: t('total_positions'),
+            value: result.totalPositions?.toString(),
+            icon: Box,
+            highlight: result.rawPositionCount != null && result.rawPositionCount !== result.totalPositions,
+          },
           { label: t('project_name'), value: result.projectName || '—', icon: FileText },
           { label: t('date'), value: result.date || '—', icon: Calendar },
         ].map((stat, i) => (
@@ -102,14 +112,14 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i }}
-            className={`bg-white border border-border/50 rounded-2xl p-5 shadow-sm flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}
+            className={`bg-white border ${(stat as any).highlight ? 'border-amber-400 ring-1 ring-amber-400/40' : 'border-border/50'} rounded-2xl p-5 shadow-sm flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}
           >
-            <div className="p-3 rounded-xl bg-[#1B2A4A]/5 text-[#1B2A4A] shrink-0">
+            <div className={`p-3 rounded-xl shrink-0 ${(stat as any).highlight ? 'bg-amber-50 text-amber-600' : 'bg-[#1B2A4A]/5 text-[#1B2A4A]'}`}>
               <stat.icon className="w-5 h-5" />
             </div>
             <div className={isRtl ? 'text-right' : ''}>
               <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <p className="text-lg font-bold text-[#1B2A4A] truncate">{stat.value}</p>
+              <p className={`text-lg font-bold truncate ${(stat as any).highlight ? 'text-amber-600' : 'text-[#1B2A4A]'}`}>{stat.value}</p>
             </div>
           </motion.div>
         ))}
