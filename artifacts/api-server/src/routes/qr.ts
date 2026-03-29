@@ -422,7 +422,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   }
 
-  console.log(`[QR] Found ${positionData.length} positions across ${dataTableIndices.length} data table(s)`);
+  console.log(`[QR] Found ${positionData.length} positions across ${dataTables.length} data table(s)`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 4: Generate QR codes ────────────────────────────────────────────────
