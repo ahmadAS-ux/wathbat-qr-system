@@ -255,66 +255,166 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  function parseNum(s: string): number {
+    if (!s) return 0;
+    const n = parseFloat(s.replace(/,/g, ""));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function fmtNum(n: number, decimals = 3): string {
+    return n.toFixed(decimals);
+  }
+
   const css = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4 landscape; margin: 10mm 8mm; }
+    @page { size: A4 landscape; margin: 12mm 10mm; }
     body {
       font-family: Arial, 'Helvetica Neue', sans-serif;
-      font-size: 9pt;
+      font-size: 10pt;
       color: #1a1a1a;
       background: #fff;
-      direction: rtl;
+      direction: ltr;
     }
-    .page-header {
+
+    /* ── Document header ── */
+    .doc-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #1B2A4A;
+      align-items: stretch;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #1B2A4A;
+      gap: 16px;
     }
-    .brand-name { font-size: 13pt; font-weight: bold; color: #1B2A4A; }
-    .brand-url  { font-size: 7pt; color: #888; margin-top: 2px; }
-    .meta { text-align: left; font-size: 8pt; color: #444; line-height: 1.6; }
-    .meta strong { color: #1B2A4A; }
-    .section-title {
-      font-size: 9.5pt;
+    .doc-header-brand {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .brand-name {
+      font-size: 18pt;
+      font-weight: 900;
+      color: #1B2A4A;
+      letter-spacing: 1px;
+    }
+    .brand-sub {
+      font-size: 8.5pt;
+      color: #C89B3C;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .doc-header-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .doc-title {
+      font-size: 13pt;
       font-weight: bold;
       color: #1B2A4A;
-      margin: 10px 0 4px 0;
-      padding-right: 7px;
-      border-right: 3px solid #C89B3C;
+      margin-bottom: 4px;
     }
+    .doc-subtitle { font-size: 9pt; color: #555; }
+    .doc-header-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-end;
+      text-align: right;
+      gap: 4px;
+    }
+    .info-row { font-size: 9pt; color: #333; line-height: 1.5; }
+    .info-row strong { color: #1B2A4A; min-width: 80px; display: inline-block; }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: #1B2A4A;
+      margin: 14px 0 5px 0;
+      padding-left: 8px;
+      border-left: 4px solid #C89B3C;
+    }
+
+    /* ── Table ── */
     table {
       width: 100%;
       border-collapse: collapse;
       page-break-inside: auto;
-      font-size: 8pt;
+      font-size: 9.5pt;
+      table-layout: fixed;
     }
+    colgroup col.col-pos      { width: 10%; }
+    colgroup col.col-qty      { width: 7%; }
+    colgroup col.col-w        { width: 9%; }
+    colgroup col.col-h        { width: 9%; }
+    colgroup col.col-area     { width: 10%; }
+    colgroup col.col-perim    { width: 10%; }
+    colgroup col.col-price    { width: 11%; }
+    colgroup col.col-total    { width: 11%; }
+    colgroup col.col-qr       { width: 13%; }
+
     thead { display: table-header-group; }
     tr    { page-break-inside: avoid; }
+
     th {
       background: #1B2A4A;
       color: #fff;
-      padding: 5px 4px;
+      padding: 7px 5px;
       text-align: center;
-      font-size: 7.5pt;
-      font-weight: 600;
-      white-space: nowrap;
-      border: 1px solid #142240;
-      line-height: 1.35;
+      font-size: 9pt;
+      font-weight: 700;
+      border: 1px solid #0d1e38;
+      line-height: 1.4;
     }
     td {
-      border: 1px solid #d0d0d0;
-      padding: 3px 5px;
+      border: 1px solid #c8c8c8;
+      padding: 5px 5px;
       text-align: center;
       vertical-align: middle;
+      font-size: 9.5pt;
+      line-height: 1.3;
     }
-    td:first-child { font-weight: bold; color: #1B2A4A; }
-    tr:nth-child(even) td { background: #f8f9fb; }
-    .qr-cell img { width: 52px; height: 52px; display: block; margin: 0 auto; }
+    td.td-pos {
+      font-weight: bold;
+      color: #1B2A4A;
+      text-align: left;
+      padding-left: 8px;
+    }
+    tr:nth-child(even) td { background: #f4f6fb; }
+    tr:nth-child(odd)  td { background: #fff; }
+
+    /* QR cell */
+    td.qr-cell { padding: 3px; }
+    td.qr-cell img { width: 60px; height: 60px; display: block; margin: 0 auto; }
+
+    /* Summary row */
+    tr.summary-row td {
+      background: #e8ecf4 !important;
+      font-weight: bold;
+      color: #1B2A4A;
+      border-top: 2px solid #1B2A4A;
+      font-size: 9.5pt;
+    }
+    tr.summary-row td.summary-label {
+      text-align: left;
+      padding-left: 8px;
+      font-size: 9pt;
+      color: #1B2A4A;
+    }
+    tr.summary-row td.summary-grand {
+      background: #1B2A4A !important;
+      color: #C89B3C !important;
+      font-size: 10pt;
+    }
+
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .doc-header { page-break-after: avoid; }
     }
   `;
 
@@ -326,13 +426,21 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const sQRs       = qrEntries.slice(qrOffset, qrOffset + count);
     qrOffset += count;
 
+    // Compute section totals
+    let totalArea = 0, totalPerim = 0, totalPrice = 0;
+    for (const p of sPositions) {
+      totalArea  += parseNum(p.area);
+      totalPerim += parseNum(p.perimeter);
+      totalPrice += parseNum(p.total);
+    }
+
     const rows = sPositions.map((p, i) => {
       const qr = sQRs[i];
       const qrImg = qr?.dataUrl
         ? `<img src="${qr.dataUrl}" alt="QR ${esc(p.position)}" />`
         : "";
       return `<tr>
-        <td>${esc(p.position)}</td>
+        <td class="td-pos">${esc(p.position)}</td>
         <td>${esc(p.quantity)}</td>
         <td>${esc(p.width)}</td>
         <td>${esc(p.height)}</td>
@@ -344,6 +452,15 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       </tr>`;
     }).join("\n");
 
+    const summaryRow = `<tr class="summary-row">
+      <td class="summary-label" colspan="4">الإجمالي / Totals</td>
+      <td>${fmtNum(totalArea)} م²</td>
+      <td>${fmtNum(totalPerim)} م</td>
+      <td></td>
+      <td class="summary-grand">${fmtNum(totalPrice, 2)} ر.س</td>
+      <td></td>
+    </tr>`;
+
     const sectionLabel = dataTables.length > 1
       ? `<div class="section-title">القسم ${s + 1} &nbsp;/&nbsp; Section ${s + 1}</div>`
       : "";
@@ -351,32 +468,45 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     sectionsHtml += `
     ${sectionLabel}
     <table>
+      <colgroup>
+        <col class="col-pos"/>
+        <col class="col-qty"/>
+        <col class="col-w"/>
+        <col class="col-h"/>
+        <col class="col-area"/>
+        <col class="col-perim"/>
+        <col class="col-price"/>
+        <col class="col-total"/>
+        <col class="col-qr"/>
+      </colgroup>
       <thead>
         <tr>
-          <th>الموضع / الرقم<br/>Position / No.</th>
-          <th>الكمية<br/>Qty</th>
-          <th>العرض مم<br/>Width mm</th>
-          <th>الارتفاع مم<br/>Height mm</th>
-          <th>المساحة م²<br/>Area m²</th>
-          <th>المحيط م<br/>Perim. m</th>
-          <th>السعر ريال<br/>Price SAR</th>
-          <th>الإجمالي ريال<br/>Total SAR</th>
-          <th>رمز QR<br/>QR Code</th>
+          <th>Position / No.<br/>الموضع / الرقم</th>
+          <th>Qty<br/>الكمية</th>
+          <th>Width mm<br/>العرض</th>
+          <th>Height mm<br/>الارتفاع</th>
+          <th>Area m²<br/>المساحة</th>
+          <th>Perim. m<br/>المحيط</th>
+          <th>Price SAR<br/>السعر</th>
+          <th>Total SAR<br/>الإجمالي</th>
+          <th>QR Code<br/>رمز QR</th>
         </tr>
       </thead>
       <tbody>
 ${rows}
+${summaryRow}
       </tbody>
     </table>`;
   }
 
-  const metaRows = [
-    projectName ? `<div><strong>اسم المشروع / Project:</strong> ${esc(projectName)}</div>` : "",
-    date        ? `<div><strong>التاريخ / Date:</strong> ${esc(date)}</div>` : "",
+  const infoRows = [
+    projectName ? `<div class="info-row"><strong>Project:</strong> ${esc(projectName)}</div>` : "",
+    date        ? `<div class="info-row"><strong>Date:</strong> ${esc(date)}</div>` : "",
+    `<div class="info-row"><strong>Items:</strong> ${positionData.length} positions</div>`,
   ].filter(Boolean).join("\n");
 
   const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -384,12 +514,18 @@ ${rows}
   <style>${css}</style>
 </head>
 <body>
-  <div class="page-header">
-    <div>
-      <div class="brand-name">وثبة &nbsp;|&nbsp; Wathbat</div>
-      <div class="brand-url">wathbat.sa</div>
+  <div class="doc-header">
+    <div class="doc-header-brand">
+      <div class="brand-name">Wathbat &nbsp;|&nbsp; وثبة</div>
+      <div class="brand-sub">wathbat.sa &nbsp;·&nbsp; Orgadata LogiKal QR Report</div>
     </div>
-    ${metaRows ? `<div class="meta">${metaRows}</div>` : ""}
+    <div class="doc-header-meta">
+      <div class="doc-title">Glass / Panel Order Report</div>
+      <div class="doc-subtitle">تقرير طلب الزجاج والألواح — رموز QR مضمنة</div>
+    </div>
+    <div class="doc-header-info">
+      ${infoRows}
+    </div>
   </div>
   ${sectionsHtml}
 </body>
