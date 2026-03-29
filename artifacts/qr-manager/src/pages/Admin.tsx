@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X, Plus, ChevronDown } from 'lucide-react';
+import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { Link } from 'wouter';
 
@@ -53,6 +53,19 @@ export default function Admin() {
   const [historyVisible, setHistoryVisible] = useState(PREVIEW_COUNT);
   const [requestsVisible, setRequestsVisible] = useState(PREVIEW_COUNT);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
+
+  const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
+
+  const deleteDoc = async (id: number, name: string) => {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    setDeletingDocId(id);
+    try {
+      await fetch(`${BASE}/api/qr/${id}`, { method: 'DELETE' });
+      setHistory(h => h.filter(r => r.id !== id));
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
 
   const [showNewReq, setShowNewReq] = useState(false);
   const [projects, setProjects] = useState<string[]>([]);
@@ -261,16 +274,16 @@ export default function Admin() {
             <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
               <thead className="bg-[#F8F9FB] border-b border-border/40">
                 <tr>
-                  {[t('admin_history_project'), t('admin_history_filename'), t('admin_history_date'), t('admin_history_positions'), t('download_report'), t('download_original')].map(h => (
+                  {[t('admin_history_project'), t('admin_history_filename'), t('admin_history_date'), t('admin_history_positions'), t('download_report'), t('download_original'), ''].map(h => (
                     <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {historyLoading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
                 ) : filteredHistory.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">{projectFilter ? t('admin_history_no_match') : t('admin_history_empty')}</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{projectFilter ? t('admin_history_no_match') : t('admin_history_empty')}</td></tr>
                 ) : (
                   shownHistory.map((row, i) => (
                     <motion.tr
@@ -297,6 +310,16 @@ export default function Admin() {
                           className="inline-flex items-center gap-1.5 bg-[#4A6FA5] hover:bg-[#3d5f94] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                           <Download className="w-3.5 h-3.5" />{t('download_original')}
                         </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => deleteDoc(row.id, row.originalFilename)}
+                          disabled={deletingDocId === row.id}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </motion.tr>
                   ))

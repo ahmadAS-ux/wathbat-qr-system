@@ -653,4 +653,25 @@ router.get("/qr/download/:fileId/original", async (req: Request, res: Response):
   res.send(row.originalFile);
 });
 
+router.delete("/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params["id"]);
+  if (!id || isNaN(id)) {
+    res.status(400).json({ error: "InvalidId" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: processedDocsTable.id })
+    .from(processedDocsTable)
+    .where(eq(processedDocsTable.id, id));
+
+  if (!existing) {
+    res.status(404).json({ error: "NotFound" });
+    return;
+  }
+
+  await db.delete(processedDocsTable).where(eq(processedDocsTable.id, id));
+  res.status(204).end();
+});
+
 export default router;

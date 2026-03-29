@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Download, RefreshCw, ArrowLeft, ArrowRight, Search, Archive } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, ArrowRight, Search, Archive, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { Link } from 'wouter';
 
@@ -23,6 +23,18 @@ export default function AdminHistory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
+
+  const deleteDoc = async (id: number, name: string) => {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    setDeletingDocId(id);
+    try {
+      await fetch(`${BASE}/api/qr/${id}`, { method: 'DELETE' });
+      setAll(prev => prev.filter(r => r.id !== id));
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -90,6 +102,7 @@ export default function AdminHistory() {
                     t('admin_history_positions'),
                     t('download_report'),
                     t('download_original'),
+                    '',
                   ].map(h => (
                     <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
                   ))}
@@ -98,13 +111,13 @@ export default function AdminHistory() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     </td>
                   </tr>
                 ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">{t('admin_history_empty')}</td>
+                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_history_empty')}</td>
                   </tr>
                 ) : (
                   shown.map((row, i) => (
@@ -140,6 +153,16 @@ export default function AdminHistory() {
                           <Download className="w-3.5 h-3.5" />
                           {t('download_original')}
                         </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => deleteDoc(row.id, row.originalFilename)}
+                          disabled={deletingDocId === row.id}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </motion.tr>
                   ))
