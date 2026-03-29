@@ -366,37 +366,42 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   if (candidates.length === 0) throw new Error("NO_POSITIONS");
 
-  // Pass B — keep only the LARGEST table (by position count).
-  // Orgadata appends a summary/totals table at the bottom that lists a handful
-  // of the LAST position IDs again before the grand-total row.  Because those
-  // IDs are different from any in the main table (e.g. the main table ends at
-  // "11 / 1" and the summary has "11 / 2", "12 / 1", "12 / 2"), the subset
-  // check never fires.  The safest rule is: only inject QR codes into the
-  // single largest table; every other candidate (however many positions it
-  // contains) is treated as a summary/totals artefact and skipped.
-  const maxPosCount = Math.max(...candidates.map(c => c.posSet.size));
-  const dataTableIndices: number[] = candidates
-    .filter(c => c.posSet.size === maxPosCount)
-    .map(c => c.tIdx);
+  // Pass B — record the original START OFFSET of each candidate table so we
+  // can re-locate them after splices shift all subsequent offsets.
+  // We do NOT filter any candidates here — all unique position-bearing tables
+  // should receive QR codes.
+  type DataTable = { startOffset: number; posSet: Set<string> };
+  const dataTables: DataTable[] = candidates.map(c => ({
+    startOffset: rawTableRanges[c.tIdx].start,
+    posSet: c.posSet,
+  }));
 
-  // Total positions = sum across kept tables (normally just one).
+  // Total raw position count across all tables (for UI reporting).
   const rawPositionCount = candidates.reduce((acc, c) => acc + c.posSet.size, 0);
 
-  candidates.forEach((c, i) =>
-    console.log(`[QR] candidate[${i}] tIdx=${c.tIdx} posCount=${c.posSet.size} kept=${c.posSet.size === maxPosCount}`)
+  dataTables.forEach((dt, i) =>
+    console.log(`[QR] dataTable[${i}] startOffset=${dt.startOffset} posCount=${dt.posSet.size}`)
   );
-  console.log(`[QR] candidates=${candidates.length}, maxPosCount=${maxPosCount}, kept=${dataTableIndices.length} table(s)`);
-  if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
+  console.log(`[QR] dataTables=${dataTables.length}, rawPositionCount=${rawPositionCount}`);
 
-  // ── Step 3: Extract positionData from unique tables only ─────────────────────
+  // ── Step 3: Extract positionData from all kept data tables ───────────────────
   const positionData: Array<{
     position: string; quantity: string; width: string;
     height: string; area: string; perimeter: string;
     price: string; total: string;
   }> = [];
 
-  for (const tIdx of dataTableIndices) {
-    const tContent = rawDocXml.slice(rawTableRanges[tIdx].start, rawTableRanges[tIdx].end);
+  for (const dt of dataTables) {
+    // Re-locate this table in rawDocXml by its recorded start offset.
+    // (rawDocXml is never modified so offsets stay stable here.)
+    const { start: tStart } = (() => {
+      // Find the table range that begins at exactly dt.startOffset
+      const r = rawTableRanges.find(r => r.start === dt.startOffset);
+      if (!r) throw new Error(`Table at offset ${dt.startOffset} not found in rawDocXml`);
+      return r;
+    })();
+    const tEnd = rawTableRanges.find(r => r.start === dt.startOffset)!.end;
+    const tContent = rawDocXml.slice(tStart, tEnd);
     const rowRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
     let rowMatch: RegExpExecArray | null;
     while ((rowMatch = rowRe.exec(tContent)) !== null) {
@@ -470,14 +475,32 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
   docXml = docXml.replace(/<w:noWrap\/>/g, "");
 
-  // ── Step 6: Process each unique table in forward order.
-  //           Re-derive table ranges from the current docXml at each iteration
-  //           so that splicing an earlier table (which shifts offsets) is always
-  //           reflected before we slice the next one.
+  // ── Step 6: Process each data table in document order (forward).
+  //
+  //   Key insight: after we splice the first modified table back into docXml,
+  //   ALL subsequent byte offsets shift.  We cannot use the original integer
+  //   table indices from rawTableRanges to address tables in the mutated docXml.
+  //
+  //   Strategy: for each iteration we call findTableRanges() on the CURRENT
+  //   (possibly already-mutated) docXml to get fresh ranges, then identify our
+  //   target table by matching the FIRST FEW TEXT TOKENS from its position set —
+  //   a fingerprint that is stable across the splice (we're only adding a new
+  //   cell at the end of each row; the existing cell text is untouched).
   let qrIdx = 0;
-  for (const tIdx of dataTableIndices) {
+  for (const dt of dataTables) {
     const currentRanges = findTableRanges(docXml);
-    const { start: tblStart, end: tblEnd } = currentRanges[tIdx];
+
+    // Find the range whose content contains the first position from this table.
+    const firstPos = [...dt.posSet][0];
+    const matchingRange = currentRanges.find(r => {
+      const snippet = docXml.slice(r.start, r.end);
+      return snippet.includes(firstPos);
+    });
+    if (!matchingRange) {
+      console.log(`[QR] WARNING: could not find table for positions starting with "${firstPos}" — skipping`);
+      continue;
+    }
+    const { start: tblStart, end: tblEnd } = matchingRange;
     let tblXml = docXml.slice(tblStart, tblEnd);
 
     const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
@@ -570,7 +593,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     );
     tblXml = TABLE_OPEN + tblInnerContent + TABLE_CLOSE;
 
-    console.log(`[QR] table[${tIdx}]: injected ${qrIdx - tableQrStart} rows`);
+    console.log(`[QR] table(firstPos="${firstPos}"): injected ${qrIdx - tableQrStart} rows`);
 
     // Splice the modified table back into docXml
     docXml = docXml.slice(0, tblStart) + tblXml + docXml.slice(tblEnd);
