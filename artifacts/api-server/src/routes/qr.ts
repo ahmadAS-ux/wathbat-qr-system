@@ -341,11 +341,15 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   const rawTableRanges = findTableRanges(rawDocXml);
 
-  // ── Step 2: Deduplicate tables by position fingerprint ───────────────────────
-  // Orgadata always exports every table twice (screen + print copy).
-  // We skip any table whose position set we've already seen.
+  // ── Step 2: Deduplicate tables, then drop summary/subset tables ──────────────
+  // Orgadata exports every table twice (screen + print). Additionally it emits
+  // a summary table at the bottom that repeats only the last few position rows
+  // before the grand-total line. We must exclude both duplicates AND subsets.
+  //
+  // Pass A — deduplicate by fingerprint (ordered position string).
   const seenFingerprints = new Set<string>();
-  const dataTableIndices: number[] = [];
+  type CandidateTable = { tIdx: number; posSet: Set<string> };
+  const candidates: CandidateTable[] = [];
 
   for (let t = 0; t < rawTableRanges.length; t++) {
     const tContent = rawDocXml.slice(rawTableRanges[t].start, rawTableRanges[t].end);
@@ -356,9 +360,23 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const fingerprint = positions.join(",");
     if (seenFingerprints.has(fingerprint)) continue;
     seenFingerprints.add(fingerprint);
-    dataTableIndices.push(t);
+    candidates.push({ tIdx: t, posSet: new Set(positions) });
   }
 
+  if (candidates.length === 0) throw new Error("NO_POSITIONS");
+
+  // Pass B — drop any candidate whose positions are a complete subset of a
+  // larger candidate (i.e. summary/totals tables that repeat only some rows).
+  const dataTableIndices: number[] = candidates
+    .filter(c => !candidates.some(
+      other =>
+        other.tIdx !== c.tIdx &&
+        other.posSet.size > c.posSet.size &&
+        [...c.posSet].every(p => other.posSet.has(p))
+    ))
+    .map(c => c.tIdx);
+
+  console.log(`[QR] candidates=${candidates.length}, after subset-filter=${dataTableIndices.length}`);
   if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 3: Extract positionData from unique tables only ─────────────────────
@@ -390,7 +408,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   }
 
-  console.log(`[QR] Found ${positionData.length} positions across ${dataTableIndices.length} unique table(s)`);
+  console.log(`[QR] Found ${positionData.length} positions across ${dataTableIndices.length} data table(s)`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 4: Generate QR codes ────────────────────────────────────────────────
