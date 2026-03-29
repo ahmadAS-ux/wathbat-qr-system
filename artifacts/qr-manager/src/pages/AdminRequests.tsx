@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, ArrowLeft, ArrowRight, Search, Wrench, Download } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import * as XLSX from 'xlsx';
 
 interface RequestRow {
@@ -27,6 +27,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export default function AdminRequests() {
   const { t, isRtl } = useLanguage();
+  const [, navigate] = useLocation();
   const [all, setAll] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -200,7 +201,18 @@ export default function AdminRequests() {
                       <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.positionId}</td>
                       <td className="px-4 py-3 text-foreground">{row.requestType}</td>
                       <td className="px-4 py-3 text-foreground">{row.customerPhone || '—'}</td>
-                      <td className="px-4 py-3 text-foreground">{row.invoiceNumber || '—'}</td>
+                      <td className="px-4 py-3">
+                        {row.invoiceNumber ? (
+                          <button
+                            onClick={() => navigate(`/admin?project=${encodeURIComponent(row.invoiceNumber!)}`)}
+                            className="text-[#4A6FA5] underline underline-offset-2 hover:text-[#3d5f94] font-medium transition-colors cursor-pointer"
+                          >
+                            {row.invoiceNumber}
+                          </button>
+                        ) : (
+                          <span className="text-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                         {new Date(row.createdAt).toLocaleDateString()}
                       </td>

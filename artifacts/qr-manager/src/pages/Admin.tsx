@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft } from 'lucide-react';
+import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { Link } from 'wouter';
 
@@ -51,6 +51,9 @@ export default function Admin() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [historyVisible, setHistoryVisible] = useState(PREVIEW_COUNT);
   const [requestsVisible, setRequestsVisible] = useState(PREVIEW_COUNT);
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+
+  const archiveRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -83,7 +86,34 @@ export default function Admin() {
     fetchHistory();
   };
 
-  useEffect(() => { fetchData(); fetchHistory(); }, []);
+  useEffect(() => {
+    fetchData();
+    fetchHistory();
+    const params = new URLSearchParams(window.location.search);
+    const project = params.get('project');
+    if (project) {
+      setProjectFilter(project);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (projectFilter && archiveRef.current) {
+      setTimeout(() => {
+        archiveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [projectFilter]);
+
+  const handleInvoiceClick = (invoiceNumber: string) => {
+    setProjectFilter(invoiceNumber);
+    setHistoryVisible(PREVIEW_COUNT);
+  };
+
+  const clearProjectFilter = () => {
+    setProjectFilter(null);
+    setHistoryVisible(PREVIEW_COUNT);
+    window.history.replaceState({}, '', window.location.pathname);
+  };
 
   const updateStatus = async (id: number, status: string) => {
     setUpdatingId(id);
@@ -107,7 +137,12 @@ export default function Admin() {
   ];
 
   const statusOptions = ['New', 'In Progress', 'Done'];
-  const shownHistory = history.slice(0, historyVisible);
+
+  const filteredHistory = projectFilter
+    ? history.filter(row => row.projectName === projectFilter)
+    : history;
+
+  const shownHistory = filteredHistory.slice(0, historyVisible);
   const shownRequests = requests.slice(0, requestsVisible);
 
   return (
@@ -150,12 +185,24 @@ export default function Admin() {
         </div>
 
         {/* ── Document Archive ── */}
-        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+        <div ref={archiveRef} className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
           {/* Section header */}
           <div className={`flex items-center justify-between p-5 border-b border-border/40 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div className={`flex items-center gap-2.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <Archive className="w-5 h-5 text-[#4A6FA5]" />
               <h2 className="font-bold text-lg text-[#1B2A4A]">{t('archive_title')}</h2>
+              {projectFilter && (
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#4A6FA5]/10 text-[#4A6FA5] border border-[#4A6FA5]/20 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  {projectFilter}
+                  <button
+                    onClick={clearProjectFilter}
+                    className="hover:text-[#1B2A4A] transition-colors"
+                    aria-label="Clear filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </div>
             <Link href="/admin/history">
               <button className={`flex items-center gap-1.5 text-sm font-semibold text-[#4A6FA5] hover:text-[#3d5f94] transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -177,8 +224,8 @@ export default function Admin() {
               <tbody>
                 {historyLoading ? (
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
-                ) : history.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">{t('admin_history_empty')}</td></tr>
+                ) : filteredHistory.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">{projectFilter ? t('admin_history_no_match') : t('admin_history_empty')}</td></tr>
                 ) : (
                   shownHistory.map((row, i) => (
                     <motion.tr
@@ -214,7 +261,7 @@ export default function Admin() {
           </div>
 
           {/* Show More / View All footer */}
-          {history.length > historyVisible && (
+          {filteredHistory.length > historyVisible && (
             <div className={`flex items-center justify-between px-5 py-3 border-t border-border/30 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <button
                 onClick={() => setHistoryVisible(v => v + 20)}
@@ -273,7 +320,18 @@ export default function Admin() {
                       <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.positionId}</td>
                       <td className="px-4 py-3 text-foreground">{row.requestType}</td>
                       <td className="px-4 py-3 text-foreground">{row.customerPhone || '—'}</td>
-                      <td className="px-4 py-3 text-foreground">{row.invoiceNumber || '—'}</td>
+                      <td className="px-4 py-3">
+                        {row.invoiceNumber ? (
+                          <button
+                            onClick={() => handleInvoiceClick(row.invoiceNumber!)}
+                            className="text-[#4A6FA5] underline underline-offset-2 hover:text-[#3d5f94] font-medium transition-colors cursor-pointer"
+                          >
+                            {row.invoiceNumber}
+                          </button>
+                        ) : (
+                          <span className="text-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{new Date(row.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
                         <select
