@@ -482,9 +482,13 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
               .replace(/w:type="[^"]*"/, `w:type="dxa"`);
     });
 
-    // Process all top-level rows only (applyToTopLevelRows skips nested table rows)
+    // Process all top-level rows only (applyToTopLevelRows skips nested table rows).
+    // Pass the INNER content only (strip outer <w:tbl>...</w:tbl> wrapper) so the
+    // function doesn't mistake the outer opening tag for a nested table.
     const tableQrStart = qrIdx;
-    tblXml = applyToTopLevelRows(tblXml, (rowXml) => {
+    const tblInnerContent = applyToTopLevelRows(
+      tblXml.slice(TABLE_OPEN.length, tblXml.length - TABLE_CLOSE.length),
+      (rowXml) => {
       const texts = [...rowXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
         .map(m => m[1].trim()).filter(Boolean);
 
@@ -533,7 +537,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       }
 
       return row.replace(/<\/w:tr>$/, cellXml + "</w:tr>");
-    });
+      }
+    );
+    tblXml = TABLE_OPEN + tblInnerContent + TABLE_CLOSE;
 
     console.log(`[QR] table[${tIdx}]: injected ${qrIdx - tableQrStart} rows`);
 
