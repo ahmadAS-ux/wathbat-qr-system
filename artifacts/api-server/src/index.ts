@@ -20,19 +20,22 @@ if (Number.isNaN(port) || port <= 0) {
 async function runStartupMigrations() {
   try {
     // Backfill: the old scan page sent the QR ref param as `invoiceNumber` instead
-    // of `projectName`. The scan form has no manual invoice-number input, so any
-    // request where project_name is NULL and invoice_number is set must be holding
-    // a project reference in the wrong column. Move it unconditionally.
+    // of `projectName`. Only move a value from invoice_number → project_name when
+    // it actually matches a real project name in processed_docs. Values that don't
+    // match (e.g. real invoice numbers like INV-2025-001) stay in invoice_number.
     const fix = await db.execute(sql`
-      UPDATE requests
-      SET project_name = invoice_number,
+      UPDATE requests r
+      SET project_name = r.invoice_number,
           invoice_number = NULL
-      WHERE project_name IS NULL
-        AND invoice_number IS NOT NULL
+      WHERE r.project_name IS NULL
+        AND r.invoice_number IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM processed_docs p WHERE p.project_name = r.invoice_number
+        )
     `);
     const fixCount = (fix as any).rowCount ?? 0;
     if (fixCount > 0) {
-      logger.info({ count: fixCount }, "Migration: moved project ref from invoice_number to project_name");
+      logger.info({ count: fixCount }, "Migration: moved project names from invoice_number to project_name");
     }
   } catch (err) {
     logger.error({ err }, "Startup migration failed — server will still start");
