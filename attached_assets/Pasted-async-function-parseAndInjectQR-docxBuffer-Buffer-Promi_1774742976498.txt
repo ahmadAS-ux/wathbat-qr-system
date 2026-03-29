@@ -1,0 +1,229 @@
+async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
+  positions: PositionItem[];
+  projectName: string;
+  date: string;
+  outputBuffer: Buffer;
+}> {
+  const zip = new AdmZip(docxBuffer);
+  let docXml = zip.readAsText("word/document.xml");
+
+  const segments = extractTextSegments(docXml);
+
+  let projectName = "";
+  let date = "";
+  for (let i = 0; i < segments.length; i++) {
+    const t = segments[i].text;
+    if (t.startsWith("Date:")) date = t.replace("Date:", "").trim();
+    if (t === "Project name:" && segments[i + 2]) projectName = segments[i + 2].text;
+  }
+
+  const POSITION_RE = /^\d{2}\s*\/\s*\d+$/;
+  const positionData: Array<{
+    position: string; quantity: string; width: string;
+    height: string; area: string; perimeter: string;
+    price: string; total: string;
+  }> = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    if (POSITION_RE.test(segments[i].text)) {
+      positionData.push({
+        position:  segments[i].text,
+        quantity:  segments[i + 1]?.text || "",
+        width:     segments[i + 2]?.text || "",
+        height:    segments[i + 3]?.text || "",
+        area:      segments[i + 4]?.text || "",
+        perimeter: segments[i + 5]?.text || "",
+        price:     segments[i + 6]?.text || "",
+        total:     segments[i + 7]?.text || "",
+      });
+    }
+  }
+
+  if (positionData.length === 0) throw new Error("NO_POSITIONS");
+
+  const qrEntries: QREntry[] = [];
+  for (let i = 0; i < positionData.length; i++) {
+    const p = positionData[i];
+    const qrText = [p.position, p.quantity ? `Qty:${p.quantity}` : "",
+      p.width && p.height ? `${p.width}x${p.height}mm` : "", projectName || ""]
+      .filter(Boolean).join(" | ");
+
+    const buf = await QRCode.toBuffer(qrText, { type: "png", width: 300, margin: 1, errorCorrectionLevel: "M" });
+    const dataUrl = await QRCode.toDataURL(qrText, { width: 150, margin: 1, errorCorrectionLevel: "M" });
+    const safeName = p.position.replace(/\s*\/\s*/g, "_").replace(/\s/g, "");
+    qrEntries.push({
+      position: p.position,
+      rId: `rIdQR${2000 + i}`,
+      mediaName: `qr_pos_${safeName}_${i}.png`,
+      buffer: buf,
+      dataUrl,
+    });
+  }
+
+  // Add required namespaces
+  const REQUIRED_NS: Record<string, string> = {
+    wp:  "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+    a:   "http://schemas.openxmlformats.org/drawingml/2006/main",
+    pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
+    r:   "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+  };
+  const docElemMatch = /<w:document\b[^>]*>/.exec(docXml);
+  if (docElemMatch) {
+    let elem = docElemMatch[0];
+    let additions = "";
+    for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
+      if (!elem.includes(`xmlns:${prefix}=`)) additions += ` xmlns:${prefix}="${uri}"`;
+    }
+    if (additions) {
+      const newElem = elem.slice(0, elem.lastIndexOf(">")) + additions + ">";
+      docXml = docXml.slice(0, docElemMatch.index) + newElem +
+               docXml.slice(docElemMatch.index + docElemMatch[0].length);
+    }
+  }
+
+  docXml = docXml.replace(/<w:noWrap\/>/g, "");
+
+  // Find all tables and locate the data table
+  const TABLE_OPEN  = "<w:tbl>";
+  const TABLE_CLOSE = "</w:tbl>";
+  const tableRanges: Array<{ start: number; end: number }> = [];
+  let searchFrom = 0;
+  while (true) {
+    const tStart = docXml.indexOf(TABLE_OPEN, searchFrom);
+    if (tStart === -1) break;
+    const tEnd = docXml.indexOf(TABLE_CLOSE, tStart);
+    if (tEnd === -1) break;
+    tableRanges.push({ start: tStart, end: tEnd + TABLE_CLOSE.length });
+    searchFrom = tEnd + TABLE_CLOSE.length;
+  }
+
+  let dataTableIdx = -1;
+  for (let t = 0; t < tableRanges.length; t++) {
+    const tContent = docXml.slice(tableRanges[t].start, tableRanges[t].end);
+    if ([...tContent.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+        .some(m => POSITION_RE.test(m[1].trim()))) {
+      dataTableIdx = t;
+      break;
+    }
+  }
+
+  if (dataTableIdx === -1) throw new Error("NO_POSITIONS");
+
+  const { start: tblStart, end: tblEnd } = tableRanges[dataTableIdx];
+  let tblXml = docXml.slice(tblStart, tblEnd);
+
+  const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
+    calcLayout(docXml, tblXml);
+
+  // Rewrite tblGrid
+  const newGrid = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
+                  `<w:gridCol w:w="${qrColWidth}"/>`;
+  tblXml = tblXml.replace(
+    /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/,
+    `<w:tblGrid>${newGrid}</w:tblGrid>`
+  );
+
+  // Rewrite tblW
+  tblXml = tblXml.replace(/<w:tblW\b[^>]*\/?>/, (m) => {
+    let u = m.includes('w:w="') ? m.replace(/w:w="\d+"/, `w:w="${newTableW}"`) : m.replace('<w:tblW', `<w:tblW w:w="${newTableW}"`);
+    u = u.includes('w:type="') ? u.replace(/w:type="[^"]*"/, `w:type="dxa"`) : u.replace('<w:tblW', `<w:tblW w:type="dxa"`);
+    return u;
+  });
+
+  // Rescale tcW
+  const colScale = origTableW > 0 ? (newTableW - qrColWidth) / origTableW : 1;
+  tblXml = tblXml.replace(/<w:tcW\b[^>]*\/>/g, (m) => {
+    const type = m.match(/w:type="([^"]*)"/)?.[1] ?? "dxa";
+    if (type === "pct" || type === "auto" || type === "nil") return m;
+    const w = parseInt(m.match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
+    if (w === 0) return m;
+    return m.replace(/w:w="\d+"/, `w:w="${Math.round(w * colScale)}"`)
+            .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+  });
+
+  // Process ALL rows
+  let qrIdx = 0;
+  tblXml = tblXml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g, (rowXml) => {
+    const texts = [...rowXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+      .map(m => m[1].trim()).filter(Boolean);
+
+    const isHeaderRow = texts.some(t => t.includes("Position") && t.includes("Number"));
+    const isDataRow   = texts.some(t => POSITION_RE.test(t));
+
+    let row = rowXml;
+
+    // Add cantSplit
+    if (row.includes("<w:trPr>")) {
+      if (!row.includes("<w:cantSplit")) row = row.replace("<w:trPr>", "<w:trPr><w:cantSplit/>");
+    } else if (/<w:trPr\b/.test(row)) {
+      if (!row.includes("<w:cantSplit")) row = row.replace(/<w:trPr\b[^>]*>/, m => m + "<w:cantSplit/>");
+    } else {
+      row = row.replace(/^<w:tr([ >])/, (_m, s) => `<w:tr${s}<w:trPr><w:cantSplit/></w:trPr>`);
+    }
+
+    // Fix row height for data rows
+    if (isDataRow) {
+      row = row.replace(/<w:trHeight\b[^>]*\/>/, '<w:trHeight w:val="0" w:hRule="auto"/>');
+    }
+
+    // Add vAlign center to all cells in data rows
+    if (isDataRow) {
+      row = row.replace(/<\/w:tcPr>/g, (m, offset, str) => {
+        const before = str.slice(0, offset);
+        if (!before.slice(before.lastIndexOf("<w:tcPr")).includes("<w:vAlign")) {
+          return '<w:vAlign w:val="center"/>' + m;
+        }
+        return m;
+      });
+      row = row.replace(/<w:tcPr\/>/g, '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>');
+    }
+
+    // Inject QR cell
+    let cellXml: string;
+    if (isHeaderRow) {
+      cellXml = makeQRHeaderCell(qrColWidth);
+    } else if (isDataRow) {
+      cellXml = qrIdx < qrEntries.length
+        ? makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU)
+        : makeEmptyCell(qrColWidth, true);
+      qrIdx++;
+    } else {
+      cellXml = makeEmptyCell(qrColWidth, true);
+    }
+
+    return row.replace(/<\/w:tr>$/, cellXml + "</w:tr>");
+  });
+
+  console.log(`[QR] injected=${qrIdx} of ${qrEntries.length}`);
+
+  // Put table back
+  docXml = docXml.slice(0, tblStart) + tblXml + docXml.slice(tblEnd);
+
+  zip.updateFile("word/document.xml", Buffer.from(docXml, "utf8"));
+
+  for (const qr of qrEntries) {
+    zip.addFile(`word/media/${qr.mediaName}`, qr.buffer);
+  }
+
+  let ctXml = zip.readAsText("[Content_Types].xml");
+  if (!ctXml.includes('Extension="png"')) {
+    ctXml = ctXml.replace("</Types>", `<Default Extension="png" ContentType="image/png"/></Types>`);
+    zip.updateFile("[Content_Types].xml", Buffer.from(ctXml, "utf8"));
+  }
+
+  let relsXml = zip.readAsText("word/_rels/document.xml.rels");
+  const newRels = qrEntries.map(qr =>
+    `<Relationship Id="${qr.rId}" ` +
+    `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" ` +
+    `Target="media/${qr.mediaName}"/>`
+  ).join("\n");
+  relsXml = relsXml.replace("</Relationships>", `${newRels}\n</Relationships>`);
+  zip.updateFile("word/_rels/document.xml.rels", Buffer.from(relsXml, "utf8"));
+
+  return {
+    positions: positionData.map((p, i) => ({ ...p, qrDataUrl: qrEntries[i]?.dataUrl || "" })),
+    projectName,
+    date,
+    outputBuffer: zip.toBuffer(),
+  };
+}
