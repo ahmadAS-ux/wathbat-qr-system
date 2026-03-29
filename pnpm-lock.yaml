@@ -91,6 +91,9 @@ importers:
 
   .:
     devDependencies:
+      adm-zip:
+        specifier: ^0.5.16
+        version: 0.5.16
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
