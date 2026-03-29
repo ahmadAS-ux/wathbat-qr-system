@@ -524,7 +524,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       } else if (/<w:trPr\b/.test(row)) {
         if (!row.includes("<w:cantSplit")) row = row.replace(/<w:trPr\b[^>]*>/, m => m + "<w:cantSplit/>");
       } else {
-        row = row.replace(/^<w:tr([ >])/, (_m, s) => `<w:tr${s}<w:trPr><w:cantSplit/></w:trPr>`);
+        // Capture the ENTIRE <w:tr ...> opening tag (may include attributes like w:rsidR)
+        // then append <w:trPr> as the first child — NOT inside the opening tag attributes.
+        row = row.replace(/^(<w:tr(?:\s[^>]*)?>)/, (_m, openTag) => openTag + "<w:trPr><w:cantSplit/></w:trPr>");
       }
 
       // Fix row height
