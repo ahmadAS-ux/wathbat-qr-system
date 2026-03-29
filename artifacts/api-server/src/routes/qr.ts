@@ -345,15 +345,23 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
     r:   "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
   };
+  // Only inject namespaces ONCE — use indexOf(">") not lastIndexOf to avoid
+  // accidentally walking into a self-closing tag's content if the tag spans far.
   const docElemMatch = /<w:document\b[^>]*>/.exec(docXml);
   if (docElemMatch) {
-    let elem = docElemMatch[0];
-    let additions = "";
-    for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
-      if (!elem.includes(`xmlns:${prefix}=`)) additions += ` xmlns:${prefix}="${uri}"`;
-    }
-    if (additions) {
-      const newElem = elem.slice(0, elem.lastIndexOf(">")) + additions + ">";
+    const elem = docElemMatch[0];
+    const allExist = Object.keys(REQUIRED_NS).every(prefix =>
+      elem.includes(`xmlns:${prefix}=`)
+    );
+    if (!allExist) {
+      let additions = "";
+      for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
+        if (!elem.includes(`xmlns:${prefix}=`)) {
+          additions += ` xmlns:${prefix}="${uri}"`;
+        }
+      }
+      const closePos = elem.indexOf(">");
+      const newElem = elem.slice(0, closePos) + additions + elem.slice(closePos);
       docXml = docXml.slice(0, docElemMatch.index) + newElem +
                docXml.slice(docElemMatch.index + docElemMatch[0].length);
     }
@@ -459,6 +467,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   console.log(`[QR] total injected=${qrIdx} of ${qrEntries.length}`);
+
+  // Sanity-check: duplicate xmlns declarations corrupt the XML and cause Word to refuse the file
+  const xmlnsWpMatches = docXml.match(/xmlns:wp=/g);
+  if (xmlnsWpMatches && xmlnsWpMatches.length > 1) {
+    throw new Error(`DUPLICATE_NAMESPACE: xmlns:wp declared ${xmlnsWpMatches.length} times`);
+  }
 
   zip.updateFile("word/document.xml", Buffer.from(docXml, "utf8"));
 

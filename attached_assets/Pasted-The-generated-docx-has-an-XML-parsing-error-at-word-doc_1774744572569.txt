@@ -1,0 +1,46 @@
+The generated .docx has an XML parsing error at word/document.xml Line 2, Column 362320. Word refuses to open it.
+The bug is in the namespace injection code. When the document is processed and docXml is modified multiple times, the namespace attributes get added more than once to the <w:document> tag, corrupting it.
+Fix the namespace injection block — add a strict check:
+Find this code:
+typescriptconst docElemMatch = /<w:document\b[^>]*>/.exec(docXml);
+if (docElemMatch) {
+  let elem = docElemMatch[0];
+  let additions = "";
+  for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
+    if (!elem.includes(`xmlns:${prefix}=`)) additions += ` xmlns:${prefix}="${uri}"`;
+  }
+  if (additions) {
+    const newElem = elem.slice(0, elem.lastIndexOf(">")) + additions + ">";
+    docXml = docXml.slice(0, docElemMatch.index) + newElem +
+             docXml.slice(docElemMatch.index + docElemMatch[0].length);
+  }
+}
+Replace with:
+typescript// Only inject namespaces ONCE on the original XML before any table processing
+const docElemMatch = /<w:document\b[^>]*>/.exec(docXml);
+if (docElemMatch) {
+  const elem = docElemMatch[0];
+  // Exit early if all namespaces already exist
+  const allExist = Object.keys(REQUIRED_NS).every(prefix => 
+    elem.includes(`xmlns:${prefix}=`)
+  );
+  if (!allExist) {
+    let additions = "";
+    for (const [prefix, uri] of Object.entries(REQUIRED_NS)) {
+      if (!elem.includes(`xmlns:${prefix}=`)) {
+        additions += ` xmlns:${prefix}="${uri}"`;
+      }
+    }
+    // Insert before the closing > of the opening tag only
+    const closePos = elem.indexOf(">");
+    const newElem = elem.slice(0, closePos) + additions + elem.slice(closePos);
+    docXml = docXml.slice(0, docElemMatch.index) + newElem +
+             docXml.slice(docElemMatch.index + docElemMatch[0].length);
+  }
+}
+Also add this validation before saving to zip — it will catch XML errors before Word sees them:
+typescript// Validate: check for duplicate xmlns declarations
+const xmlnsMatches = docXml.match(/xmlns:wp=/g);
+if (xmlnsMatches && xmlnsMatches.length > 1) {
+  throw new Error("DUPLICATE_NAMESPACE: xmlns:wp declared " + xmlnsMatches.length + " times");
+}
