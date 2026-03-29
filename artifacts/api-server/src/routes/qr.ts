@@ -226,7 +226,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   // ── Step 4: Generate QR data URLs (embedded directly into HTML) ─────────────
   const domain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
   const qrBaseUrl = process.env.QR_SCAN_BASE_URL ||
-    (domain ? `https://${domain}/qr-manager/scan` : '/qr-manager/scan');
+    (domain ? `https://${domain}/scan` : '/scan');
+
+  console.log(`[QR] Scan page URL base: ${qrBaseUrl}`);
 
   const qrEntries: QREntry[] = [];
   for (let i = 0; i < positionData.length; i++) {
