@@ -428,7 +428,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
     // First </w:tbl> that ends after the last reference row
     const closeIdx = docXml.indexOf("</w:tbl>", lastRefPos);
-    dataTblEnd = closeIdx >= 0 ? closeIdx + 8 : docXml.length; // 8 = "</w:tbl>".length
+    dataTblEnd = closeIdx >= 0 ? closeIdx : docXml.length; // points to < of </w:tbl>
   }
 
   const dataTblXml = docXml.slice(dataTblStart, dataTblEnd);
@@ -490,10 +490,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   // ── STEP 7: Inject QR cells into each row ────────────────────────────────
-  // Only process rows that belong to the data table (by start position).
-  // Using r.start < dataTblEnd (not <=) so the </w:tbl> boundary is exclusive.
+  // dataTblEnd now points to the '<' of </w:tbl>, so r.start < dataTblEnd
+  // captures every row whose opening tag is inside the table (including the last rows).
+  const dataTblXmlFull = docXml.slice(dataTblStart, dataTblEnd);
+  void dataTblXmlFull; // available for future debugging
   const dataTblRows = rows.filter(
-    (r) => r.start >= dataTblStart && r.end <= dataTblEnd,
+    (r) => r.start >= dataTblStart && r.start < dataTblEnd,
   );
 
   let qrIdx = 0;
