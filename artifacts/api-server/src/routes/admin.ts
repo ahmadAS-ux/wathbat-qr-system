@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, requestsTable } from "@workspace/db";
+import { db, requestsTable, processedDocsTable } from "@workspace/db";
 import { eq, and, gte, count, sql } from "drizzle-orm";
 import { totalDocsProcessed, totalQRsGenerated } from "../lib/stats.js";
 
@@ -89,6 +89,26 @@ router.patch("/admin/requests/:id", async (req: Request, res: Response): Promise
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Failed to update request" });
+  }
+});
+
+router.get("/admin/history", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await db
+      .select({
+        id: processedDocsTable.id,
+        originalFilename: processedDocsTable.originalFilename,
+        reportFilename: processedDocsTable.reportFilename,
+        projectName: processedDocsTable.projectName,
+        processingDate: processedDocsTable.processingDate,
+        positionCount: processedDocsTable.positionCount,
+        createdAt: processedDocsTable.createdAt,
+      })
+      .from(processedDocsTable)
+      .orderBy(sql`${processedDocsTable.createdAt} desc`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Failed to fetch history" });
   }
 });
 

@@ -61,6 +61,14 @@ export const translations = {
     admin_no_requests: "No requests found.",
     toast_success_title: "Success!",
     toast_success_desc: "Document processed with QR codes embedded.",
+    admin_history_title: "Processing History",
+    admin_history_project: "Project Name",
+    admin_history_filename: "Original File",
+    admin_history_date: "Processed On",
+    admin_history_positions: "Positions",
+    admin_history_dl_report: "Download Report",
+    admin_history_dl_original: "Download Original",
+    admin_history_empty: "No documents processed yet.",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -122,6 +130,14 @@ export const translations = {
     admin_no_requests: "لا توجد طلبات.",
     toast_success_title: "نجاح!",
     toast_success_desc: "تمت معالجة المستند مع تضمين رموز QR.",
+    admin_history_title: "سجل المعالجة",
+    admin_history_project: "اسم المشروع",
+    admin_history_filename: "الملف الأصلي",
+    admin_history_date: "تاريخ المعالجة",
+    admin_history_positions: "المواضع",
+    admin_history_dl_report: "تنزيل التقرير",
+    admin_history_dl_original: "تنزيل الأصلي",
+    admin_history_empty: "لم تتم معالجة أي مستندات بعد.",
   }
 };
 

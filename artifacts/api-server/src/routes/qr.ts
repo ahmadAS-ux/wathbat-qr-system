@@ -2,8 +2,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import AdmZip from "adm-zip";
 import QRCode from "qrcode";
-import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { recordProcessed } from "../lib/stats.js";
+import { db, processedDocsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -40,21 +41,6 @@ interface QREntry {
   dataUrl: string;
 }
 
-// In-memory store
-const processedFiles = new Map<
-  string,
-  { buffer: Buffer; filename: string; expiresAt: number }
->();
-
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [id, entry] of processedFiles.entries()) {
-      if (entry.expiresAt < now) processedFiles.delete(id);
-    }
-  },
-  10 * 60 * 1000,
-);
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -563,17 +549,26 @@ router.post(
         throw err;
       }
 
-      const fileId = randomUUID();
       const originalName = req.file.originalname.replace(/\.docx$/i, "");
-      processedFiles.set(fileId, {
-        buffer: result.outputBuffer,
-        filename: `${originalName}_QR_Report.html`,
-        expiresAt: Date.now() + 60 * 60 * 1000,
-      });
+      const reportFilename = `${originalName}_QR_Report.html`;
+
+      const [saved] = await db
+        .insert(processedDocsTable)
+        .values({
+          originalFilename: req.file.originalname,
+          reportFilename,
+          projectName: result.projectName || null,
+          processingDate: result.date || null,
+          positionCount: result.positions.length,
+          originalFile: req.file.buffer,
+          reportFile: result.outputBuffer,
+        })
+        .returning({ id: processedDocsTable.id });
+
       recordProcessed(result.positions.length);
 
       res.json({
-        fileId,
+        fileId: String(saved.id),
         positions: result.positions,
         projectName: result.projectName,
         date: result.date,
@@ -587,22 +582,50 @@ router.post(
   },
 );
 
-router.get("/qr/download/:fileId", (req: Request, res: Response): void => {
-  const fileId = req.params.fileId as string;
-  const entry = processedFiles.get(fileId);
+router.get("/qr/download/:fileId", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.fileId as string, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "BadRequest", message: "Invalid file ID" });
+    return;
+  }
 
-  if (!entry) {
-    res.status(404).json({ error: "NotFound", message: "File not found or has expired" });
+  const [row] = await db
+    .select()
+    .from(processedDocsTable)
+    .where(eq(processedDocsTable.id, id));
+
+  if (!row) {
+    res.status(404).json({ error: "NotFound", message: "File not found" });
     return;
   }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${encodeURIComponent(entry.filename)}"`,
-  );
-  res.setHeader("Content-Length", entry.buffer.length.toString());
-  res.send(entry.buffer);
+  res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(row.reportFilename)}"`);
+  res.setHeader("Content-Length", row.reportFile.length.toString());
+  res.send(row.reportFile);
+});
+
+router.get("/qr/download/:fileId/original", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.fileId as string, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "BadRequest", message: "Invalid file ID" });
+    return;
+  }
+
+  const [row] = await db
+    .select()
+    .from(processedDocsTable)
+    .where(eq(processedDocsTable.id, id));
+
+  if (!row) {
+    res.status(404).json({ error: "NotFound", message: "File not found" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(row.originalFilename)}"`);
+  res.setHeader("Content-Length", row.originalFile.length.toString());
+  res.send(row.originalFile);
 });
 
 export default router;

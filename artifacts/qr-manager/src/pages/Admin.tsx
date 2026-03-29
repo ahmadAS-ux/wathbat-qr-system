@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw } from 'lucide-react';
+import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, History } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import * as XLSX from 'xlsx';
 
@@ -22,6 +22,16 @@ interface RequestRow {
   createdAt: string;
 }
 
+interface HistoryRow {
+  id: number;
+  originalFilename: string;
+  reportFilename: string;
+  projectName: string | null;
+  processingDate: string | null;
+  positionCount: number;
+  createdAt: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   New: 'bg-blue-100 text-blue-700 border-blue-200',
   'In Progress': 'bg-amber-100 text-amber-700 border-amber-200',
@@ -34,8 +44,10 @@ export default function Admin() {
   const { t, isRtl } = useLanguage();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [filter, setFilter] = useState<string>('All');
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   const fetchData = async () => {
@@ -52,7 +64,20 @@ export default function Admin() {
     }
   };
 
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/history`);
+      if (res.ok) setHistory(await res.json());
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const refreshAll = () => { fetchData(); fetchHistory(); };
+
   useEffect(() => { fetchData(); }, [filter]);
+  useEffect(() => { fetchHistory(); }, []);
 
   const updateStatus = async (id: number, status: string) => {
     setUpdatingId(id);
@@ -107,17 +132,17 @@ export default function Admin() {
     <div className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
 
-        {/* Header */}
+        {/* Page header */}
         <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
           <div className={isRtl ? 'text-right' : ''}>
             <h1 className="text-3xl font-extrabold text-[#1B2A4A] tracking-tight">{t('admin_title')}</h1>
             <p className="text-muted-foreground mt-1 text-sm">Wathbat · wathbat.sa</p>
           </div>
           <button
-            onClick={fetchData}
+            onClick={refreshAll}
             className="flex items-center gap-2 text-sm font-medium text-[#1B2A4A] hover:text-[#C89B3C] transition-colors"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${(loading || historyLoading) ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
@@ -142,13 +167,87 @@ export default function Admin() {
           ))}
         </div>
 
-        {/* Requests table */}
+        {/* ── Processing History ── */}
         <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
-          {/* Table toolbar */}
+          <div className={`flex items-center gap-3 p-5 border-b border-border/40 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <History className="w-5 h-5 text-[#C89B3C]" />
+            <h2 className={`font-bold text-lg text-[#1B2A4A] ${isRtl ? 'text-right' : ''}`}>{t('admin_history_title')}</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
+              <thead className="bg-[#F8F9FB] border-b border-border/40">
+                <tr>
+                  {[
+                    t('admin_history_project'),
+                    t('admin_history_filename'),
+                    t('admin_history_date'),
+                    t('admin_history_positions'),
+                    t('admin_history_dl_report'),
+                    t('admin_history_dl_original'),
+                  ].map(h => (
+                    <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {historyLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                    </td>
+                  </tr>
+                ) : history.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">{t('admin_history_empty')}</td>
+                  </tr>
+                ) : (
+                  history.map((row, i) => (
+                    <motion.tr
+                      key={row.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.02 }}
+                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#1B2A4A]/[0.02]`}
+                    >
+                      <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.projectName || '—'}</td>
+                      <td className="px-4 py-3 text-foreground font-mono text-xs">{row.originalFilename}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                        {new Date(row.createdAt).toLocaleDateString()} {new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-[#1B2A4A]">{row.positionCount}</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={`${BASE}/api/qr/download/${row.id}`}
+                          download={row.reportFilename}
+                          className="inline-flex items-center gap-1.5 bg-[#1B2A4A] hover:bg-[#142240] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          {t('admin_history_dl_report')}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={`${BASE}/api/qr/download/${row.id}/original`}
+                          download={row.originalFilename}
+                          className="inline-flex items-center gap-1.5 bg-[#C89B3C] hover:bg-[#b8871a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          {t('admin_history_dl_original')}
+                        </a>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── Customer Requests ── */}
+        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
           <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 border-b border-border/40 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
             <h2 className={`font-bold text-lg text-[#1B2A4A] ${isRtl ? 'text-right' : ''}`}>{t('admin_requests_table')}</h2>
             <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              {/* Status filters */}
               <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
                 {filters.map(f => (
                   <button
@@ -164,7 +263,6 @@ export default function Admin() {
                   </button>
                 ))}
               </div>
-              {/* Export */}
               <button
                 onClick={exportExcel}
                 className="flex items-center gap-2 bg-[#C89B3C] hover:bg-[#b8871a] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
