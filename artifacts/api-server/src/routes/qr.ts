@@ -561,6 +561,22 @@ router.post(
       const originalName = req.file.originalname.replace(/\.docx$/i, "");
       const reportFilename = `${originalName}_QR_Report.html`;
 
+      if (result.projectName) {
+        const [existing] = await db
+          .select({ id: processedDocsTable.id })
+          .from(processedDocsTable)
+          .where(eq(processedDocsTable.projectName, result.projectName))
+          .limit(1);
+        if (existing) {
+          res.status(409).json({
+            error: "DuplicateProject",
+            message: `A project named "${result.projectName}" already exists.`,
+            projectName: result.projectName,
+          });
+          return;
+        }
+      }
+
       const [saved] = await db
         .insert(processedDocsTable)
         .values({

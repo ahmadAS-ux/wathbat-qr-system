@@ -5,39 +5,49 @@ import { ResultsView } from '@/components/ResultsView';
 import { useProcessDocument, ProcessResult } from '@workspace/api-client-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, QrCode } from 'lucide-react';
+import { Loader2, QrCode, AlertTriangle } from 'lucide-react';
 
 export default function Home() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [result, setResult] = useState<ProcessResult | null>(null);
+  const [duplicateProjectName, setDuplicateProjectName] = useState<string | null>(null);
 
   const { mutate: processDoc, isPending } = useProcessDocument({
     mutation: {
       onSuccess: (data) => {
+        setDuplicateProjectName(null);
         setResult(data);
         toast({
           title: t('toast_success_title'),
           description: t('toast_success_desc'),
         });
       },
-      onError: (error) => {
+      onError: (error: any) => {
         console.error("Processing failed:", error);
-        toast({
-          title: 'Error',
-          description: t('error_generic'),
-          variant: 'destructive',
-        });
+        const data = error?.data as Record<string, unknown> | null | undefined;
+        if (data?.error === 'DuplicateProject' && typeof data?.projectName === 'string') {
+          setDuplicateProjectName(data.projectName);
+        } else {
+          setDuplicateProjectName(null);
+          toast({
+            title: 'Error',
+            description: t('error_generic'),
+            variant: 'destructive',
+          });
+        }
       }
     }
   });
 
   const handleFileSelect = (file: File) => {
+    setDuplicateProjectName(null);
     processDoc({ data: { file } });
   };
 
   const handleReset = () => {
     setResult(null);
+    setDuplicateProjectName(null);
   };
 
   return (
@@ -72,6 +82,23 @@ export default function Home() {
               </div>
 
               <FileUpload onFileSelect={handleFileSelect} isLoading={isPending} />
+
+              <AnimatePresence>
+                {duplicateProjectName && (
+                  <motion.div
+                    key="dup-warning"
+                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                    className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-start max-w-3xl mx-auto w-full"
+                  >
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm font-medium leading-relaxed">
+                      {t('duplicate_project_error').replace('{name}', duplicateProjectName)}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
