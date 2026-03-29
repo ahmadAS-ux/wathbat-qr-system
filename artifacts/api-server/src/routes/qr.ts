@@ -366,26 +366,26 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   if (candidates.length === 0) throw new Error("NO_POSITIONS");
 
-  // Pass B — drop any candidate whose positions are a complete subset of a
-  // larger candidate (i.e. summary/totals tables that repeat only some rows).
+  // Pass B — keep only the LARGEST table (by position count).
+  // Orgadata appends a summary/totals table at the bottom that lists a handful
+  // of the LAST position IDs again before the grand-total row.  Because those
+  // IDs are different from any in the main table (e.g. the main table ends at
+  // "11 / 1" and the summary has "11 / 2", "12 / 1", "12 / 2"), the subset
+  // check never fires.  The safest rule is: only inject QR codes into the
+  // single largest table; every other candidate (however many positions it
+  // contains) is treated as a summary/totals artefact and skipped.
+  const maxPosCount = Math.max(...candidates.map(c => c.posSet.size));
   const dataTableIndices: number[] = candidates
-    .filter(c => !candidates.some(
-      other =>
-        other.tIdx !== c.tIdx &&
-        other.posSet.size > c.posSet.size &&
-        [...c.posSet].every(p => other.posSet.has(p))
-    ))
+    .filter(c => c.posSet.size === maxPosCount)
     .map(c => c.tIdx);
 
-  // Raw count = total unique positions across all fingerprint-unique candidates
-  // (before the subset-filter).  Exposed in the API response so the UI can
-  // show the user "detected X in file, processed Y after dedup".
+  // Total positions = sum across kept tables (normally just one).
   const rawPositionCount = candidates.reduce((acc, c) => acc + c.posSet.size, 0);
 
   candidates.forEach((c, i) =>
-    console.log(`[QR] candidate[${i}] tIdx=${c.tIdx} posCount=${c.posSet.size} positions=${[...c.posSet].join("|")}`)
+    console.log(`[QR] candidate[${i}] tIdx=${c.tIdx} posCount=${c.posSet.size} kept=${c.posSet.size === maxPosCount}`)
   );
-  console.log(`[QR] candidates=${candidates.length}, rawPositionCount=${rawPositionCount}, after subset-filter=${dataTableIndices.length}`);
+  console.log(`[QR] candidates=${candidates.length}, maxPosCount=${maxPosCount}, kept=${dataTableIndices.length} table(s)`);
   if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 3: Extract positionData from unique tables only ─────────────────────
