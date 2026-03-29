@@ -251,28 +251,52 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   const TABLE_OPEN  = "<w:tbl>";
   const TABLE_CLOSE = "</w:tbl>";
 
+  // ── Table / row open helpers ─────────────────────────────────────────────────
+  // Orgadata (and Word in general) uses both <w:tbl> (no attributes) and
+  // <w:tbl w:rsidR="..."> (with attributes) for nested tables.  Every helper
+  // below handles BOTH forms so depth tracking never misfires.
+
+  /** Position of the next <w:tbl> or <w:tbl ...> open tag, -1 if none. */
+  function nextTblOpen(xml: string, from: number): number {
+    const a = xml.indexOf("<w:tbl>", from);
+    const b = xml.indexOf("<w:tbl ", from);
+    if (a === -1) return b;
+    if (b === -1) return a;
+    return Math.min(a, b);
+  }
+
   /**
-   * Find all TOP-LEVEL <w:tbl> ranges in xml (depth-aware — ignores nested tables).
-   * Each returned range spans the full <w:tbl>...</w:tbl> including nested tables.
+   * Given the start index of a <w:tbl…> or <w:tbl> tag, return the index
+   * immediately after the closing ">" of that opening tag.
+   * (Content scanning must start from here, not from start + fixed-length.)
+   */
+  function afterTblOpenTag(xml: string, tblStart: number): number {
+    const gt = xml.indexOf(">", tblStart + 5); // skip past "<w:tbl" (6 chars)
+    return gt === -1 ? tblStart + TABLE_OPEN.length : gt + 1;
+  }
+
+  /**
+   * Find all TOP-LEVEL <w:tbl[> ] ranges in xml (depth-aware).
+   * Handles both <w:tbl> and <w:tbl attr="…"> opening tags.
    */
   function findTableRanges(xml: string): Array<{ start: number; end: number }> {
     const ranges: Array<{ start: number; end: number }> = [];
     let pos = 0;
     while (pos < xml.length) {
-      const openIdx = xml.indexOf(TABLE_OPEN, pos);
+      const openIdx = nextTblOpen(xml, pos);
       if (openIdx === -1) break;
       let depth = 1;
-      let search = openIdx + TABLE_OPEN.length;
+      let search = afterTblOpenTag(xml, openIdx);
       while (depth > 0 && search < xml.length) {
-        const nextOpen  = xml.indexOf(TABLE_OPEN, search);
-        const nextClose = xml.indexOf(TABLE_CLOSE, search);
-        if (nextClose === -1) break;
-        if (nextOpen !== -1 && nextOpen < nextClose) {
+        const no = nextTblOpen(xml, search);
+        const nc = xml.indexOf(TABLE_CLOSE, search);
+        if (nc === -1) break;
+        if (no !== -1 && no < nc) {
           depth++;
-          search = nextOpen + TABLE_OPEN.length;
+          search = afterTblOpenTag(xml, no);
         } else {
           depth--;
-          search = nextClose + TABLE_CLOSE.length;
+          search = nc + TABLE_CLOSE.length;
         }
       }
       if (depth === 0) ranges.push({ start: openIdx, end: search });
@@ -282,10 +306,10 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   /**
-   * Like tblXml.replace(/<w:tr ...>...<\/w:tr>/g, cb) but depth-aware:
-   * — nested tables inside cells are passed through unchanged
+   * Like tblXml.replace(/<w:tr …>…<\/w:tr>/g, cb) but depth-aware:
+   * — nested tables inside cells are passed through unchanged (handles both
+   *   <w:tbl> and <w:tbl attr="…"> forms)
    * — the callback only receives complete top-level rows
-   * — each top-level row's matching </w:tr> is found with nesting depth tracking
    */
   function applyToTopLevelRows(
     tblXml: string,
@@ -304,28 +328,28 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     let pos = 0;
     while (pos < tblXml.length) {
       const rowIdx = nextRowOpen(tblXml, pos);
-      const tblIdx = tblXml.indexOf(TABLE_OPEN, pos);
+      const tblIdx = nextTblOpen(tblXml, pos);   // ← handles both forms
       if (rowIdx === -1) { result += tblXml.slice(pos); break; }
 
       if (tblIdx !== -1 && tblIdx < rowIdx) {
-        // Nested table comes before next row — pass through unchanged (depth-aware)
+        // Nested table before next row — pass through unchanged (depth-aware)
         result += tblXml.slice(pos, tblIdx);
         let depth = 1;
-        let s = tblIdx + TABLE_OPEN.length;
+        let s = afterTblOpenTag(tblXml, tblIdx); // ← skip full opening tag
         while (depth > 0 && s < tblXml.length) {
-          const no = tblXml.indexOf(TABLE_OPEN, s);
+          const no = nextTblOpen(tblXml, s);
           const nc = tblXml.indexOf(TABLE_CLOSE, s);
           if (nc === -1) break;
-          if (no !== -1 && no < nc) { depth++; s = no + TABLE_OPEN.length; }
+          if (no !== -1 && no < nc) { depth++; s = afterTblOpenTag(tblXml, no); }
           else                       { depth--; s = nc + TABLE_CLOSE.length; }
         }
         result += tblXml.slice(tblIdx, s);
         pos = s;
       } else {
-        // Top-level row — find its matching </w:tr> with depth tracking
+        // Top-level row — find its matching </w:tr> with nesting depth tracking
         result += tblXml.slice(pos, rowIdx);
         let rdepth = 1;
-        let rs = rowIdx + 5; // skip past "<w:tr"
+        let rs = rowIdx + 5; // skip past "<w:tr" (content / attribute scan)
         while (rdepth > 0 && rs < tblXml.length) {
           const ro = nextRowOpen(tblXml, rs);
           const rc = tblXml.indexOf(ROW_CLOSE, rs);
@@ -341,6 +365,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   const rawTableRanges = findTableRanges(rawDocXml);
+  console.log(`[QR] findTableRanges found ${rawTableRanges.length} top-level tables; sizes: ${rawTableRanges.map(r => r.end - r.start).join(", ")}`);
 
   // ── Step 2: Deduplicate tables, then drop summary/subset tables ──────────────
   // Orgadata exports every table twice (screen + print). Additionally it emits
