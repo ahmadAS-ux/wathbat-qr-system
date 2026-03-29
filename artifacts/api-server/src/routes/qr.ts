@@ -653,7 +653,7 @@ router.get("/qr/download/:fileId/original", async (req: Request, res: Response):
   res.send(row.originalFile);
 });
 
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/qr/:id", async (req: Request, res: Response) => {
   const id = Number(req.params["id"]);
   if (!id || isNaN(id)) {
     res.status(400).json({ error: "InvalidId" });
