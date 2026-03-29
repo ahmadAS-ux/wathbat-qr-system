@@ -351,16 +351,16 @@ export default function Admin() {
             <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
               <thead className="bg-[#F8F9FB] border-b border-border/40">
                 <tr>
-                  {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_invoice'), t('admin_col_date'), t('admin_col_status')].map(h => (
+                  {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_date'), t('admin_col_status')].map(h => (
                     <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
                 ) : requests.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">{t('admin_no_requests')}</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('admin_no_requests')}</td></tr>
                 ) : (
                   shownRequests.map((row, i) => (
                     <motion.tr
@@ -386,7 +386,6 @@ export default function Admin() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-foreground">{row.invoiceNumber || '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{new Date(row.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
                         <select

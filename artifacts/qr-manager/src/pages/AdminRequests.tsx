@@ -77,7 +77,6 @@ export default function AdminRequests() {
       [t('admin_col_position')]: r.positionId,
       [t('admin_col_type')]: r.requestType,
       [t('admin_col_phone')]: r.customerPhone || '',
-      [t('admin_col_invoice')]: r.invoiceNumber || '',
       [t('admin_col_message')]: r.message || '',
       [t('admin_col_date')]: new Date(r.createdAt).toLocaleDateString(),
       [t('admin_col_status')]: r.status,
@@ -172,7 +171,6 @@ export default function AdminRequests() {
                     t('admin_col_type'),
                     t('admin_col_phone'),
                     t('admin_history_project'),
-                    t('admin_col_invoice'),
                     t('admin_col_date'),
                     t('admin_col_status'),
                   ].map(h => (
@@ -183,13 +181,13 @@ export default function AdminRequests() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     </td>
                   </tr>
                 ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
+                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
                   </tr>
                 ) : (
                   shown.map((row, i) => (
@@ -216,7 +214,6 @@ export default function AdminRequests() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-foreground">{row.invoiceNumber || '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                         {new Date(row.createdAt).toLocaleDateString()}
                       </td>
