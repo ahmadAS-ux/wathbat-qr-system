@@ -418,7 +418,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
   `;
 
-  let sectionsHtml = "";
+  // Build one combined table across all sections
+  let allRows = "";
+  let grandArea = 0, grandPerim = 0, grandPrice = 0;
   let qrOffset = 0;
   for (let s = 0; s < dataTables.length; s++) {
     const count = dataTables[s].posSet.size;
@@ -426,15 +428,13 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const sQRs       = qrEntries.slice(qrOffset, qrOffset + count);
     qrOffset += count;
 
-    // Compute section totals
-    let totalArea = 0, totalPerim = 0, totalPrice = 0;
     for (const p of sPositions) {
-      totalArea  += parseNum(p.area);
-      totalPerim += parseNum(p.perimeter);
-      totalPrice += parseNum(p.total);
+      grandArea  += parseNum(p.area);
+      grandPerim += parseNum(p.perimeter);
+      grandPrice += parseNum(p.total);
     }
 
-    const rows = sPositions.map((p, i) => {
+    allRows += sPositions.map((p, i) => {
       const qr = sQRs[i];
       const qrImg = qr?.dataUrl
         ? `<img src="${qr.dataUrl}" alt="QR ${esc(p.position)}" />`
@@ -450,54 +450,48 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
         <td>${esc(p.total)}</td>
         <td class="qr-cell">${qrImg}</td>
       </tr>`;
-    }).join("\n");
+    }).join("\n") + "\n";
+  }
 
-    const summaryRow = `<tr class="summary-row">
-      <td class="summary-label" colspan="4">الإجمالي / Totals</td>
-      <td>${fmtNum(totalArea)} م²</td>
-      <td>${fmtNum(totalPerim)} م</td>
+  const grandSummaryRow = `<tr class="summary-row">
+      <td class="summary-label" colspan="4">الإجمالي الكلي / Grand Total</td>
+      <td>${fmtNum(grandArea)} م²</td>
+      <td>${fmtNum(grandPerim)} م</td>
       <td></td>
-      <td class="summary-grand">${fmtNum(totalPrice, 2)} ر.س</td>
+      <td class="summary-grand">${fmtNum(grandPrice, 2)} ر.س</td>
       <td></td>
     </tr>`;
 
-    const sectionLabel = dataTables.length > 1
-      ? `<div class="section-title">القسم ${s + 1} &nbsp;/&nbsp; Section ${s + 1}</div>`
-      : "";
-
-    sectionsHtml += `
-    ${sectionLabel}
-    <table>
-      <colgroup>
-        <col class="col-pos"/>
-        <col class="col-qty"/>
-        <col class="col-w"/>
-        <col class="col-h"/>
-        <col class="col-area"/>
-        <col class="col-perim"/>
-        <col class="col-price"/>
-        <col class="col-total"/>
-        <col class="col-qr"/>
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Position / No.<br/>الموضع / الرقم</th>
-          <th>Qty<br/>الكمية</th>
-          <th>Width mm<br/>العرض</th>
-          <th>Height mm<br/>الارتفاع</th>
-          <th>Area m²<br/>المساحة</th>
-          <th>Perim. m<br/>المحيط</th>
-          <th>Price SAR<br/>السعر</th>
-          <th>Total SAR<br/>الإجمالي</th>
-          <th>QR Code<br/>رمز QR</th>
-        </tr>
-      </thead>
-      <tbody>
-${rows}
-${summaryRow}
-      </tbody>
-    </table>`;
-  }
+  const sectionsHtml = `
+  <table>
+    <colgroup>
+      <col class="col-pos"/>
+      <col class="col-qty"/>
+      <col class="col-w"/>
+      <col class="col-h"/>
+      <col class="col-area"/>
+      <col class="col-perim"/>
+      <col class="col-price"/>
+      <col class="col-total"/>
+      <col class="col-qr"/>
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Position / No.<br/>الموضع / الرقم</th>
+        <th>Qty<br/>الكمية</th>
+        <th>Width mm<br/>العرض</th>
+        <th>Height mm<br/>الارتفاع</th>
+        <th>Area m²<br/>المساحة</th>
+        <th>Perim. m<br/>المحيط</th>
+        <th>Price SAR<br/>السعر</th>
+        <th>Total SAR<br/>الإجمالي</th>
+        <th>QR Code<br/>رمز QR</th>
+      </tr>
+    </thead>
+    <tbody>
+${allRows}${grandSummaryRow}
+    </tbody>
+  </table>`;
 
   const infoRows = [
     projectName ? `<div class="info-row"><strong>Project:</strong> ${esc(projectName)}</div>` : "",
