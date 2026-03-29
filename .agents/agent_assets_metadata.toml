@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "fOAyz4cjBWDrQ1vuPa0Ff"
+uri = "file://qr-asset-manager-export.zip"
+type = "unspecified"
+title = "QR Asset Manager — Deployable ZIP"
