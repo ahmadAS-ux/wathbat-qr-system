@@ -224,12 +224,19 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 4: Generate QR data URLs (embedded directly into HTML) ─────────────
+  const domain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
+  const qrBaseUrl = process.env.QR_SCAN_BASE_URL ||
+    (domain ? `https://${domain}/qr-manager/scan` : '/qr-manager/scan');
+
   const qrEntries: QREntry[] = [];
   for (let i = 0; i < positionData.length; i++) {
     const p = positionData[i];
-    const qrText = [p.position, p.quantity ? `Qty:${p.quantity}` : "",
-      p.width && p.height ? `${p.width}x${p.height}mm` : "", projectName || ""]
-      .filter(Boolean).join(" | ");
+    const urlParams = new URLSearchParams({ pos: p.position });
+    if (p.width) urlParams.set('w', p.width);
+    if (p.height) urlParams.set('h', p.height);
+    if (p.quantity) urlParams.set('qty', p.quantity);
+    if (projectName) urlParams.set('ref', projectName);
+    const qrText = `${qrBaseUrl}?${urlParams.toString()}`;
 
     const dataUrl = await QRCode.toDataURL(qrText, { width: 200, margin: 1, errorCorrectionLevel: "M" });
     qrEntries.push({ position: p.position, dataUrl });
