@@ -54,14 +54,14 @@ router.get("/admin/requests", async (req: Request, res: Response): Promise<void>
 
 router.post("/admin/requests", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { positionId, requestType, customerPhone, invoiceNumber, message } = req.body;
+    const { positionId, requestType, customerPhone, projectName, invoiceNumber, message } = req.body;
     if (!positionId || !requestType) {
       res.status(400).json({ error: "BadRequest", message: "positionId and requestType required" });
       return;
     }
     const [created] = await db
       .insert(requestsTable)
-      .values({ positionId, requestType, customerPhone, invoiceNumber, message, status: "New" })
+      .values({ positionId, requestType, customerPhone, projectName, invoiceNumber, message, status: "New" })
       .returning();
     res.status(201).json(created);
   } catch (err) {

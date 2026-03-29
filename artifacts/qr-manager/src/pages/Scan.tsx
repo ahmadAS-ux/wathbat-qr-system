@@ -94,7 +94,7 @@ export default function Scan() {
           positionId: pos,
           requestType: reason,
           customerPhone: phone.replace(/\s/g, ''),
-          invoiceNumber: ref || undefined,
+          projectName: ref || undefined,
           message: notes || undefined,
         }),
       });

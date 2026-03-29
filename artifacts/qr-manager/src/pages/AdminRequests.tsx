@@ -10,6 +10,7 @@ interface RequestRow {
   positionId: string;
   requestType: string;
   customerPhone: string | null;
+  projectName: string | null;
   invoiceNumber: string | null;
   message: string | null;
   status: string;
@@ -61,6 +62,7 @@ export default function AdminRequests() {
     const q = search.toLowerCase();
     const matchSearch = (r.positionId || '').toLowerCase().includes(q) ||
       (r.customerPhone || '').includes(q) ||
+      (r.projectName || '').toLowerCase().includes(q) ||
       (r.invoiceNumber || '').toLowerCase().includes(q);
     const matchStatus = statusFilter === 'All' || r.status === statusFilter;
     return matchSearch && matchStatus;
@@ -169,6 +171,7 @@ export default function AdminRequests() {
                     t('admin_col_position'),
                     t('admin_col_type'),
                     t('admin_col_phone'),
+                    t('admin_history_project'),
                     t('admin_col_invoice'),
                     t('admin_col_date'),
                     t('admin_col_status'),
@@ -180,13 +183,13 @@ export default function AdminRequests() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     </td>
                   </tr>
                 ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
+                    <td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
                   </tr>
                 ) : (
                   shown.map((row, i) => (
@@ -202,17 +205,18 @@ export default function AdminRequests() {
                       <td className="px-4 py-3 text-foreground">{row.requestType}</td>
                       <td className="px-4 py-3 text-foreground">{row.customerPhone || '—'}</td>
                       <td className="px-4 py-3">
-                        {row.invoiceNumber ? (
+                        {row.projectName ? (
                           <button
-                            onClick={() => navigate(`/admin?project=${encodeURIComponent(row.invoiceNumber!)}`)}
+                            onClick={() => navigate(`/admin?project=${encodeURIComponent(row.projectName!)}`)}
                             className="text-[#4A6FA5] underline underline-offset-2 hover:text-[#3d5f94] font-medium transition-colors cursor-pointer"
                           >
-                            {row.invoiceNumber}
+                            {row.projectName}
                           </button>
                         ) : (
-                          <span className="text-foreground">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-foreground">{row.invoiceNumber || '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                         {new Date(row.createdAt).toLocaleDateString()}
                       </td>
