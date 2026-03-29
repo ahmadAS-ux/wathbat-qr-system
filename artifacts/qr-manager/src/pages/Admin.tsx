@@ -92,7 +92,7 @@ export default function Admin() {
   const fetchHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/history`);
+      const res = await fetch(`${BASE}/api/admin/history`, { cache: 'no-store' });
       if (res.ok) setHistory(await res.json());
     } finally {
       setHistoryLoading(false);
