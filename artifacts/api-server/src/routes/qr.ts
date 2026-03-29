@@ -250,18 +250,93 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   const TABLE_OPEN  = "<w:tbl>";
   const TABLE_CLOSE = "</w:tbl>";
 
+  /**
+   * Find all TOP-LEVEL <w:tbl> ranges in xml (depth-aware — ignores nested tables).
+   * Each returned range spans the full <w:tbl>...</w:tbl> including nested tables.
+   */
   function findTableRanges(xml: string): Array<{ start: number; end: number }> {
     const ranges: Array<{ start: number; end: number }> = [];
-    let from = 0;
-    while (true) {
-      const s = xml.indexOf(TABLE_OPEN, from);
-      if (s === -1) break;
-      const e = xml.indexOf(TABLE_CLOSE, s);
-      if (e === -1) break;
-      ranges.push({ start: s, end: e + TABLE_CLOSE.length });
-      from = e + TABLE_CLOSE.length;
+    let pos = 0;
+    while (pos < xml.length) {
+      const openIdx = xml.indexOf(TABLE_OPEN, pos);
+      if (openIdx === -1) break;
+      let depth = 1;
+      let search = openIdx + TABLE_OPEN.length;
+      while (depth > 0 && search < xml.length) {
+        const nextOpen  = xml.indexOf(TABLE_OPEN, search);
+        const nextClose = xml.indexOf(TABLE_CLOSE, search);
+        if (nextClose === -1) break;
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          search = nextOpen + TABLE_OPEN.length;
+        } else {
+          depth--;
+          search = nextClose + TABLE_CLOSE.length;
+        }
+      }
+      if (depth === 0) ranges.push({ start: openIdx, end: search });
+      pos = search;
     }
     return ranges;
+  }
+
+  /**
+   * Like tblXml.replace(/<w:tr ...>...<\/w:tr>/g, cb) but depth-aware:
+   * — nested tables inside cells are passed through unchanged
+   * — the callback only receives complete top-level rows
+   * — each top-level row's matching </w:tr> is found with nesting depth tracking
+   */
+  function applyToTopLevelRows(
+    tblXml: string,
+    cb: (rowXml: string) => string
+  ): string {
+    const ROW_CLOSE = "</w:tr>";
+    function nextRowOpen(xml: string, from: number): number {
+      const a = xml.indexOf("<w:tr>", from);
+      const b = xml.indexOf("<w:tr ", from);
+      if (a === -1) return b;
+      if (b === -1) return a;
+      return Math.min(a, b);
+    }
+
+    let result = "";
+    let pos = 0;
+    while (pos < tblXml.length) {
+      const rowIdx = nextRowOpen(tblXml, pos);
+      const tblIdx = tblXml.indexOf(TABLE_OPEN, pos);
+      if (rowIdx === -1) { result += tblXml.slice(pos); break; }
+
+      if (tblIdx !== -1 && tblIdx < rowIdx) {
+        // Nested table comes before next row — pass through unchanged (depth-aware)
+        result += tblXml.slice(pos, tblIdx);
+        let depth = 1;
+        let s = tblIdx + TABLE_OPEN.length;
+        while (depth > 0 && s < tblXml.length) {
+          const no = tblXml.indexOf(TABLE_OPEN, s);
+          const nc = tblXml.indexOf(TABLE_CLOSE, s);
+          if (nc === -1) break;
+          if (no !== -1 && no < nc) { depth++; s = no + TABLE_OPEN.length; }
+          else                       { depth--; s = nc + TABLE_CLOSE.length; }
+        }
+        result += tblXml.slice(tblIdx, s);
+        pos = s;
+      } else {
+        // Top-level row — find its matching </w:tr> with depth tracking
+        result += tblXml.slice(pos, rowIdx);
+        let rdepth = 1;
+        let rs = rowIdx + 5; // skip past "<w:tr"
+        while (rdepth > 0 && rs < tblXml.length) {
+          const ro = nextRowOpen(tblXml, rs);
+          const rc = tblXml.indexOf(ROW_CLOSE, rs);
+          if (rc === -1) break;
+          if (ro !== -1 && ro < rc) { rdepth++; rs = ro + 5; }
+          else                       { rdepth--; rs = rc + ROW_CLOSE.length; }
+        }
+        result += cb(tblXml.slice(rowIdx, rs));
+        pos = rs;
+      }
+    }
+    return result;
   }
 
   const rawTableRanges = findTableRanges(rawDocXml);
@@ -407,9 +482,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
               .replace(/w:type="[^"]*"/, `w:type="dxa"`);
     });
 
-    // Process all rows — qrIdx carries across tables (forward order)
+    // Process all top-level rows only (applyToTopLevelRows skips nested table rows)
     const tableQrStart = qrIdx;
-    tblXml = tblXml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g, (rowXml) => {
+    tblXml = applyToTopLevelRows(tblXml, (rowXml) => {
       const texts = [...rowXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
         .map(m => m[1].trim()).filter(Boolean);
 
