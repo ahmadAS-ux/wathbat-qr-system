@@ -243,39 +243,82 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     if (t === "Project name:" && segments[i + 2]) projectName = segments[i + 2].text;
   }
 
-  // Read positions row-by-row from XML so overlapping lookaheads never skip rows.
-  // Using rawDocXml (before any namespace/noWrap modifications) for clean matching.
+  // ── Step 1: Discover all table ranges in raw XML (before namespace injection) ──
   const POSITION_RE = /^\d{1,2}\s*\/\s*\d+$/;
   const rawDocXml   = zip.readAsText("word/document.xml");
 
+  const TABLE_OPEN  = "<w:tbl>";
+  const TABLE_CLOSE = "</w:tbl>";
+
+  function findTableRanges(xml: string): Array<{ start: number; end: number }> {
+    const ranges: Array<{ start: number; end: number }> = [];
+    let from = 0;
+    while (true) {
+      const s = xml.indexOf(TABLE_OPEN, from);
+      if (s === -1) break;
+      const e = xml.indexOf(TABLE_CLOSE, s);
+      if (e === -1) break;
+      ranges.push({ start: s, end: e + TABLE_CLOSE.length });
+      from = e + TABLE_CLOSE.length;
+    }
+    return ranges;
+  }
+
+  const rawTableRanges = findTableRanges(rawDocXml);
+
+  // ── Step 2: Deduplicate tables by position fingerprint ───────────────────────
+  // Orgadata always exports every table twice (screen + print copy).
+  // We skip any table whose position set we've already seen.
+  const seenFingerprints = new Set<string>();
+  const dataTableIndices: number[] = [];
+
+  for (let t = 0; t < rawTableRanges.length; t++) {
+    const tContent = rawDocXml.slice(rawTableRanges[t].start, rawTableRanges[t].end);
+    const positions = [...tContent.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+      .map(m => m[1].trim())
+      .filter(txt => POSITION_RE.test(txt));
+    if (positions.length === 0) continue;
+    const fingerprint = positions.join(",");
+    if (seenFingerprints.has(fingerprint)) continue;
+    seenFingerprints.add(fingerprint);
+    dataTableIndices.push(t);
+  }
+
+  if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
+
+  // ── Step 3: Extract positionData from unique tables only ─────────────────────
   const positionData: Array<{
     position: string; quantity: string; width: string;
     height: string; area: string; perimeter: string;
     price: string; total: string;
   }> = [];
 
-  const posXmlRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
-  let posMatch: RegExpExecArray | null;
-  while ((posMatch = posXmlRe.exec(rawDocXml)) !== null) {
-    const rowTexts = [...posMatch[0].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-      .map(m => m[1].trim()).filter(Boolean);
-    const posIdx = rowTexts.findIndex(t => POSITION_RE.test(t));
-    if (posIdx === -1) continue;
-    positionData.push({
-      position:  rowTexts[posIdx]     || "",
-      quantity:  rowTexts[posIdx + 1] || "",
-      width:     rowTexts[posIdx + 2] || "",
-      height:    rowTexts[posIdx + 3] || "",
-      area:      rowTexts[posIdx + 4] || "",
-      perimeter: rowTexts[posIdx + 5] || "",
-      price:     rowTexts[posIdx + 6] || "",
-      total:     rowTexts[posIdx + 7] || "",
-    });
+  for (const tIdx of dataTableIndices) {
+    const tContent = rawDocXml.slice(rawTableRanges[tIdx].start, rawTableRanges[tIdx].end);
+    const rowRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
+    let rowMatch: RegExpExecArray | null;
+    while ((rowMatch = rowRe.exec(tContent)) !== null) {
+      const rowTexts = [...rowMatch[0].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+        .map(m => m[1].trim()).filter(Boolean);
+      const posIdx = rowTexts.findIndex(t => POSITION_RE.test(t));
+      if (posIdx === -1) continue;
+      positionData.push({
+        position:  rowTexts[posIdx]     || "",
+        quantity:  rowTexts[posIdx + 1] || "",
+        width:     rowTexts[posIdx + 2] || "",
+        height:    rowTexts[posIdx + 3] || "",
+        area:      rowTexts[posIdx + 4] || "",
+        perimeter: rowTexts[posIdx + 5] || "",
+        price:     rowTexts[posIdx + 6] || "",
+        total:     rowTexts[posIdx + 7] || "",
+      });
+    }
   }
 
-  console.log(`[QR] Found ${positionData.length} positions`);
+  console.log(`[QR] Found ${positionData.length} positions across ${dataTableIndices.length} unique table(s)`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
+  // ── Step 4: Generate QR codes ────────────────────────────────────────────────
   const qrEntries: QREntry[] = [];
   for (let i = 0; i < positionData.length; i++) {
     const p = positionData[i];
@@ -295,7 +338,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     });
   }
 
-  // Add required namespaces
+  // ── Step 5: Patch docXml (namespace injection + noWrap removal) ──────────────
   const REQUIRED_NS: Record<string, string> = {
     wp:  "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
     a:   "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -315,124 +358,107 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
                docXml.slice(docElemMatch.index + docElemMatch[0].length);
     }
   }
-
   docXml = docXml.replace(/<w:noWrap\/>/g, "");
 
-  // Find all tables and locate the data table
-  const TABLE_OPEN  = "<w:tbl>";
-  const TABLE_CLOSE = "</w:tbl>";
-  const tableRanges: Array<{ start: number; end: number }> = [];
-  let searchFrom = 0;
-  while (true) {
-    const tStart = docXml.indexOf(TABLE_OPEN, searchFrom);
-    if (tStart === -1) break;
-    const tEnd = docXml.indexOf(TABLE_CLOSE, tStart);
-    if (tEnd === -1) break;
-    tableRanges.push({ start: tStart, end: tEnd + TABLE_CLOSE.length });
-    searchFrom = tEnd + TABLE_CLOSE.length;
-  }
-
-  let dataTableIdx = -1;
-  for (let t = 0; t < tableRanges.length; t++) {
-    const tContent = docXml.slice(tableRanges[t].start, tableRanges[t].end);
-    if ([...tContent.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-        .some(m => POSITION_RE.test(m[1].trim()))) {
-      dataTableIdx = t;
-      break;
-    }
-  }
-
-  if (dataTableIdx === -1) throw new Error("NO_POSITIONS");
-
-  const { start: tblStart, end: tblEnd } = tableRanges[dataTableIdx];
-  let tblXml = docXml.slice(tblStart, tblEnd);
-
-  const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
-    calcLayout(docXml, tblXml);
-
-  // Rewrite tblGrid
-  const newGrid = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
-                  `<w:gridCol w:w="${qrColWidth}"/>`;
-  tblXml = tblXml.replace(
-    /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/,
-    `<w:tblGrid>${newGrid}</w:tblGrid>`
-  );
-
-  // Rewrite tblW
-  tblXml = tblXml.replace(/<w:tblW\b[^>]*\/?>/, (m) => {
-    let u = m.includes('w:w="') ? m.replace(/w:w="\d+"/, `w:w="${newTableW}"`) : m.replace('<w:tblW', `<w:tblW w:w="${newTableW}"`);
-    u = u.includes('w:type="') ? u.replace(/w:type="[^"]*"/, `w:type="dxa"`) : u.replace('<w:tblW', `<w:tblW w:type="dxa"`);
-    return u;
-  });
-
-  // Rescale tcW
-  const colScale = origTableW > 0 ? (newTableW - qrColWidth) / origTableW : 1;
-  tblXml = tblXml.replace(/<w:tcW\b[^>]*\/>/g, (m) => {
-    const type = m.match(/w:type="([^"]*)"/)?.[1] ?? "dxa";
-    if (type === "pct" || type === "auto" || type === "nil") return m;
-    const w = parseInt(m.match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
-    if (w === 0) return m;
-    return m.replace(/w:w="\d+"/, `w:w="${Math.round(w * colScale)}"`)
-            .replace(/w:type="[^"]*"/, `w:type="dxa"`);
-  });
-
-  // Process ALL rows
+  // ── Step 6: Process each unique table in forward order.
+  //           Re-derive table ranges from the current docXml at each iteration
+  //           so that splicing an earlier table (which shifts offsets) is always
+  //           reflected before we slice the next one.
   let qrIdx = 0;
-  tblXml = tblXml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g, (rowXml) => {
-    const texts = [...rowXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-      .map(m => m[1].trim()).filter(Boolean);
+  for (const tIdx of dataTableIndices) {
+    const currentRanges = findTableRanges(docXml);
+    const { start: tblStart, end: tblEnd } = currentRanges[tIdx];
+    let tblXml = docXml.slice(tblStart, tblEnd);
 
-    const isHeaderRow = texts.some(t => t.includes("Position") && t.includes("Number"));
-    const isDataRow   = texts.some(t => POSITION_RE.test(t));
+    const { qrColWidth, qrEMU, scaledGridCols, newTableW, origTableW } =
+      calcLayout(docXml, tblXml);
 
-    let row = rowXml;
+    // Rewrite tblGrid
+    const newGrid = scaledGridCols.map(w => `<w:gridCol w:w="${w}"/>`).join("") +
+                    `<w:gridCol w:w="${qrColWidth}"/>`;
+    tblXml = tblXml.replace(
+      /<w:tblGrid\b[^>]*>[\s\S]*?<\/w:tblGrid>/,
+      `<w:tblGrid>${newGrid}</w:tblGrid>`
+    );
 
-    // Add cantSplit
-    if (row.includes("<w:trPr>")) {
-      if (!row.includes("<w:cantSplit")) row = row.replace("<w:trPr>", "<w:trPr><w:cantSplit/>");
-    } else if (/<w:trPr\b/.test(row)) {
-      if (!row.includes("<w:cantSplit")) row = row.replace(/<w:trPr\b[^>]*>/, m => m + "<w:cantSplit/>");
-    } else {
-      row = row.replace(/^<w:tr([ >])/, (_m, s) => `<w:tr${s}<w:trPr><w:cantSplit/></w:trPr>`);
-    }
+    // Rewrite tblW
+    tblXml = tblXml.replace(/<w:tblW\b[^>]*\/?>/, (m) => {
+      let u = m.includes('w:w="') ? m.replace(/w:w="\d+"/, `w:w="${newTableW}"`) : m.replace('<w:tblW', `<w:tblW w:w="${newTableW}"`);
+      u = u.includes('w:type="') ? u.replace(/w:type="[^"]*"/, `w:type="dxa"`) : u.replace('<w:tblW', `<w:tblW w:type="dxa"`);
+      return u;
+    });
 
-    // Fix row height for data rows
-    if (isDataRow) {
-      row = row.replace(/<w:trHeight\b[^>]*\/>/, '<w:trHeight w:val="0" w:hRule="auto"/>');
-    }
+    // Rescale tcW
+    const colScale = origTableW > 0 ? (newTableW - qrColWidth) / origTableW : 1;
+    tblXml = tblXml.replace(/<w:tcW\b[^>]*\/>/g, (m) => {
+      const type = m.match(/w:type="([^"]*)"/)?.[1] ?? "dxa";
+      if (type === "pct" || type === "auto" || type === "nil") return m;
+      const w = parseInt(m.match(/w:w="(\d+)"/)?.[1] ?? "0", 10);
+      if (w === 0) return m;
+      return m.replace(/w:w="\d+"/, `w:w="${Math.round(w * colScale)}"`)
+              .replace(/w:type="[^"]*"/, `w:type="dxa"`);
+    });
 
-    // Add vAlign center to all cells in data rows
-    if (isDataRow) {
-      row = row.replace(/<\/w:tcPr>/g, (m, offset, str) => {
-        const before = str.slice(0, offset);
-        if (!before.slice(before.lastIndexOf("<w:tcPr")).includes("<w:vAlign")) {
-          return '<w:vAlign w:val="center"/>' + m;
-        }
-        return m;
-      });
-      row = row.replace(/<w:tcPr\/>/g, '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>');
-    }
+    // Process all rows — qrIdx carries across tables (forward order)
+    const tableQrStart = qrIdx;
+    tblXml = tblXml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g, (rowXml) => {
+      const texts = [...rowXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+        .map(m => m[1].trim()).filter(Boolean);
 
-    // Inject QR cell
-    let cellXml: string;
-    if (isHeaderRow) {
-      cellXml = makeQRHeaderCell(qrColWidth);
-    } else if (isDataRow) {
-      cellXml = qrIdx < qrEntries.length
-        ? makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU)
-        : makeEmptyCell(qrColWidth, true);
-      qrIdx++;
-    } else {
-      cellXml = makeEmptyCell(qrColWidth, true);
-    }
+      const isHeaderRow = texts.some(t => t.includes("Position") && t.includes("Number"));
+      const isDataRow   = texts.some(t => POSITION_RE.test(t));
 
-    return row.replace(/<\/w:tr>$/, cellXml + "</w:tr>");
-  });
+      let row = rowXml;
 
-  console.log(`[QR] injected=${qrIdx} of ${qrEntries.length}`);
+      // Add cantSplit
+      if (row.includes("<w:trPr>")) {
+        if (!row.includes("<w:cantSplit")) row = row.replace("<w:trPr>", "<w:trPr><w:cantSplit/>");
+      } else if (/<w:trPr\b/.test(row)) {
+        if (!row.includes("<w:cantSplit")) row = row.replace(/<w:trPr\b[^>]*>/, m => m + "<w:cantSplit/>");
+      } else {
+        row = row.replace(/^<w:tr([ >])/, (_m, s) => `<w:tr${s}<w:trPr><w:cantSplit/></w:trPr>`);
+      }
 
-  // Put table back
-  docXml = docXml.slice(0, tblStart) + tblXml + docXml.slice(tblEnd);
+      // Fix row height
+      if (isDataRow) {
+        row = row.replace(/<w:trHeight\b[^>]*\/>/, '<w:trHeight w:val="0" w:hRule="auto"/>');
+      }
+
+      // vAlign center for data rows
+      if (isDataRow) {
+        row = row.replace(/<\/w:tcPr>/g, (m, offset, str) => {
+          const before = str.slice(0, offset);
+          if (!before.slice(before.lastIndexOf("<w:tcPr")).includes("<w:vAlign")) {
+            return '<w:vAlign w:val="center"/>' + m;
+          }
+          return m;
+        });
+        row = row.replace(/<w:tcPr\/>/g, '<w:tcPr><w:vAlign w:val="center"/></w:tcPr>');
+      }
+
+      // Inject QR cell
+      let cellXml: string;
+      if (isHeaderRow) {
+        cellXml = makeQRHeaderCell(qrColWidth);
+      } else if (isDataRow) {
+        cellXml = qrIdx < qrEntries.length
+          ? makeQRImageCell(qrEntries[qrIdx].rId, 2000 + qrIdx, qrColWidth, qrEMU)
+          : makeEmptyCell(qrColWidth, true);
+        qrIdx++;
+      } else {
+        cellXml = makeEmptyCell(qrColWidth, true);
+      }
+
+      return row.replace(/<\/w:tr>$/, cellXml + "</w:tr>");
+    });
+
+    console.log(`[QR] table[${tIdx}]: injected ${qrIdx - tableQrStart} rows`);
+
+    // Splice the modified table back into docXml
+    docXml = docXml.slice(0, tblStart) + tblXml + docXml.slice(tblEnd);
+  }
+
+  console.log(`[QR] total injected=${qrIdx} of ${qrEntries.length}`);
 
   zip.updateFile("word/document.xml", Buffer.from(docXml, "utf8"));
 
