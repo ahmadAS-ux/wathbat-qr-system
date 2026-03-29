@@ -8,7 +8,7 @@ import logo from '@assets/image_1774733777220.png';
 export function Header() {
   const { language, setLanguage, t, isRtl } = useLanguage();
   const [location] = useLocation();
-  const isAdmin = location === '/admin';
+  const isAdmin = location.startsWith('/admin');
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');

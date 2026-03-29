@@ -253,7 +253,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   const css = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4 landscape; margin: 12mm 10mm; }
+    @page { size: A4 landscape; margin: 15mm; }
     body {
       font-family: Arial, 'Helvetica Neue', sans-serif;
       font-size: 10pt;
@@ -496,7 +496,7 @@ ${allRows}${grandSummaryRow}
 <body>
   <div class="doc-header">
     <div class="doc-header-brand">
-      <div class="brand-name">Wathbat &nbsp;|&nbsp; وثبة</div>
+      <div class="brand-name">Wathbat Aluminum &nbsp;|&nbsp; وثبة للألمنيوم</div>
       <div class="brand-sub">wathbat.sa &nbsp;·&nbsp; Orgadata LogiKal QR Report</div>
     </div>
     <div class="doc-header-meta">

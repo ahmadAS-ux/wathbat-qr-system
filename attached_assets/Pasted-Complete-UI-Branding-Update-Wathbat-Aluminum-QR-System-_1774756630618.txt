@@ -1,0 +1,81 @@
+Complete UI & Branding Update — Wathbat Aluminum QR System
+This is an existing working project. Do NOT rebuild from scratch. Apply all the following changes only.
+
+1 — Brand Identity
+Apply Wathbat Aluminum brand throughout the entire system:
+
+Primary color: #1B2A4A (dark navy)
+Secondary color: #4A6FA5 (steel blue)
+Background: #F8F9FB (off white)
+Replace all gold/amber accent buttons with steel blue #4A6FA5
+Add Wathbat Aluminum logo to the top left of every page
+Arabic text always right-aligned, English text always left-aligned
+
+
+2 — Main Upload Page
+All text must be bilingual — Arabic when Arabic is selected, English when English is selected. Use the existing i18n.ts system.
+Add these translation pairs to i18n.ts:
+KeyArabicEnglishpage_titleوثبة للألمنيوم | نظام تتبع الطلبياتWathbat Aluminum | Order Tracking Systempage_subtitleارفع ملف الطلبية من Orgadata لإنشاء رموز QR تلقائياًUpload your Orgadata order file to generate QR codes automaticallyupload_titleارفع ملف الطلبية هناUpload Your Order File Hereupload_descيدعم ملفات Word من نظام Orgadata فقطSupports Orgadata Word files onlybrowse_btnاختر الملفBrowse Files
+
+3 — Admin Page
+All text bilingual using i18n.ts:
+KeyArabicEnglishadmin_titleلوحة التحكم — وثبة للألمنيومControl Panel — Wathbat Aluminumarchive_titleأرشيف المستنداتDocument Archiverequests_titleطلبات الصيانةService Requestsview_allعرض الكلView Allshow_moreعرض المزيدShow Moreback_to_adminالعودة للوحة التحكمBack to Admindownload_reportتحميل التقريرDownload Reportdownload_originalتحميل الأصليDownload Originalsearch_placeholderبحث باسم المشروع أو الملفSearch by project name or filename
+
+4 — Document Archive section behavior
+
+On page load: show only the 3 most recent records, ordered newest first
+"Show More" button below table — each click loads 20 more records
+When no more records: hide the button
+"View All" button opens /admin/history full page
+Full page includes: complete records table, search bar, Show More pagination, Back to Admin button
+All text bilingual as above
+
+
+5 — Service Requests section behavior
+
+Same behavior as Document Archive
+On page load: show only 3 most recent records
+"Show More" loads 20 more per click
+"View All" opens /admin/requests full page
+Full page includes: complete table, search bar, pagination, Back to Admin button
+All text bilingual as above
+
+
+6 — File Storage (permanent)
+Every time a document is processed, permanently save in the database:
+
+The original .docx file the user uploaded
+The generated .html report file with QR codes
+Record: original filename, project name, processing date, number of positions
+
+Document Archive table must have two download buttons per row:
+
+Download Report — downloads the generated .html file
+Download Original — downloads the original .docx file
+
+Remove the 1-hour expiry. Files must be stored permanently.
+
+7 — HTML Report output
+The downloaded HTML report must:
+
+Show Wathbat Aluminum logo and branding at the top
+Show document metadata: project name, person in charge, date, glass type, thickness, spacer
+Combine all glass sections into one single continuous table — no separate Section 1 / Section 2 labels
+Table header inside <thead> so it repeats automatically on every printed page
+Bilingual column headers:
+
+EnglishArabicPosition / No.الموضع / الرقمQtyالكميةWidth mmالعرضHeight mmالارتفاعArea m²المساحةPerimeter mالمحيطPrice SARالسعرTotal SARالإجماليQR Codeرمز QRTotalsالإجمالي / Totals
+
+QR code auto-fits row height
+Totals row at the bottom
+Print CSS: A4 size, 15mm margins, page-break-inside: avoid on every row
+
+
+8 — Technical rules
+
+Do not change POST /qr/process or GET /qr/download/:fileId API signatures
+Do not change the project file structure
+All new code must be TypeScript
+Keep the existing bilingual toggle — Arabic is default
+Orgadata always exports each table twice — detect and skip duplicate tables using position fingerprinting
+Process only unique tables and combine all rows into one output table

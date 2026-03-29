@@ -44,7 +44,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
         className={cn(
           "relative group overflow-hidden rounded-3xl border-2 border-dashed transition-all duration-500 ease-out cursor-pointer",
           isDragActive
-            ? "border-[#C89B3C] bg-[#C89B3C]/5 scale-[1.02] shadow-xl shadow-[#C89B3C]/10"
+            ? "border-[#4A6FA5] bg-[#4A6FA5]/5 scale-[1.02] shadow-xl shadow-[#4A6FA5]/10"
             : "border-[#1B2A4A]/20 bg-white hover:border-[#1B2A4A]/40 hover:bg-[#1B2A4A]/[0.02] hover:shadow-xl hover:shadow-[#1B2A4A]/5",
           isLoading && "opacity-50 pointer-events-none"
         )}
@@ -53,14 +53,14 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
         <input {...getInputProps()} />
 
         {/* Background decoration */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#C89B3C]/[0.03] via-transparent to-[#1B2A4A]/[0.03] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#4A6FA5]/[0.03] via-transparent to-[#1B2A4A]/[0.03] pointer-events-none" />
 
         <div className="relative px-8 py-20 flex flex-col items-center justify-center text-center">
           {/* Icon */}
           <div className="relative mb-8">
             <div className={cn(
               "absolute inset-0 rounded-full blur-2xl transition-all duration-500",
-              isDragActive ? "bg-[#C89B3C]/40 scale-125" : "bg-[#1B2A4A]/15 group-hover:bg-[#1B2A4A]/25"
+              isDragActive ? "bg-[#4A6FA5]/40 scale-125" : "bg-[#1B2A4A]/15 group-hover:bg-[#1B2A4A]/25"
             )} />
             <motion.div
               animate={isDragActive ? { scale: 1.12, rotate: -3 } : { scale: 1, rotate: 0 }}
@@ -68,7 +68,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
               className={cn(
                 "relative flex items-center justify-center w-28 h-28 rounded-3xl shadow-xl transition-all duration-300",
                 isDragActive
-                  ? "bg-[#C89B3C] text-white"
+                  ? "bg-[#4A6FA5] text-white"
                   : "bg-white text-[#1B2A4A] group-hover:bg-[#1B2A4A] group-hover:text-white"
               )}
             >
@@ -77,7 +77,7 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
           </div>
 
           <h3 className="text-2xl md:text-3xl font-bold text-[#1B2A4A] mb-3">
-            {isDragActive ? t('drop_active') : t('drop_idle')}
+            {isDragActive ? t('drop_active') : t('upload_title')}
           </h3>
 
           <p className="text-muted-foreground mb-8 max-w-sm text-base leading-relaxed">
@@ -85,8 +85,8 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
           </p>
 
           <div className="flex items-center justify-center gap-3">
-            <div className="px-8 py-3.5 bg-[#1B2A4A] text-white font-bold text-base rounded-2xl shadow-lg shadow-[#1B2A4A]/20 group-hover:bg-[#C89B3C] transition-colors duration-300">
-              {t('browse_files')}
+            <div className="px-8 py-3.5 bg-[#1B2A4A] text-white font-bold text-base rounded-2xl shadow-lg shadow-[#1B2A4A]/20 group-hover:bg-[#4A6FA5] transition-colors duration-300">
+              {t('browse_btn')}
             </div>
           </div>
 

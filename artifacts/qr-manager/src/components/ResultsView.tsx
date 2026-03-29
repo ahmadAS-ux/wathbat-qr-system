@@ -63,7 +63,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
         <div className={`relative z-10 flex flex-col sm:flex-row items-center justify-between gap-5 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
           <div className={`flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 border border-white/10">
-              <CheckCircle2 className="w-7 h-7 text-[#C89B3C]" />
+              <CheckCircle2 className="w-7 h-7 text-[#4A6FA5]" />
             </div>
             <div className={isRtl ? 'text-right' : ''}>
               <h2 className="text-xl font-bold text-white">{t('success_title')}</h2>
@@ -75,7 +75,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="flex items-center gap-3 bg-[#C89B3C] hover:bg-[#b8871a] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-base px-9 py-4 rounded-2xl shadow-lg shadow-black/25 transition-all duration-200 hover:scale-105"
+              className="flex items-center gap-3 bg-[#4A6FA5] hover:bg-[#3d5f94] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-base px-9 py-4 rounded-2xl shadow-lg shadow-black/25 transition-all duration-200 hover:scale-105"
             >
               {isDownloading
                 ? <Loader2 className="w-5 h-5 animate-spin" />
@@ -112,14 +112,14 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i }}
-            className={`bg-white border ${(stat as any).highlight ? 'border-amber-400 ring-1 ring-amber-400/40' : 'border-border/50'} rounded-2xl p-5 shadow-sm flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}
+            className={`bg-white border ${(stat as any).highlight ? 'border-[#4A6FA5] ring-1 ring-[#4A6FA5]/30' : 'border-border/50'} rounded-2xl p-5 shadow-sm flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`p-3 rounded-xl shrink-0 ${(stat as any).highlight ? 'bg-amber-50 text-amber-600' : 'bg-[#1B2A4A]/5 text-[#1B2A4A]'}`}>
+            <div className={`p-3 rounded-xl shrink-0 ${(stat as any).highlight ? 'bg-[#4A6FA5]/10 text-[#4A6FA5]' : 'bg-[#1B2A4A]/5 text-[#1B2A4A]'}`}>
               <stat.icon className="w-5 h-5" />
             </div>
             <div className={isRtl ? 'text-right' : ''}>
               <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <p className={`text-lg font-bold truncate ${(stat as any).highlight ? 'text-amber-600' : 'text-[#1B2A4A]'}`}>{stat.value}</p>
+              <p className={`text-lg font-bold truncate ${(stat as any).highlight ? 'text-[#4A6FA5]' : 'text-[#1B2A4A]'}`}>{stat.value}</p>
             </div>
           </motion.div>
         ))}
