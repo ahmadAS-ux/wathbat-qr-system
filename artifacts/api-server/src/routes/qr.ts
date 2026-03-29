@@ -376,6 +376,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     ))
     .map(c => c.tIdx);
 
+  candidates.forEach((c, i) =>
+    console.log(`[QR] candidate[${i}] tIdx=${c.tIdx} posCount=${c.posSet.size} positions=${[...c.posSet].join("|")}`)
+  );
   console.log(`[QR] candidates=${candidates.length}, after subset-filter=${dataTableIndices.length}`);
   if (dataTableIndices.length === 0) throw new Error("NO_POSITIONS");
 
@@ -566,6 +569,15 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   console.log(`[QR] total injected=${qrIdx} of ${qrEntries.length}`);
+  console.log(`[QR] final docXml length=${docXml.length}`);
+
+  // Dump context around Word's reported error column for debugging
+  const ERR_COL = 362320;
+  if (docXml.length > ERR_COL - 200) {
+    const start = Math.max(0, ERR_COL - 200);
+    const end = Math.min(docXml.length, ERR_COL + 200);
+    console.log(`[QR] XML context @col${ERR_COL}: ${JSON.stringify(docXml.slice(start, end))}`);
+  }
 
   // Sanity-check: duplicate xmlns declarations corrupt the XML and cause Word to refuse the file
   const xmlnsWpMatches = docXml.match(/xmlns:wp=/g);
