@@ -1,13 +1,14 @@
 import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
-import { Globe, LayoutDashboard } from 'lucide-react';
+import { Globe, LayoutDashboard, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
 export function Header() {
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, t, isRtl } = useLanguage();
   const [location] = useLocation();
+  const isAdmin = location === '/admin';
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');
@@ -36,16 +37,25 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            <Link href="/admin">
-              <button className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-all border ${
-                location === '/admin'
-                  ? 'bg-[#1B2A4A] text-white border-[#1B2A4A]'
-                  : 'text-[#1B2A4A] border-[#1B2A4A]/15 hover:bg-[#1B2A4A]/5'
-              }`}>
-                <LayoutDashboard className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('admin_nav')}</span>
-              </button>
-            </Link>
+            {/* Back to main app — only shown on admin page */}
+            {isAdmin && (
+              <Link href="/">
+                <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-all border text-[#1B2A4A] border-[#1B2A4A]/20 hover:bg-[#1B2A4A]/5">
+                  {isRtl ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{t('app_title')}</span>
+                </button>
+              </Link>
+            )}
+
+            {/* Admin link — only shown when NOT on admin page */}
+            {!isAdmin && (
+              <Link href="/admin">
+                <button className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-all border text-[#1B2A4A] border-[#1B2A4A]/15 hover:bg-[#1B2A4A]/5">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('admin_nav')}</span>
+                </button>
+              </Link>
+            )}
 
             <Button
               variant="outline"
