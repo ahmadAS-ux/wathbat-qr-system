@@ -1,0 +1,71 @@
+Here is the prompt for Replit:
+
+Customer QR Scan Page — Review & Build
+Before you start building anything, I need you to check the existing codebase and answer these questions first. Do not write any new code until you have confirmed the answers with me.
+Step 1 — Check what already exists:
+
+Is there already a customer-facing page that opens when a QR code is scanned? If yes, show me the file path and what it currently does.
+Does the QR code currently contain a URL linking to a customer page, or does it only contain product text data?
+Is there already a requests table in the database that stores customer submissions? If yes, show me its current fields.
+Is there already any form that captures customer phone number or request type? If yes, show me the file path.
+Is there already any email notification system in place? If yes, show me how it is configured.
+
+Step 2 — After checking, confirm with me:
+Tell me exactly:
+
+What already exists and works
+What exists but needs to be changed
+What does not exist and needs to be built from scratch
+
+Wait for my confirmation before writing any code.
+Step 3 — Only after my confirmation, build what is missing:
+The customer page must include:
+Product Info Section (no prices):
+
+Position Number
+Width × Height (mm)
+Order Reference Number
+
+Request Form:
+
+Dropdown (required) — "سبب التواصل / Reason for Contact" with options:
+
+استلام القطعة / Item Received
+الإبلاغ عن عيب تصنيع / Report Manufacturing Defect
+طلب صيانة / Maintenance Request
+طلب استبدال / Replacement Request
+استفسار عن الطلبية / Order Inquiry
+
+
+Phone number field (required):
+
+Must be a valid Saudi mobile number — starts with 05, exactly 10 digits
+Show inline error if invalid
+
+
+Notes field (optional):
+
+Maximum 200 characters
+Show character counter
+
+
+Submit button disabled until dropdown and valid phone are filled
+After submission: show confirmation message and send email to company
+
+Company Footer:
+
+Wathbat Aluminum logo
+Location: الرياض، حي الدفاع
+Customer Service: 0536080555 — 0536080666 — 0536080777
+Website: wathbat.sa
+Social icons: Snapchat, Instagram, X, TikTok
+
+Design:
+
+Mobile first — optimized for phone screens
+Wathbat brand colors: #1B2A4A and #4A6FA5
+Arabic default, English toggle available
+No login required
+Fast loading — no heavy libraries
+
+Do not start building until you have completed Step 1 and Step 2 and I have confirmed.
