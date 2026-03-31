@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PREVIEW_COUNT = 5;
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 export default function Admin() {
   const { t, isRtl } = useLanguage();

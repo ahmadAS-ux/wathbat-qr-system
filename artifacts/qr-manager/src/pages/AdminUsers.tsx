@@ -12,7 +12,7 @@ interface UserRow {
   createdAt: string;
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 const ROLE_STYLES: Record<string, string> = {
   Admin: 'bg-[#1B2A4A]/8 text-[#1B2A4A] border-[#1B2A4A]/15',

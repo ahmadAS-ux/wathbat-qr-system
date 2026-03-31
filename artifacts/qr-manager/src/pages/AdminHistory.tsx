@@ -15,7 +15,7 @@ interface HistoryRow {
 }
 
 const PAGE_SIZE = 20;
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 export default function AdminHistory() {
   const { t, isRtl } = useLanguage();

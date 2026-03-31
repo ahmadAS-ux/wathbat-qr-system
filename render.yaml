@@ -52,6 +52,11 @@ services:
       # not used at runtime for static sites — set to a fixed value here.
       - key: PORT
         value: 3000
+      # Set this to the full URL of your API service after first deploy,
+      # e.g. https://qr-asset-manager-api.onrender.com
+      # Then redeploy the static site so the URL is baked into the JS bundle.
+      - key: VITE_API_URL
+        sync: false
 
 # ── Managed PostgreSQL ───────────────────────────────────────────────────────
 databases:

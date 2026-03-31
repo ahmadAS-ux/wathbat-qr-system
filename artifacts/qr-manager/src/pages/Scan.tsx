@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, Phone, MessageSquare, ChevronDown, Package, Rule
 import { useLanguage } from '@/hooks/use-language';
 
 const NOTES_MAX = 200;
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 const REASONS_EN = [
   'Item Received / استلام القطعة',

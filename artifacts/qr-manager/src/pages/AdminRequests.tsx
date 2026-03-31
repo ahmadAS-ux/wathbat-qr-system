@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PAGE_SIZE = 20;
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 export default function AdminRequests() {
   const { t, isRtl } = useLanguage();
