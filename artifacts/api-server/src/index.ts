@@ -42,8 +42,34 @@ async function runStartupMigrations() {
     logger.error({ err }, "Startup migration failed — server will still start");
   }
 
-  // Create users table and seed default admin
+  // Create all tables and seed default admin
   try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS processed_docs (
+        id SERIAL PRIMARY KEY,
+        original_filename TEXT NOT NULL,
+        report_filename TEXT NOT NULL,
+        project_name TEXT,
+        processing_date TEXT,
+        position_count INTEGER NOT NULL DEFAULT 0,
+        original_file BYTEA NOT NULL,
+        report_file BYTEA NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS requests (
+        id SERIAL PRIMARY KEY,
+        position_id TEXT NOT NULL,
+        request_type TEXT NOT NULL,
+        customer_phone TEXT,
+        project_name TEXT,
+        invoice_number TEXT,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'New',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -59,7 +85,7 @@ async function runStartupMigrations() {
       logger.info("Default admin account created: admin / admin123");
     }
   } catch (err) {
-    logger.error({ err }, "Failed to initialise users table — server will still start");
+    logger.error({ err }, "Failed to initialise tables — server will still start");
   }
 }
 
