@@ -1,6 +1,11 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { setBaseUrl } from "@workspace/api-client-react";
+
+// Point the generated API client at the correct server in production.
+// In dev, VITE_API_URL is unset so relative URLs go through Vite's proxy.
+setBaseUrl((import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '') || null);
 
 // Patch global fetch to inject auth token for all /api/ calls
 const _origFetch = globalThis.fetch;
