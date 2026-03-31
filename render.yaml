@@ -1,0 +1,62 @@
+# Render Blueprint — QR Asset Manager (Wathbat Aluminum)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Two services:
+#   1. qr-asset-manager-api  — Express API (Node.js web service)
+#   2. qr-asset-manager-web  — React SPA  (Render static site)
+#
+# One managed database:
+#   qr-asset-manager-db      — PostgreSQL (free tier)
+#
+# Required secrets (set manually in Render dashboard after first deploy):
+#   DATABASE_URL  — auto-linked from qr-asset-manager-db below
+#
+# All other variables are pre-filled here.
+
+services:
+  # ── 1. API Server ────────────────────────────────────────────────────────
+  - type: web
+    name: qr-asset-manager-api
+    env: node
+    plan: free
+    region: oregon        # change to: frankfurt, singapore, ohio, virginia
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build
+    startCommand: pnpm --filter @workspace/api-server start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: qr-asset-manager-db
+          property: connectionString
+
+  # ── 2. Frontend (Static Site) ────────────────────────────────────────────
+  - type: web
+    name: qr-asset-manager-web
+    env: static
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @workspace/qr-manager build
+    staticPublishPath: ./artifacts/qr-manager/dist/public
+    # SPA fallback — all paths serve index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Vite base path — must be "/" for root deployments
+      - key: BASE_PATH
+        value: /
+      # PORT is read by vite.config.ts at build time (dev server config);
+      # not used at runtime for static sites — set to a fixed value here.
+      - key: PORT
+        value: 3000
+
+# ── Managed PostgreSQL ───────────────────────────────────────────────────────
+databases:
+  - name: qr-asset-manager-db
+    plan: free
+    databaseName: qrdb
+    user: qrdbuser
+    region: oregon        # must match the API service region above
