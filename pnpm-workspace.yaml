@@ -4,7 +4,7 @@ packages:
   - lib/integrations/*
   - scripts
 
-autoInstallPeers: false
+autoInstallPeers: true
 
 onlyBuiltDependencies:
   - '@swc/core'
