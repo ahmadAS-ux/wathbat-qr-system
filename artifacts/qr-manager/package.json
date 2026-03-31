@@ -78,5 +78,8 @@
   "dependencies": {
     "react-dropzone": "^15.0.0",
     "xlsx": "^0.18.5"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*"
   }
 }
