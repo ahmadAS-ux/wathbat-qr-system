@@ -58,6 +58,7 @@ export default function Home() {
       const timer = setTimeout(() => setShowSuccess(false), 4000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [showSuccess]);
 
   return (

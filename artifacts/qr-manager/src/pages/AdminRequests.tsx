@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, ArrowLeft, ArrowRight, Search, Wrench, Download, Trash2 } from 'lucide-react';
+import { RefreshCw, Search, Wrench, Download, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { Link, useLocation } from 'wouter';
+import { useLocation } from 'wouter';
 import * as XLSX from 'xlsx';
+import { AdminLayout } from '@/components/layout/AdminLayout';
 
 interface RequestRow {
   id: number;
@@ -19,9 +20,9 @@ interface RequestRow {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-blue-100 text-blue-700 border-blue-200',
-  'In Progress': 'bg-[#4A6FA5]/10 text-[#4A6FA5] border-[#4A6FA5]/20',
-  Done: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  New: 'bg-blue-50 text-blue-700 border-blue-200',
+  'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
+  Done: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 const PAGE_SIZE = 20;
@@ -111,173 +112,180 @@ export default function AdminRequests() {
 
   const statusOptions = ['New', 'In Progress', 'Done'];
 
+  const statusCounts = {
+    All: all.length,
+    New: all.filter(r => r.status === 'New').length,
+    'In Progress': all.filter(r => r.status === 'In Progress').length,
+    Done: all.filter(r => r.status === 'Done').length,
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+    <AdminLayout>
+      <div className="min-h-screen bg-[#F0F2F5]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        {/* Page header */}
-        <div className={`flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-            <Wrench className="w-6 h-6 text-[#4A6FA5]" />
-            <div className={isRtl ? 'text-right' : ''}>
-              <h1 className="text-2xl font-extrabold text-[#1B2A4A] tracking-tight">{t('requests_title')}</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Wathbat Aluminum · wathbat.sa</p>
-            </div>
-          </div>
-          <Link href="/admin">
-            <button className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border text-[#1B2A4A] border-[#1B2A4A]/20 hover:bg-[#1B2A4A]/5 transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
-              {isRtl ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
-              {t('back_to_admin')}
-            </button>
-          </Link>
-        </div>
-
-        {/* Toolbar */}
-        <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
-          {/* Search */}
-          <div className={`relative flex items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
-            <Search className={`absolute w-4 h-4 text-muted-foreground ${isRtl ? 'right-3' : 'left-3'}`} />
-            <input
-              type="text"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
-              placeholder={t('search_placeholder')}
-              dir={isRtl ? 'rtl' : 'ltr'}
-              className={`w-72 border border-border rounded-xl py-2.5 text-sm bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30 ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
-            />
-          </div>
-
-          <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-            {/* Status filters */}
-            <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              {filters.map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => { setStatusFilter(f.key); setVisible(PAGE_SIZE); }}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                    statusFilter === f.key
-                      ? 'bg-[#1B2A4A] text-white border-[#1B2A4A]'
-                      : 'text-[#1B2A4A] border-[#1B2A4A]/20 hover:border-[#1B2A4A]/50'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+          {/* Page header */}
+          <div className={`flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className="p-2 rounded-xl bg-[#4A6FA5]/10">
+                <Wrench className="w-5 h-5 text-[#4A6FA5]" />
+              </div>
+              <div className={isRtl ? 'text-right' : ''}>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('requests_title')}</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Wathbat Aluminum · wathbat.sa</p>
+              </div>
             </div>
             <button
               onClick={exportExcel}
-              className="flex items-center gap-2 bg-[#4A6FA5] hover:bg-[#3d5f94] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+              className={`flex items-center gap-2 bg-[#1B2A4A] hover:bg-[#142240] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Download className="w-4 h-4" />
               {t('admin_export')}
             </button>
           </div>
-        </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
-              <thead className="bg-[#F8F9FB] border-b border-border/40">
-                <tr>
-                  {[
-                    t('admin_col_id'),
-                    t('admin_col_position'),
-                    t('admin_col_type'),
-                    t('admin_col_phone'),
-                    t('admin_history_project'),
-                    t('admin_col_date'),
-                    t('admin_col_status'),
-                    ...(isAdmin ? [''] : []),
-                  ].map((h, i) => (
-                    <th key={i} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={isAdmin ? 8 : 7} className="px-4 py-16 text-center text-muted-foreground">
-                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-                    </td>
-                  </tr>
-                ) : shown.length === 0 ? (
-                  <tr>
-                    <td colSpan={isAdmin ? 8 : 7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
-                  </tr>
-                ) : (
-                  shown.map((row, i) => (
-                    <motion.tr
-                      key={row.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.01 }}
-                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#4A6FA5]/[0.06]`}
-                    >
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">#{row.id}</td>
-                      <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.positionId}</td>
-                      <td className="px-4 py-3 text-foreground">{row.requestType}</td>
-                      <td className="px-4 py-3 text-foreground">{row.customerPhone || '—'}</td>
-                      <td className="px-4 py-3">
-                        {row.projectName ? (
-                          <button
-                            onClick={() => navigate(`/admin?project=${encodeURIComponent(row.projectName!)}`)}
-                            className="text-[#4A6FA5] underline underline-offset-2 hover:text-[#3d5f94] font-medium transition-colors cursor-pointer"
-                          >
-                            {row.projectName}
-                          </button>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                        {new Date(row.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={row.status}
-                          disabled={updatingId === row.id}
-                          onChange={e => updateStatus(row.id, e.target.value)}
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer outline-none transition-all ${STATUS_COLORS[row.status] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}
-                        >
-                          {statusOptions.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </td>
-                      {isAdmin && (
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => deleteRequest(row.id)}
-                            disabled={deletingId === row.id}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      )}
-                    </motion.tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Toolbar */}
+          <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
+            {/* Search */}
+            <div className={`relative flex items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <Search className={`absolute w-4 h-4 text-slate-400 ${isRtl ? 'right-3' : 'left-3'}`} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
+                placeholder={t('search_placeholder')}
+                dir={isRtl ? 'rtl' : 'ltr'}
+                className={`w-72 border border-slate-200 rounded-xl py-2.5 text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50 shadow-sm ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
+              />
+            </div>
+
+            {/* Status filter tabs */}
+            <div className={`flex gap-1.5 bg-slate-100 p-1 rounded-xl ${isRtl ? 'flex-row-reverse' : ''}`}>
+              {filters.map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => { setStatusFilter(f.key); setVisible(PAGE_SIZE); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    statusFilter === f.key
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {f.label}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                    statusFilter === f.key ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    {statusCounts[f.key as keyof typeof statusCounts] ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Show More */}
-          {hasMore && (
-            <div className="flex justify-center p-4 border-t border-border/30">
-              <button
-                onClick={() => setVisible(v => v + PAGE_SIZE)}
-                className="px-6 py-2 text-sm font-semibold text-[#1B2A4A] border border-[#1B2A4A]/20 rounded-full hover:bg-[#1B2A4A]/5 transition-colors"
-              >
-                {t('show_more')}
-              </button>
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70">
+                    {[
+                      t('admin_col_id'),
+                      t('admin_col_position'),
+                      t('admin_col_type'),
+                      t('admin_col_phone'),
+                      t('admin_history_project'),
+                      t('admin_col_date'),
+                      t('admin_col_status'),
+                      ...(isAdmin ? [''] : []),
+                    ].map((h, i) => (
+                      <th key={i} className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                      </td>
+                    </tr>
+                  ) : shown.length === 0 ? (
+                    <tr>
+                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td>
+                    </tr>
+                  ) : (
+                    shown.map((row, i) => (
+                      <motion.tr
+                        key={row.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.01 }}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{row.id}</td>
+                        <td className="px-5 py-3.5 font-semibold text-slate-800">{row.positionId}</td>
+                        <td className="px-5 py-3.5 text-slate-600">{row.requestType}</td>
+                        <td className="px-5 py-3.5 text-slate-600">{row.customerPhone || '—'}</td>
+                        <td className="px-5 py-3.5">
+                          {row.projectName ? (
+                            <button
+                              onClick={() => navigate(`/admin?project=${encodeURIComponent(row.projectName!)}`)}
+                              className="text-[#4A6FA5] hover:text-[#3d5f94] font-medium hover:underline underline-offset-2 transition-colors"
+                            >
+                              {row.projectName}
+                            </button>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap text-xs">
+                          {new Date(row.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <select
+                            value={row.status}
+                            disabled={updatingId === row.id}
+                            onChange={e => updateStatus(row.id, e.target.value)}
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-all ${STATUS_COLORS[row.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                          >
+                            {statusOptions.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </td>
+                        {isAdmin && (
+                          <td className="px-5 py-3.5">
+                            <button
+                              onClick={() => deleteRequest(row.id)}
+                              disabled={deletingId === row.id}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        )}
+                      </motion.tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
 
+            {hasMore && (
+              <div className="flex justify-center p-4 border-t border-slate-100 bg-slate-50/50">
+                <button
+                  onClick={() => setVisible(v => v + PAGE_SIZE)}
+                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-full hover:bg-white hover:border-slate-300 transition-colors shadow-sm"
+                >
+                  {t('show_more')}
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

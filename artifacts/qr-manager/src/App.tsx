@@ -55,6 +55,7 @@ function AppRoutes() {
   const [, navigate] = useLocation();
   const isScanPage = location === '/scan';
   const isLoginPage = location === '/login';
+  const isAdminPage = location.startsWith('/admin');
 
   // Redirect already-logged-in users away from /login
   useEffect(() => {
@@ -65,7 +66,7 @@ function AppRoutes() {
 
   return (
     <div className="flex flex-col min-h-screen relative">
-      {!isScanPage && !isLoginPage && <Header />}
+      {!isScanPage && !isLoginPage && !isAdminPage && <Header />}
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/scan" component={Scan} />
