@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 
 export interface SessionData {
@@ -7,8 +8,11 @@ export interface SessionData {
   role: string;
 }
 
-// In-memory session store: token → session
-const sessions = new Map<string, SessionData>();
+function getSecret(): string {
+  const s = process.env["JWT_SECRET"];
+  if (!s) throw new Error("JWT_SECRET environment variable is required");
+  return s;
+}
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -28,14 +32,11 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 export function createSession(data: SessionData): string {
-  const token = crypto.randomUUID();
-  sessions.set(token, data);
-  return token;
+  return jwt.sign(data, getSecret(), { expiresIn: "7d" });
 }
 
-export function deleteSession(token: string): void {
-  sessions.delete(token);
-}
+// No-op kept for API compatibility (logout still clears the client-side token)
+export function deleteSession(_token: string): void {}
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers.authorization;
@@ -44,14 +45,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
   const token = auth.slice(7);
-  const session = sessions.get(token);
-  if (!session) {
+  try {
+    const payload = jwt.verify(token, getSecret()) as SessionData;
+    (req as any).session = payload;
+    (req as any).token = token;
+    next();
+  } catch {
     res.status(401).json({ error: "Unauthorized" });
-    return;
   }
-  (req as any).session = session;
-  (req as any).token = token;
-  next();
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
