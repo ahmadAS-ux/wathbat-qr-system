@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   const isPublic =
     (req.method === "POST" && req.path === "/auth/login") ||
-    (req.method === "GET"  && req.path === "/healthz")   ||
+    (req.method === "GET"  && (req.path === "/healthz" || req.path === "/health")) ||
     (req.method === "POST" && req.path === "/admin/requests"); // scan form
   if (isPublic) return next();
   requireAuth(req, res, next);

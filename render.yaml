@@ -22,7 +22,7 @@ services:
     region: oregon        # change to: frankfurt, singapore, ohio, virginia
     buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build
     startCommand: pnpm --filter @workspace/api-server start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
