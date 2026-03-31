@@ -3,7 +3,6 @@
   "steps": {
     "install": {
       "commands": [
-        "pnpm add -g node-gyp",
         "pnpm install --no-frozen-lockfile"
       ]
     },
