@@ -1,17 +1,22 @@
 import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Globe, LayoutDashboard, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Globe, LayoutDashboard, ArrowLeft, ArrowRight, LogOut, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
 export function Header() {
   const { language, setLanguage, t, isRtl } = useLanguage();
-  const [location] = useLocation();
+  const { user, logout } = useAuth();
+  const [location, navigate] = useLocation();
   const isAdmin = location.startsWith('/admin');
 
-  const toggleLanguage = () => {
-    setLanguage(language === 'en' ? 'ar' : 'en');
+  const toggleLanguage = () => setLanguage(language === 'en' ? 'ar' : 'en');
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
@@ -57,6 +62,16 @@ export function Header() {
               </Link>
             )}
 
+            {/* Users link — admin only */}
+            {user?.role === 'Admin' && isAdmin && (
+              <Link href="/admin/users">
+                <button className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-full border text-[#1B2A4A] border-[#1B2A4A]/15 hover:bg-[#1B2A4A]/5 transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('users_nav')}</span>
+                </button>
+              </Link>
+            )}
+
             <Button
               variant="outline"
               size="sm"
@@ -66,6 +81,20 @@ export function Header() {
               <Globe className="w-4 h-4 text-[#C89B3C]" />
               <span>{language === 'en' ? 'العربية' : 'English'}</span>
             </Button>
+
+            {/* User info + logout */}
+            {user && (
+              <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <span className="text-xs font-medium text-muted-foreground hidden sm:block">{user.username}</span>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center w-8 h-8 rounded-full border border-[#1B2A4A]/15 text-[#1B2A4A] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, ArrowLeft, ArrowRight, Search, Wrench, Download } from 'lucide-react';
+import { RefreshCw, ArrowLeft, ArrowRight, Search, Wrench, Download, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth';
 import { Link, useLocation } from 'wouter';
 import * as XLSX from 'xlsx';
 
@@ -28,6 +29,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export default function AdminRequests() {
   const { t, isRtl } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
   const [, navigate] = useLocation();
   const [all, setAll] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,7 @@ export default function AdminRequests() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -55,6 +59,17 @@ export default function AdminRequests() {
       if (res.ok) setAll(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const deleteRequest = async (id: number) => {
+    if (!window.confirm(t('confirm_delete_request'))) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`${BASE}/api/admin/requests/${id}`, { method: 'DELETE' });
+      if (res.ok) setAll(prev => prev.filter(r => r.id !== id));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -173,21 +188,22 @@ export default function AdminRequests() {
                     t('admin_history_project'),
                     t('admin_col_date'),
                     t('admin_col_status'),
-                  ].map(h => (
-                    <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
+                    ...(isAdmin ? [''] : []),
+                  ].map((h, i) => (
+                    <th key={i} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
+                    <td colSpan={isAdmin ? 8 : 7} className="px-4 py-16 text-center text-muted-foreground">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     </td>
                   </tr>
                 ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
+                    <td colSpan={isAdmin ? 8 : 7} className="px-4 py-16 text-center text-muted-foreground">{t('admin_no_requests')}</td>
                   </tr>
                 ) : (
                   shown.map((row, i) => (
@@ -196,7 +212,7 @@ export default function AdminRequests() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.01 }}
-                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#1B2A4A]/[0.02]`}
+                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#4A6FA5]/[0.06]`}
                     >
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">#{row.id}</td>
                       <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.positionId}</td>
@@ -229,6 +245,18 @@ export default function AdminRequests() {
                           ))}
                         </select>
                       </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => deleteRequest(row.id)}
+                            disabled={deletingId === row.id}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </motion.tr>
                   ))
                 )}

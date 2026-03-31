@@ -1,23 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileUpload } from '@/components/FileUpload';
 import { ResultsView } from '@/components/ResultsView';
 import { useProcessDocument, ProcessResult } from '@workspace/api-client-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, QrCode, AlertTriangle } from 'lucide-react';
+import { Loader2, QrCode, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [duplicateProjectName, setDuplicateProjectName] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const { mutate: processDoc, isPending } = useProcessDocument({
     mutation: {
       onSuccess: (data) => {
         setDuplicateProjectName(null);
         setResult(data);
+        setShowSuccess(true);
         toast({
           title: t('toast_success_title'),
           description: t('toast_success_desc'),
@@ -48,7 +50,15 @@ export default function Home() {
   const handleReset = () => {
     setResult(null);
     setDuplicateProjectName(null);
+    setShowSuccess(false);
   };
+
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col relative overflow-hidden">
@@ -129,6 +139,19 @@ export default function Home() {
               exit={{ opacity: 0 }}
               className="w-full"
             >
+              <AnimatePresence>
+                {showSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center gap-3 mb-6 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 max-w-3xl mx-auto"
+                  >
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <p className="text-sm font-medium">{t('toast_success_title')} — {t('toast_success_desc')}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <ResultsView result={result} onReset={handleReset} />
             </motion.div>
           )}

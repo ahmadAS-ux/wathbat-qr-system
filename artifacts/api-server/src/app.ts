@@ -1,8 +1,9 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { requireAuth } from "./lib/auth.js";
 
 const app: Express = express();
 
@@ -28,6 +29,16 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Global auth guard — protect all /api routes except public ones
+app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+  const isPublic =
+    (req.method === "POST" && req.path === "/auth/login") ||
+    (req.method === "GET"  && req.path === "/healthz")   ||
+    (req.method === "POST" && req.path === "/admin/requests"); // scan form
+  if (isPublic) return next();
+  requireAuth(req, res, next);
+});
 
 app.use("/api", router);
 

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UploadCloud, FileText, X, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileText, X, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { cn, formatBytes } from '@/lib/utils';
 
@@ -51,6 +51,14 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
         {...safeRootProps}
       >
         <input {...getInputProps()} />
+
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm rounded-3xl">
+            <Loader2 className="w-10 h-10 text-[#1B2A4A] animate-spin" />
+            <p className="text-sm font-semibold text-[#1B2A4A]">{t('processing')}</p>
+          </div>
+        )}
 
         {/* Background decoration */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#4A6FA5]/[0.03] via-transparent to-[#1B2A4A]/[0.03] pointer-events-none" />

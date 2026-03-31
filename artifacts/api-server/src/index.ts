@@ -1,7 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, usersTable } from "@workspace/db";
+import { sql, eq } from "drizzle-orm";
+import { hashPassword } from "./lib/auth.js";
 
 const rawPort = process.env["PORT"];
 
@@ -39,6 +40,26 @@ async function runStartupMigrations() {
     }
   } catch (err) {
     logger.error({ err }, "Startup migration failed — server will still start");
+  }
+
+  // Create users table and seed default admin
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'User',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, "admin"));
+    if (!existing) {
+      await db.insert(usersTable).values({ username: "admin", passwordHash: hashPassword("admin123"), role: "Admin" });
+      logger.info("Default admin account created: admin / admin123");
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to initialise users table — server will still start");
   }
 }
 

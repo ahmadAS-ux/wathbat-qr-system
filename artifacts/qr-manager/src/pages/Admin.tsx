@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X, Plus, ChevronDown, Trash2 } from 'lucide-react';
+import { FileText, QrCode, Calendar, TrendingUp, Download, RefreshCw, Archive, Wrench, ArrowRight, ArrowLeft, X, Plus, ChevronDown, Trash2, Users } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'wouter';
 
 interface Metrics {
@@ -36,6 +37,7 @@ interface HistoryRow {
 const STATUS_COLORS: Record<string, string> = {
   New: 'bg-blue-100 text-blue-700 border-blue-200',
   'In Progress': 'bg-[#4A6FA5]/10 text-[#4A6FA5] border-[#4A6FA5]/20',
+  Pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   Done: 'bg-emerald-100 text-emerald-700 border-emerald-200',
 };
 
@@ -44,6 +46,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 export default function Admin() {
   const { t, isRtl } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -55,6 +59,7 @@ export default function Admin() {
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
+  const [deletingReqId, setDeletingReqId] = useState<number | null>(null);
 
   const deleteDoc = async (id: number, name: string) => {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
@@ -64,6 +69,17 @@ export default function Admin() {
       setHistory(h => h.filter(r => r.id !== id));
     } finally {
       setDeletingDocId(null);
+    }
+  };
+
+  const deleteRequest = async (id: number) => {
+    if (!window.confirm(t('confirm_delete_request'))) return;
+    setDeletingReqId(id);
+    try {
+      await fetch(`${BASE}/api/admin/requests/${id}`, { method: 'DELETE' });
+      setRequests(r => r.filter(x => x.id !== id));
+    } finally {
+      setDeletingReqId(null);
     }
   };
 
@@ -291,7 +307,7 @@ export default function Admin() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#1B2A4A]/[0.02]`}
+                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#4A6FA5]/[0.06]`}
                     >
                       <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.projectName || '—'}</td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{row.originalFilename}</td>
@@ -346,6 +362,24 @@ export default function Admin() {
           )}
         </div>
 
+        {/* ── User Management (admin only) ── */}
+        {isAdmin && (
+          <Link href="/admin/users">
+            <div className={`bg-white rounded-2xl border border-border/50 shadow-sm p-5 flex items-center gap-4 cursor-pointer hover:bg-[#4A6FA5]/[0.03] transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className="p-3 rounded-xl shrink-0 bg-[#1B2A4A]/5">
+                <Users className="w-5 h-5 text-[#1B2A4A]" />
+              </div>
+              <div className={isRtl ? 'text-right' : ''}>
+                <p className="text-xs font-medium text-muted-foreground leading-tight">{t('users_nav')}</p>
+                <p className="text-sm font-bold text-[#1B2A4A] mt-0.5">{t('users_title')}</p>
+              </div>
+              <div className={`ms-auto ${isRtl ? 'me-auto ms-0' : ''}`}>
+                {isRtl ? <ArrowLeft className="w-4 h-4 text-[#4A6FA5]" /> : <ArrowRight className="w-4 h-4 text-[#4A6FA5]" />}
+              </div>
+            </div>
+          </Link>
+        )}
+
         {/* ── Service Requests ── */}
         <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
           <div className={`flex items-center justify-between p-5 border-b border-border/40 ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -374,16 +408,16 @@ export default function Admin() {
             <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
               <thead className="bg-[#F8F9FB] border-b border-border/40">
                 <tr>
-                  {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_date'), t('admin_col_status')].map(h => (
-                    <th key={h} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
+                  {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, i) => (
+                    <th key={i} className="px-4 py-3 font-semibold text-[#1B2A4A] whitespace-nowrap text-start">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                  <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-10 text-center text-muted-foreground"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
                 ) : requests.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('admin_no_requests')}</td></tr>
+                  <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-10 text-center text-muted-foreground">{t('admin_no_requests')}</td></tr>
                 ) : (
                   shownRequests.map((row, i) => (
                     <motion.tr
@@ -391,7 +425,7 @@ export default function Admin() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#1B2A4A]/[0.02]`}
+                      className={`border-b border-border/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FB]/60'} hover:bg-[#4A6FA5]/[0.06]`}
                     >
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">#{row.id}</td>
                       <td className="px-4 py-3 font-semibold text-[#1B2A4A]">{row.positionId}</td>
@@ -420,6 +454,18 @@ export default function Admin() {
                           {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => deleteRequest(row.id)}
+                            disabled={deletingReqId === row.id}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </motion.tr>
                   ))
                 )}
