@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Claude Code settings
+.claude/
+settings.local.json
