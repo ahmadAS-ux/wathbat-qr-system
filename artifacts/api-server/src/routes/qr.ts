@@ -34,6 +34,7 @@ interface PositionItem {
   price?: string;
   total?: string;
   qrDataUrl: string;
+  glassName?: string;
 }
 
 interface QREntry {
@@ -41,6 +42,21 @@ interface QREntry {
   dataUrl: string;
 }
 
+interface PositionData {
+  position: string;
+  quantity: string;
+  width: string;
+  height: string;
+  area: string;
+  perimeter: string;
+  price: string;
+  total: string;
+}
+
+interface PositionGroup {
+  glassName: string;
+  positions: PositionData[];
+}
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -77,18 +93,14 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     if (t === "Project name:" && segments[i + 2]) projectName = segments[i + 2].text;
   }
 
-  // ── Step 1: Discover all table ranges ───────────────────────────────────────
-  const POSITION_RE = /^\d{1,2}\s*\/\s*\d+$/;
+  // ── Step 1: Discover all top-level table ranges ──────────────────────────────
+  // Orgadata places all glass sections inside flat tables (not nested).
+  // A single table may contain multiple glass sections separated by "Name:" rows.
 
+  const POSITION_RE = /^\d{1,2}\s*\/\s*\d+$/;
   const TABLE_OPEN  = "<w:tbl>";
   const TABLE_CLOSE = "</w:tbl>";
 
-  // ── Table / row open helpers ─────────────────────────────────────────────────
-  // Orgadata (and Word in general) uses both <w:tbl> (no attributes) and
-  // <w:tbl w:rsidR="..."> (with attributes) for nested tables.  Every helper
-  // below handles BOTH forms so depth tracking never misfires.
-
-  /** Position of the next <w:tbl> or <w:tbl ...> open tag, -1 if none. */
   function nextTblOpen(xml: string, from: number): number {
     const a = xml.indexOf("<w:tbl>", from);
     const b = xml.indexOf("<w:tbl ", from);
@@ -97,20 +109,11 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     return Math.min(a, b);
   }
 
-  /**
-   * Given the start index of a <w:tbl…> or <w:tbl> tag, return the index
-   * immediately after the closing ">" of that opening tag.
-   * (Content scanning must start from here, not from start + fixed-length.)
-   */
   function afterTblOpenTag(xml: string, tblStart: number): number {
-    const gt = xml.indexOf(">", tblStart + 5); // skip past "<w:tbl" (6 chars)
+    const gt = xml.indexOf(">", tblStart + 5);
     return gt === -1 ? tblStart + TABLE_OPEN.length : gt + 1;
   }
 
-  /**
-   * Find all TOP-LEVEL <w:tbl[> ] ranges in xml (depth-aware).
-   * Handles both <w:tbl> and <w:tbl attr="…"> opening tags.
-   */
   function findTableRanges(xml: string): Array<{ start: number; end: number }> {
     const ranges: Array<{ start: number; end: number }> = [];
     let pos = 0;
@@ -138,17 +141,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   const rawTableRanges = findTableRanges(rawDocXml);
-  console.log(`[QR] findTableRanges found ${rawTableRanges.length} top-level tables; sizes: ${rawTableRanges.map(r => r.end - r.start).join(", ")}`);
+  console.log(`[QR] findTableRanges found ${rawTableRanges.length} top-level tables`);
 
-  // ── Step 2: Deduplicate tables, then drop summary/subset tables ──────────────
-  // Orgadata exports every table twice (screen + print). Additionally it emits
-  // a summary table at the bottom that repeats only the last few position rows
-  // before the grand-total line. We must exclude both duplicates AND subsets.
-  //
-  // Pass A — deduplicate by fingerprint (ordered position string).
+  // ── Step 2: Deduplicate tables (Orgadata may export screen + print copies) ───
   const seenFingerprints = new Set<string>();
-  type CandidateTable = { tIdx: number; posSet: Set<string> };
-  const candidates: CandidateTable[] = [];
+  type DataTable = { startOffset: number };
+  const dataTables: DataTable[] = [];
 
   for (let t = 0; t < rawTableRanges.length; t++) {
     const tContent = rawDocXml.slice(rawTableRanges[t].start, rawTableRanges[t].end);
@@ -159,55 +157,49 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     const fingerprint = positions.join(",");
     if (seenFingerprints.has(fingerprint)) continue;
     seenFingerprints.add(fingerprint);
-    candidates.push({ tIdx: t, posSet: new Set(positions) });
+    dataTables.push({ startOffset: rawTableRanges[t].start });
   }
 
-  if (candidates.length === 0) throw new Error("NO_POSITIONS");
+  if (dataTables.length === 0) throw new Error("NO_POSITIONS");
+  console.log(`[QR] ${dataTables.length} unique data table(s) after deduplication`);
 
-  // Pass B — record the original START OFFSET of each candidate table so we
-  // can re-locate them after splices shift all subsequent offsets.
-  // We do NOT filter any candidates here — all unique position-bearing tables
-  // should receive QR codes.
-  type DataTable = { startOffset: number; posSet: Set<string> };
-  const dataTables: DataTable[] = candidates.map(c => ({
-    startOffset: rawTableRanges[c.tIdx].start,
-    posSet: c.posSet,
-  }));
-
-  // Total raw position count across all tables (for UI reporting).
-  const rawPositionCount = candidates.reduce((acc, c) => acc + c.posSet.size, 0);
-
-  dataTables.forEach((dt, i) =>
-    console.log(`[QR] dataTable[${i}] startOffset=${dt.startOffset} posCount=${dt.posSet.size}`)
-  );
-  console.log(`[QR] dataTables=${dataTables.length}, rawPositionCount=${rawPositionCount}`);
-
-  // ── Step 3: Extract positionData from all kept data tables ───────────────────
-  const positionData: Array<{
-    position: string; quantity: string; width: string;
-    height: string; area: string; perimeter: string;
-    price: string; total: string;
-  }> = [];
+  // ── Step 3: Walk rows of each table; detect glass sections by "Name:" rows ───
+  // Structure: a table contains rows in this repeating pattern:
+  //   - header rows (Date, Project name, column headers, etc.)
+  //   - "Name:" row → glass color/spec in the next cell
+  //   - position data rows
+  //   - sum row
+  //   - [next glass section repeats]
+  const positionGroups: PositionGroup[] = [];
 
   for (const dt of dataTables) {
-    // Re-locate this table in rawDocXml by its recorded start offset.
-    // (rawDocXml is never modified so offsets stay stable here.)
-    const { start: tStart } = (() => {
-      // Find the table range that begins at exactly dt.startOffset
-      const r = rawTableRanges.find(r => r.start === dt.startOffset);
-      if (!r) throw new Error(`Table at offset ${dt.startOffset} not found in rawDocXml`);
-      return r;
-    })();
-    const tEnd = rawTableRanges.find(r => r.start === dt.startOffset)!.end;
-    const tContent = rawDocXml.slice(tStart, tEnd);
+    const tRange = rawTableRanges.find(r => r.start === dt.startOffset)!;
+    const tContent = rawDocXml.slice(tRange.start, tRange.end);
+
+    let currentGlass = "Unknown";
     const rowRe = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
     let rowMatch: RegExpExecArray | null;
+
     while ((rowMatch = rowRe.exec(tContent)) !== null) {
       const rowTexts = [...rowMatch[0].matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-        .map(m => m[1].trim()).filter(Boolean);
+        .map(m => m[1].trim())
+        .filter(Boolean);
+
+      // Detect "Name:" row → update current glass section
+      const nameIdx = rowTexts.indexOf("Name:");
+      if (nameIdx !== -1 && rowTexts[nameIdx + 1]) {
+        currentGlass = rowTexts[nameIdx + 1];
+        if (!positionGroups.find(g => g.glassName === currentGlass)) {
+          positionGroups.push({ glassName: currentGlass, positions: [] });
+        }
+        continue;
+      }
+
+      // Detect position data row
       const posIdx = rowTexts.findIndex(t => POSITION_RE.test(t));
       if (posIdx === -1) continue;
-      positionData.push({
+
+      const posData: PositionData = {
         position:  rowTexts[posIdx]     || "",
         quantity:  rowTexts[posIdx + 1] || "",
         width:     rowTexts[posIdx + 2] || "",
@@ -216,14 +208,24 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
         perimeter: rowTexts[posIdx + 5] || "",
         price:     rowTexts[posIdx + 6] || "",
         total:     rowTexts[posIdx + 7] || "",
-      });
+      };
+
+      let group = positionGroups.find(g => g.glassName === currentGlass);
+      if (!group) {
+        group = { glassName: currentGlass, positions: [] };
+        positionGroups.push(group);
+      }
+      group.positions.push(posData);
     }
   }
 
-  console.log(`[QR] Found ${positionData.length} positions across ${dataTables.length} data table(s)`);
+  const positionData: PositionData[] = positionGroups.flatMap(g => g.positions);
+  const rawPositionCount = positionData.length;
+
+  console.log(`[QR] ${positionGroups.length} glass group(s): ${positionGroups.map(g => `"${g.glassName}" (${g.positions.length})`).join(", ")}`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
-  // ── Step 4: Generate QR data URLs (embedded directly into HTML) ─────────────
+  // ── Step 4: Generate QR data URLs ────────────────────────────────────────────
   const domain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
   const qrBaseUrl = process.env.QR_SCAN_BASE_URL ||
     (domain ? `https://${domain}/scan` : '/scan');
@@ -231,20 +233,20 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   console.log(`[QR] Scan page URL base: ${qrBaseUrl}`);
 
   const qrEntries: QREntry[] = [];
-  for (let i = 0; i < positionData.length; i++) {
-    const p = positionData[i];
+  for (const p of positionData) {
     const urlParams = new URLSearchParams({ pos: p.position });
-    if (p.width) urlParams.set('w', p.width);
-    if (p.height) urlParams.set('h', p.height);
+    if (p.width)    urlParams.set('w',   p.width);
+    if (p.height)   urlParams.set('h',   p.height);
     if (p.quantity) urlParams.set('qty', p.quantity);
     if (projectName) urlParams.set('ref', projectName);
     const qrText = `${qrBaseUrl}?${urlParams.toString()}`;
-
     const dataUrl = await QRCode.toDataURL(qrText, { width: 200, margin: 1, errorCorrectionLevel: "M" });
     qrEntries.push({ position: p.position, dataUrl });
   }
 
-  // ── Step 5: Build self-contained HTML report ─────────────────────────────────
+  // ── Step 5: Build self-contained HTML report ──────────────────────────────────
+  // Price [SAR] and Total [SAR] columns are intentionally omitted from the report.
+
   function esc(s: string): string {
     return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -276,63 +278,37 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       display: flex;
       justify-content: space-between;
       align-items: stretch;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       padding-bottom: 10px;
       border-bottom: 3px solid #1B2A4A;
       gap: 16px;
     }
-    .doc-header-brand {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .brand-name {
-      font-size: 18pt;
-      font-weight: 900;
-      color: #1B2A4A;
-      letter-spacing: 1px;
-    }
-    .brand-sub {
-      font-size: 8.5pt;
-      color: #C89B3C;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
-    }
+    .doc-header-brand { display: flex; flex-direction: column; justify-content: center; }
+    .brand-name { font-size: 18pt; font-weight: 900; color: #1B2A4A; letter-spacing: 1px; }
+    .brand-sub  { font-size: 8.5pt; color: #C89B3C; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; }
     .doc-header-meta {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; text-align: center;
     }
-    .doc-title {
-      font-size: 13pt;
-      font-weight: bold;
-      color: #1B2A4A;
-      margin-bottom: 4px;
-    }
+    .doc-title    { font-size: 13pt; font-weight: bold; color: #1B2A4A; margin-bottom: 4px; }
     .doc-subtitle { font-size: 9pt; color: #555; }
     .doc-header-info {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: flex-end;
-      text-align: right;
-      gap: 4px;
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: flex-end; text-align: right; gap: 4px;
     }
-    .info-row { font-size: 9pt; color: #333; line-height: 1.5; }
-    .info-row strong { color: #1B2A4A; min-width: 80px; display: inline-block; }
+    .info-row         { font-size: 9pt; color: #333; line-height: 1.5; }
+    .info-row strong  { color: #1B2A4A; min-width: 80px; display: inline-block; }
 
-    /* ── Section title ── */
-    .section-title {
+    /* ── Glass section ── */
+    .glass-section { margin-bottom: 22px; }
+    .glass-header {
       font-size: 10.5pt;
       font-weight: bold;
-      color: #1B2A4A;
-      margin: 14px 0 5px 0;
-      padding-left: 8px;
-      border-left: 4px solid #C89B3C;
+      color: #fff;
+      background: #1B2A4A;
+      padding: 7px 14px;
+      border-left: 5px solid #C89B3C;
+      letter-spacing: 0.3px;
     }
 
     /* ── Table ── */
@@ -343,155 +319,162 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       font-size: 9.5pt;
       table-layout: fixed;
     }
-    colgroup col.col-pos      { width: 10%; }
-    colgroup col.col-qty      { width: 7%; }
-    colgroup col.col-w        { width: 9%; }
-    colgroup col.col-h        { width: 9%; }
-    colgroup col.col-area     { width: 10%; }
-    colgroup col.col-perim    { width: 10%; }
-    colgroup col.col-price    { width: 11%; }
-    colgroup col.col-total    { width: 11%; }
-    colgroup col.col-qr       { width: 13%; }
+    colgroup col.col-pos   { width: 13%; }
+    colgroup col.col-qty   { width: 8%;  }
+    colgroup col.col-w     { width: 11%; }
+    colgroup col.col-h     { width: 11%; }
+    colgroup col.col-area  { width: 12%; }
+    colgroup col.col-perim { width: 12%; }
+    colgroup col.col-qr    { width: 33%; }
 
     thead { display: table-header-group; }
     tr    { page-break-inside: avoid; }
 
     th {
-      background: #1B2A4A;
+      background: #2c3e6b;
       color: #fff;
       padding: 7px 5px;
       text-align: center;
       font-size: 9pt;
       font-weight: 700;
-      border: 1px solid #0d1e38;
+      border: 1px solid #1a2a50;
       line-height: 1.4;
     }
     td {
       border: 1px solid #c8c8c8;
-      padding: 5px 5px;
+      padding: 5px;
       text-align: center;
       vertical-align: middle;
       font-size: 9.5pt;
       line-height: 1.3;
     }
-    td.td-pos {
-      font-weight: bold;
-      color: #1B2A4A;
-      text-align: left;
-      padding-left: 8px;
-    }
+    td.td-pos { font-weight: bold; color: #1B2A4A; text-align: left; padding-left: 8px; }
     tr:nth-child(even) td { background: #f4f6fb; }
     tr:nth-child(odd)  td { background: #fff; }
 
     /* QR cell */
-    td.qr-cell { padding: 3px; }
+    td.qr-cell     { padding: 3px; }
     td.qr-cell img { width: 60px; height: 60px; display: block; margin: 0 auto; }
 
-    /* Summary row */
+    /* Subtotal row */
     tr.summary-row td {
-      background: #e8ecf4 !important;
+      background: #dde3f0 !important;
       font-weight: bold;
       color: #1B2A4A;
       border-top: 2px solid #1B2A4A;
-      font-size: 9.5pt;
-    }
-    tr.summary-row td.summary-label {
-      text-align: left;
-      padding-left: 8px;
       font-size: 9pt;
-      color: #1B2A4A;
     }
-    tr.summary-row td.summary-grand {
+    tr.summary-row td.summary-label { text-align: left; padding-left: 8px; }
+
+    /* Grand total */
+    .grand-total { margin-top: 16px; display: flex; justify-content: flex-end; }
+    .grand-total table { width: auto; table-layout: auto; }
+    .grand-total td {
       background: #1B2A4A !important;
       color: #C89B3C !important;
+      font-weight: bold;
       font-size: 10pt;
+      padding: 7px 16px;
+      border: 1px solid #0d1e38;
+      white-space: nowrap;
     }
+    .grand-total td.gt-label { color: #fff !important; text-align: left; }
 
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .doc-header { page-break-after: avoid; }
+      .glass-section { page-break-inside: avoid; }
     }
   `;
 
-  // Build one combined table across all sections
-  let allRows = "";
-  let grandArea = 0, grandPerim = 0, grandPrice = 0;
+  // Build per-group HTML — Price [SAR] and Total [SAR] are hidden
+  let sectionsHtml = "";
+  let grandArea = 0, grandPerim = 0;
   let qrOffset = 0;
-  for (let s = 0; s < dataTables.length; s++) {
-    const count = dataTables[s].posSet.size;
-    const sPositions = positionData.slice(qrOffset, qrOffset + count);
-    const sQRs       = qrEntries.slice(qrOffset, qrOffset + count);
-    qrOffset += count;
 
-    for (const p of sPositions) {
-      grandArea  += parseNum(p.area);
-      grandPerim += parseNum(p.perimeter);
-      grandPrice += parseNum(p.total);
+  for (const group of positionGroups) {
+    const groupQRs = qrEntries.slice(qrOffset, qrOffset + group.positions.length);
+    qrOffset += group.positions.length;
+
+    let sectionArea = 0, sectionPerim = 0;
+    for (const p of group.positions) {
+      sectionArea += parseNum(p.area);
+      sectionPerim += parseNum(p.perimeter);
+      grandArea   += parseNum(p.area);
+      grandPerim  += parseNum(p.perimeter);
     }
 
-    allRows += sPositions.map((p, i) => {
-      const qr = sQRs[i];
+    const rows = group.positions.map((p, i) => {
+      const qr = groupQRs[i];
       const qrImg = qr?.dataUrl
         ? `<img src="${qr.dataUrl}" alt="QR ${esc(p.position)}" />`
         : "";
-      return `<tr>
+      return `      <tr>
         <td class="td-pos">${esc(p.position)}</td>
         <td>${esc(p.quantity)}</td>
         <td>${esc(p.width)}</td>
         <td>${esc(p.height)}</td>
         <td>${esc(p.area)}</td>
         <td>${esc(p.perimeter)}</td>
-        <td>${esc(p.price)}</td>
-        <td>${esc(p.total)}</td>
         <td class="qr-cell">${qrImg}</td>
       </tr>`;
-    }).join("\n") + "\n";
+    }).join("\n");
+
+    const subtotalRow = `      <tr class="summary-row">
+        <td class="summary-label" colspan="4">المجموع / Subtotal</td>
+        <td>${fmtNum(sectionArea)} م²</td>
+        <td>${fmtNum(sectionPerim)} م</td>
+        <td></td>
+      </tr>`;
+
+    sectionsHtml += `
+  <div class="glass-section">
+    <div class="glass-header">${esc(group.glassName)}</div>
+    <table>
+      <colgroup>
+        <col class="col-pos"/>
+        <col class="col-qty"/>
+        <col class="col-w"/>
+        <col class="col-h"/>
+        <col class="col-area"/>
+        <col class="col-perim"/>
+        <col class="col-qr"/>
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Position / No.<br/>الموضع / الرقم</th>
+          <th>Qty<br/>الكمية</th>
+          <th>Width mm<br/>العرض</th>
+          <th>Height mm<br/>الارتفاع</th>
+          <th>Area m²<br/>المساحة</th>
+          <th>Perim. m<br/>المحيط</th>
+          <th>QR Code<br/>رمز QR</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+${subtotalRow}
+      </tbody>
+    </table>
+  </div>`;
   }
 
-  const grandSummaryRow = `<tr class="summary-row">
-      <td class="summary-label" colspan="4">الإجمالي الكلي / Grand Total</td>
-      <td>${fmtNum(grandArea)} م²</td>
-      <td>${fmtNum(grandPerim)} م</td>
-      <td></td>
-      <td class="summary-grand">${fmtNum(grandPrice, 2)} ر.س</td>
-      <td></td>
-    </tr>`;
-
-  const sectionsHtml = `
-  <table>
-    <colgroup>
-      <col class="col-pos"/>
-      <col class="col-qty"/>
-      <col class="col-w"/>
-      <col class="col-h"/>
-      <col class="col-area"/>
-      <col class="col-perim"/>
-      <col class="col-price"/>
-      <col class="col-total"/>
-      <col class="col-qr"/>
-    </colgroup>
-    <thead>
+  sectionsHtml += `
+  <div class="grand-total">
+    <table>
       <tr>
-        <th>Position / No.<br/>الموضع / الرقم</th>
-        <th>Qty<br/>الكمية</th>
-        <th>Width mm<br/>العرض</th>
-        <th>Height mm<br/>الارتفاع</th>
-        <th>Area m²<br/>المساحة</th>
-        <th>Perim. m<br/>المحيط</th>
-        <th>Price SAR<br/>السعر</th>
-        <th>Total SAR<br/>الإجمالي</th>
-        <th>QR Code<br/>رمز QR</th>
+        <td class="gt-label">الإجمالي الكلي / Grand Total</td>
+        <td>${fmtNum(grandArea)} م²</td>
+        <td>${fmtNum(grandPerim)} م</td>
       </tr>
-    </thead>
-    <tbody>
-${allRows}${grandSummaryRow}
-    </tbody>
-  </table>`;
+    </table>
+  </div>`;
 
   const infoRows = [
     projectName ? `<div class="info-row"><strong>Project:</strong> ${esc(projectName)}</div>` : "",
-    date        ? `<div class="info-row"><strong>Date:</strong> ${esc(date)}</div>` : "",
-    `<div class="info-row"><strong>Items:</strong> ${positionData.length} positions</div>`,
+    date        ? `<div class="info-row"><strong>Date:</strong>    ${esc(date)}</div>` : "",
+    `<div class="info-row"><strong>Positions:</strong> ${positionData.length}</div>`,
+    `<div class="info-row"><strong>Glass types:</strong> ${positionGroups.length}</div>`,
   ].filter(Boolean).join("\n");
 
   const html = `<!DOCTYPE html>
@@ -520,10 +503,14 @@ ${allRows}${grandSummaryRow}
 </body>
 </html>`;
 
-  console.log(`[QR] HTML report built — ${positionData.length} positions, ${dataTables.length} section(s)`);
+  console.log(`[QR] HTML report built — ${positionData.length} positions across ${positionGroups.length} glass section(s)`);
 
   return {
-    positions: positionData.map((p, i) => ({ ...p, qrDataUrl: qrEntries[i]?.dataUrl || "" })),
+    positions: positionData.map((p, i) => ({
+      ...p,
+      qrDataUrl: qrEntries[i]?.dataUrl || "",
+      glassName: positionGroups.find(g => g.positions.includes(p))?.glassName,
+    })),
     projectName,
     date,
     outputBuffer: Buffer.from(html, "utf-8"),
