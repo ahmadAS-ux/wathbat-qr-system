@@ -9,7 +9,7 @@ interface ResultsViewProps {
   onReset: () => void;
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { API_BASE as BASE } from '@/lib/api-base';
 
 export function ResultsView({ result, onReset }: ResultsViewProps) {
   const { t, isRtl } = useLanguage();
