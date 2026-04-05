@@ -494,7 +494,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     sectionsHtml += `
   <div class="glass-section">
     <div class="glass-header">${esc(group.glassName)}</div>
-    <table>
+    <table dir="ltr">
       <colgroup>
         <col class="col-pos"/>
         <col class="col-qty"/>
@@ -525,7 +525,7 @@ ${subtotalRow}
 
   sectionsHtml += `
   <div class="grand-total">
-    <table>
+    <table dir="ltr">
       <tr>
         <td class="gt-label">الإجمالي الكلي / Grand Total</td>
         <td>${fmtNum(grandArea)} م²</td>
@@ -542,7 +542,7 @@ ${subtotalRow}
   ].filter(Boolean).join("\n");
 
   const html = `<!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -554,14 +554,14 @@ ${subtotalRow}
     <span class="print-hint">To save as PDF: File → Print → Save as PDF</span>
     <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
   </div>
-  <div class="doc-header">
+  <div class="doc-header" dir="ltr">
     <div class="doc-header-brand">
       <div class="brand-name">Wathbat Aluminum &nbsp;|&nbsp; وثبة للألمنيوم</div>
       <div class="brand-sub">wathbat.sa &nbsp;·&nbsp; Orgadata LogiKal QR Report</div>
     </div>
     <div class="doc-header-meta">
       <div class="doc-title">Glass / Panel Order Report</div>
-      <div class="doc-subtitle">تقرير طلب الزجاج والألواح — رموز QR مضمنة</div>
+      <div class="doc-subtitle">تقرير طلب الزجاج والألواح — رموز <span dir="ltr" style="display:inline-block">QR</span> مضمنة</div>
     </div>
     <div class="doc-header-info">
       ${infoRows}
