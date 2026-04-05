@@ -46,8 +46,6 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
     { key: 'height',    label: t('table_height') },
     { key: 'area',      label: t('table_area') },
     { key: 'perimeter', label: t('table_perimeter') },
-    { key: 'price',     label: t('table_price') },
-    { key: 'total',     label: t('table_total') },
     { key: 'qr',        label: t('table_qr') },
   ] as const;
 
@@ -104,7 +102,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             icon: Box,
             highlight: result.rawPositionCount != null && result.rawPositionCount !== result.totalPositions,
           },
-          { label: t('project_name'), value: result.projectName || '—', icon: FileText },
+          { label: t('project_name'), value: result.projectName || '—', icon: FileText, wrap: true },
           { label: t('date'), value: result.date || '—', icon: Calendar },
         ].map((stat, i) => (
           <motion.div
@@ -119,7 +117,12 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             </div>
             <div className={isRtl ? 'text-right' : ''}>
               <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <p className={`text-lg font-bold truncate ${(stat as any).highlight ? 'text-[#4A6FA5]' : 'text-[#1B2A4A]'}`}>{stat.value}</p>
+              <p
+                title={(stat as any).wrap ? stat.value : undefined}
+                className={`text-lg font-bold ${(stat as any).wrap ? 'break-words leading-snug' : 'truncate'} ${(stat as any).highlight ? 'text-[#4A6FA5]' : 'text-[#1B2A4A]'}`}
+              >
+                {stat.value}
+              </p>
             </div>
           </motion.div>
         ))}
@@ -160,8 +163,6 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
                   <td className="px-4 py-3.5 text-center text-foreground">{pos.height || '—'}</td>
                   <td className="px-4 py-3.5 text-center text-foreground">{pos.area || '—'}</td>
                   <td className="px-4 py-3.5 text-center text-foreground">{pos.perimeter || '—'}</td>
-                  <td className="px-4 py-3.5 text-center text-foreground">{pos.price || '—'}</td>
-                  <td className="px-4 py-3.5 text-center font-semibold text-[#1B2A4A]">{pos.total || '—'}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex justify-center">
                       <div className="w-14 h-14 bg-white rounded-xl border border-border shadow-sm p-1 group-hover:scale-110 group-hover:shadow-md transition-all duration-200">
