@@ -561,7 +561,7 @@ ${subtotalRow}
     </div>
     <div class="doc-header-meta">
       <div class="doc-title">Glass / Panel Order Report</div>
-      <div class="doc-subtitle" dir="rtl">تقرير طلب الزجاج والألواح — رموز QR مضمنة</div>
+      <div class="doc-subtitle">تقرير طلب الزجاج والألواح — رموز QR مضمنة</div>
     </div>
     <div class="doc-header-info">
       ${infoRows}
