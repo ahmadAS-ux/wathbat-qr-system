@@ -264,13 +264,50 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
 
   const css = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4 landscape; margin: 15mm; }
+
+    /* ── A4 landscape print setup ── */
+    @page {
+      size: A4 landscape;
+      margin: 12mm 15mm;
+    }
+
     body {
       font-family: Arial, 'Helvetica Neue', sans-serif;
       font-size: 10pt;
       color: #1a1a1a;
       background: #fff;
       direction: ltr;
+      padding: 12px 16px;
+    }
+
+    /* ── Print toolbar (hidden when printing) ── */
+    .print-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .print-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #1B2A4A;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 10pt;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+    }
+    .print-btn:hover { background: #2c3e6b; }
+    .print-hint {
+      font-size: 8pt;
+      color: #888;
     }
 
     /* ── Document header ── */
@@ -278,35 +315,57 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       display: flex;
       justify-content: space-between;
       align-items: stretch;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       padding-bottom: 10px;
       border-bottom: 3px solid #1B2A4A;
       gap: 16px;
     }
     .doc-header-brand { display: flex; flex-direction: column; justify-content: center; }
-    .brand-name { font-size: 18pt; font-weight: 900; color: #1B2A4A; letter-spacing: 1px; }
-    .brand-sub  { font-size: 8.5pt; color: #C89B3C; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; }
+    .brand-name { font-size: 16pt; font-weight: 900; color: #1B2A4A; letter-spacing: 1px; }
+    .brand-sub  { font-size: 8pt; color: #C89B3C; font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; }
     .doc-header-meta {
-      flex: 1; display: flex; flex-direction: column;
-      justify-content: center; align-items: center; text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
     }
-    .doc-title    { font-size: 13pt; font-weight: bold; color: #1B2A4A; margin-bottom: 4px; }
-    .doc-subtitle { font-size: 9pt; color: #555; }
+    .doc-title {
+      font-size: 13pt;
+      font-weight: bold;
+      color: #1B2A4A;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    /* Arabic subtitle — explicit RTL so it centres correctly in the LTR page */
+    .doc-subtitle {
+      font-size: 9pt;
+      color: #555;
+      direction: rtl;
+      unicode-bidi: embed;
+      text-align: center;
+      width: 100%;
+    }
     .doc-header-info {
-      display: flex; flex-direction: column; justify-content: center;
-      align-items: flex-end; text-align: right; gap: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-end;
+      text-align: right;
+      gap: 3px;
     }
-    .info-row         { font-size: 9pt; color: #333; line-height: 1.5; }
-    .info-row strong  { color: #1B2A4A; min-width: 80px; display: inline-block; }
+    .info-row        { font-size: 8.5pt; color: #333; line-height: 1.5; }
+    .info-row strong { color: #1B2A4A; min-width: 80px; display: inline-block; }
 
     /* ── Glass section ── */
-    .glass-section { margin-bottom: 22px; }
+    .glass-section { margin-bottom: 18px; page-break-inside: avoid; }
     .glass-header {
-      font-size: 10.5pt;
+      font-size: 10pt;
       font-weight: bold;
       color: #fff;
       background: #1B2A4A;
-      padding: 7px 14px;
+      padding: 6px 12px;
       border-left: 5px solid #C89B3C;
       letter-spacing: 0.3px;
     }
@@ -316,45 +375,46 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       width: 100%;
       border-collapse: collapse;
       page-break-inside: auto;
-      font-size: 9.5pt;
+      font-size: 9pt;
       table-layout: fixed;
     }
-    colgroup col.col-pos   { width: 13%; }
-    colgroup col.col-qty   { width: 8%;  }
-    colgroup col.col-w     { width: 11%; }
-    colgroup col.col-h     { width: 11%; }
-    colgroup col.col-area  { width: 12%; }
-    colgroup col.col-perim { width: 12%; }
-    colgroup col.col-qr    { width: 33%; }
+    colgroup col.col-pos   { width: 12%; }
+    colgroup col.col-qty   { width: 7%;  }
+    colgroup col.col-w     { width: 10%; }
+    colgroup col.col-h     { width: 10%; }
+    colgroup col.col-area  { width: 11%; }
+    colgroup col.col-perim { width: 11%; }
+    colgroup col.col-qr    { width: 39%; }
 
+    /* Repeat header on every printed page */
     thead { display: table-header-group; }
     tr    { page-break-inside: avoid; }
 
     th {
       background: #2c3e6b;
       color: #fff;
-      padding: 7px 5px;
+      padding: 6px 4px;
       text-align: center;
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 700;
       border: 1px solid #1a2a50;
-      line-height: 1.4;
+      line-height: 1.35;
     }
     td {
       border: 1px solid #c8c8c8;
-      padding: 5px;
+      padding: 4px 5px;
       text-align: center;
       vertical-align: middle;
-      font-size: 9.5pt;
-      line-height: 1.3;
+      font-size: 9pt;
+      line-height: 1.25;
     }
     td.td-pos { font-weight: bold; color: #1B2A4A; text-align: left; padding-left: 8px; }
     tr:nth-child(even) td { background: #f4f6fb; }
     tr:nth-child(odd)  td { background: #fff; }
 
-    /* QR cell */
+    /* QR cell — larger for easy scanning on paper */
     td.qr-cell     { padding: 3px; }
-    td.qr-cell img { width: 60px; height: 60px; display: block; margin: 0 auto; }
+    td.qr-cell img { width: 75px; height: 75px; display: block; margin: 0 auto; }
 
     /* Subtotal row */
     tr.summary-row td {
@@ -362,12 +422,12 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       font-weight: bold;
       color: #1B2A4A;
       border-top: 2px solid #1B2A4A;
-      font-size: 9pt;
+      font-size: 8.5pt;
     }
     tr.summary-row td.summary-label { text-align: left; padding-left: 8px; }
 
     /* Grand total */
-    .grand-total { margin-top: 16px; display: flex; justify-content: flex-end; }
+    .grand-total { margin-top: 14px; display: flex; justify-content: flex-end; }
     .grand-total table { width: auto; table-layout: auto; }
     .grand-total td {
       background: #1B2A4A !important;
@@ -380,10 +440,17 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
     }
     .grand-total td.gt-label { color: #fff !important; text-align: left; }
 
+    /* ── Print rules ── */
     @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .doc-header { page-break-after: avoid; }
+      body {
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .print-bar   { display: none !important; }
+      .doc-header  { page-break-after: avoid; }
       .glass-section { page-break-inside: avoid; }
+      .grand-total { page-break-inside: avoid; }
     }
   `;
 
@@ -486,6 +553,10 @@ ${subtotalRow}
   <style>${css}</style>
 </head>
 <body>
+  <div class="print-bar">
+    <span class="print-hint">To save as PDF: File → Print → Save as PDF</span>
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
   <div class="doc-header">
     <div class="doc-header-brand">
       <div class="brand-name">Wathbat Aluminum &nbsp;|&nbsp; وثبة للألمنيوم</div>
