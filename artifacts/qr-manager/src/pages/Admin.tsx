@@ -253,8 +253,8 @@ export default function Admin() {
           {/* Page header */}
           <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div className={isRtl ? 'text-right' : ''}>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('admin_title')}</h1>
-              <p className="text-slate-500 mt-0.5 text-sm">Wathbat Aluminum · wathbat.sa</p>
+              <h1 className={`text-2xl font-bold text-slate-900 tracking-tight ${isRtl ? 'text-right' : ''}`}>{t('admin_title')}</h1>
+              <p className={`text-slate-500 mt-0.5 text-sm ${isRtl ? 'text-right' : ''}`}>Wathbat Aluminum · wathbat.sa</p>
             </div>
             <button
               onClick={refreshAll}
