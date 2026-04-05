@@ -36,6 +36,26 @@ export default function AdminHistory() {
     }
   };
 
+  // Use fetch (goes through the auth monkey-patch) instead of <a href> navigation
+  // which would bypass the Authorization header injection.
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(objUrl);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download failed', err);
+    }
+  };
+
   useEffect(() => {
     setLoading(true);
     fetch(`${BASE}/api/admin/history`)
@@ -132,24 +152,22 @@ export default function AdminHistory() {
                           <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">{row.positionCount}</span>
                         </td>
                         <td className="px-5 py-3.5">
-                          <a
-                            href={`${BASE}/api/qr/download/${row.id}`}
-                            download={row.reportFilename}
+                          <button
+                            onClick={() => downloadFile(`${BASE}/api/qr/download/${row.id}`, row.reportFilename)}
                             className="inline-flex items-center gap-1.5 bg-[#1B2A4A] hover:bg-[#142240] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
                           >
                             <Download className="w-3 h-3" />
                             {t('download_report')}
-                          </a>
+                          </button>
                         </td>
                         <td className="px-5 py-3.5">
-                          <a
-                            href={`${BASE}/api/qr/download/${row.id}/original`}
-                            download={row.originalFilename}
+                          <button
+                            onClick={() => downloadFile(`${BASE}/api/qr/download/${row.id}/original`, row.originalFilename)}
                             className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-[#4A6FA5] border border-[#4A6FA5]/30 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
                           >
                             <Download className="w-3 h-3" />
                             {t('download_original')}
-                          </a>
+                          </button>
                         </td>
                         <td className="px-5 py-3.5">
                           <button
