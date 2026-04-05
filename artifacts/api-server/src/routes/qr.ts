@@ -338,12 +338,9 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
       margin-bottom: 4px;
       text-align: center;
     }
-    /* Arabic subtitle — explicit RTL so it centres correctly in the LTR page */
     .doc-subtitle {
       font-size: 9pt;
       color: #555;
-      direction: rtl;
-      unicode-bidi: embed;
       text-align: center;
       width: 100%;
     }

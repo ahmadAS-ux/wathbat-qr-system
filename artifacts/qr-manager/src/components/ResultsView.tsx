@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Download, CheckCircle2, QrCode, FileText, Calendar, Box, Loader2 } from 'lucide-react';
+import { Download, CheckCircle2, QrCode, FileText, Calendar, Box, Loader2, Printer } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { ProcessResult } from '@workspace/api-client-react';
 import { useState } from 'react';
@@ -56,7 +56,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
       className="w-full max-w-7xl mx-auto space-y-6"
     >
       {/* Download banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1B2A4A] to-[#243d6a] p-7 shadow-2xl shadow-[#1B2A4A]/25">
+      <div className="no-print relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1B2A4A] to-[#243d6a] p-7 shadow-2xl shadow-[#1B2A4A]/25">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.03\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/svg%3E')] opacity-60" />
         <div className={`relative z-10 flex flex-col sm:flex-row items-center justify-between gap-5 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
           <div className={`flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -69,18 +69,27 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-2 shrink-0">
-            <button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="flex items-center gap-3 bg-[#4A6FA5] hover:bg-[#3d5f94] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-base px-9 py-4 rounded-2xl shadow-lg shadow-black/25 transition-all duration-200 hover:scale-105"
-            >
-              {isDownloading
-                ? <Loader2 className="w-5 h-5 animate-spin" />
-                : <Download className="w-5 h-5" />
-              }
-              {t('download_btn')}
-            </button>
+          <div className="flex flex-col items-center gap-2 shrink-0 no-print">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="flex items-center gap-3 bg-[#4A6FA5] hover:bg-[#3d5f94] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-base px-9 py-4 rounded-2xl shadow-lg shadow-black/25 transition-all duration-200 hover:scale-105"
+              >
+                {isDownloading
+                  ? <Loader2 className="w-5 h-5 animate-spin" />
+                  : <Download className="w-5 h-5" />
+                }
+                {t('download_btn')}
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-sm px-5 py-4 rounded-2xl border border-white/20 transition-all duration-200 hover:scale-105"
+              >
+                <Printer className="w-5 h-5" />
+                {t('print_btn')}
+              </button>
+            </div>
             {downloadError && (
               <p className="text-red-300 text-xs">{downloadError}</p>
             )}
@@ -188,7 +197,7 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
       </div>
 
       {/* Reset */}
-      <div className="flex justify-center pt-2">
+      <div className="no-print flex justify-center pt-2">
         <button
           onClick={onReset}
           className="text-sm text-muted-foreground hover:text-[#1B2A4A] transition-colors underline-offset-4 hover:underline font-medium"

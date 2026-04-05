@@ -114,9 +114,64 @@
   .glass-panel {
     @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-premium;
   }
-  
+
   .pattern-bg {
     background-image: radial-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm 12mm;
+  }
+
+  /* Hide everything except the results table */
+  .no-print,
+  header,
+  nav {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 9pt;
+  }
+
+  /* Remove shadows and borders that look bad on paper */
+  .shadow-lg,
+  .shadow-sm,
+  .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  /* Make table fill the page */
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+
+  th, td {
+    border: 1px solid #ccc !important;
+    padding: 4px 6px !important;
+  }
+
+  /* Keep QR codes visible and compact */
+  img {
+    max-width: 60px !important;
+    max-height: 60px !important;
+  }
+
+  /* Avoid breaking rows across pages */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure the stats cards and table are on one page if possible */
+  .space-y-6 > * {
+    page-break-inside: avoid;
   }
 }
