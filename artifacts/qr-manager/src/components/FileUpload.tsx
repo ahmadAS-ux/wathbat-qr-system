@@ -71,21 +71,21 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
         <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-[#C89B3C]/30 rounded-br-3xl pointer-events-none" />
 
         <div
-          className={`relative px-8 py-16 sm:py-20 flex flex-col items-center justify-center text-center gap-0 ${isRtl ? 'font-[Tajawal]' : ''}`}
+          className={`relative px-6 py-8 sm:py-10 flex flex-col items-center justify-center text-center gap-0 ${isRtl ? 'font-[Tajawal]' : ''}`}
           dir={isRtl ? 'rtl' : 'ltr'}
         >
           {/* Upload icon with pulse ring */}
-          <div className="relative mb-8">
+          <div className="relative mb-5">
             {/* Pulse rings */}
             {!isDragActive && (
               <>
                 <motion.div
-                  className="absolute inset-0 rounded-3xl bg-[#1B2A4A]/8"
+                  className="absolute inset-0 rounded-2xl bg-[#1B2A4A]/8"
                   animate={{ scale: [1, 1.18, 1], opacity: [0.6, 0, 0.6] }}
                   transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div
-                  className="absolute inset-0 rounded-3xl bg-[#1B2A4A]/5"
+                  className="absolute inset-0 rounded-2xl bg-[#1B2A4A]/5"
                   animate={{ scale: [1, 1.35, 1], opacity: [0.4, 0, 0.4] }}
                   transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
                 />
@@ -94,30 +94,30 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
 
             {/* Drag active glow */}
             {isDragActive && (
-              <div className="absolute inset-0 rounded-3xl bg-[#4A6FA5]/30 blur-xl scale-125" />
+              <div className="absolute inset-0 rounded-2xl bg-[#4A6FA5]/30 blur-xl scale-125" />
             )}
 
             <motion.div
               animate={isDragActive ? { scale: 1.1, rotate: -4 } : { scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 280, damping: 18 }}
               className={cn(
-                "relative flex items-center justify-center w-28 h-28 rounded-3xl shadow-xl transition-colors duration-300",
+                "relative flex items-center justify-center w-20 h-20 rounded-2xl shadow-xl transition-colors duration-300",
                 isDragActive
                   ? "bg-[#4A6FA5] text-white shadow-[#4A6FA5]/30"
                   : "bg-[#1B2A4A] text-white group-hover:bg-[#2c3e6b] shadow-[#1B2A4A]/20"
               )}
             >
-              <UploadCloud className="w-14 h-14" strokeWidth={1.5} />
+              <UploadCloud className="w-10 h-10" strokeWidth={1.5} />
             </motion.div>
           </div>
 
           {/* Heading */}
-          <h3 className="text-2xl sm:text-3xl font-extrabold text-[#1B2A4A] mb-3 leading-snug">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-[#1B2A4A] mb-2 leading-snug">
             {isDragActive ? t('drop_active') : t('upload_title')}
           </h3>
 
           {/* Description */}
-          <p className="text-[#1B2A4A]/50 mb-8 max-w-sm text-sm sm:text-base leading-relaxed">
+          <p className="text-[#1B2A4A]/50 mb-5 max-w-sm text-sm leading-relaxed">
             {t('upload_desc')}
           </p>
 
@@ -125,13 +125,13 @@ export function FileUpload({ onFileSelect, isLoading }: FileUploadProps) {
           <motion.div
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="px-10 py-3.5 bg-[#1B2A4A] text-white font-bold text-base rounded-2xl shadow-lg shadow-[#1B2A4A]/25 group-hover:bg-[#4A6FA5] transition-colors duration-300 cursor-pointer"
+            className="px-8 py-2.5 bg-[#1B2A4A] text-white font-bold text-sm rounded-xl shadow-lg shadow-[#1B2A4A]/25 group-hover:bg-[#4A6FA5] transition-colors duration-300 cursor-pointer"
           >
             {t('browse_btn')}
           </motion.div>
 
           {/* File type hint */}
-          <p className="mt-6 text-xs font-medium text-[#1B2A4A]/35 flex items-center gap-1.5">
+          <p className="mt-4 text-xs font-medium text-[#1B2A4A]/35 flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 shrink-0" />
             {t('file_type_hint')}
           </p>
