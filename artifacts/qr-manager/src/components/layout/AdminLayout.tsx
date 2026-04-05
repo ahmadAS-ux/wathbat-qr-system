@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, ExternalLink,
+  Menu, QrCode,
 } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,7 +59,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <p className={`text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 ${isRtl ? 'text-right' : ''}`}>
+          {/* QR Asset Manager — pinned first, amber accent */}
+          <Link href="/">
+            <div
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-2 cursor-pointer transition-all duration-150 border ${isRtl ? 'flex-row-reverse' : ''}`}
+              style={{
+                color: '#f59e0b',
+                background: 'rgba(255,165,0,0.15)',
+                borderColor: 'rgba(245,158,11,0.35)',
+              }}
+            >
+              <QrCode className="w-[18px] h-[18px] shrink-0" style={{ color: '#f59e0b' }} />
+              <span className="flex-1">{t('app_title')}</span>
+            </div>
+          </Link>
+
+          <p className={`text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 pt-1 ${isRtl ? 'text-right' : ''}`}>
             {isRtl ? 'القائمة' : 'Navigation'}
           </p>
           {navItems.map(item => {
@@ -91,16 +107,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Footer */}
         <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-          {/* Back to app */}
-          <Link href="/">
-            <div
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all cursor-pointer group ${isRtl ? 'flex-row-reverse' : ''}`}
-            >
-              <ExternalLink className="w-[18px] h-[18px] shrink-0 text-white/30 group-hover:text-white/60" />
-              <span>{t('app_title')}</span>
-            </div>
-          </Link>
-
           {/* Language toggle */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
