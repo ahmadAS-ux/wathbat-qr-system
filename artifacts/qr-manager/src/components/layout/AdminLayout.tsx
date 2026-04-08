@@ -41,9 +41,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return (
       <div className="flex flex-col h-full select-none">
         {/* Brand */}
-        <div className={`px-4 py-5 border-b border-white/10 ${isRtl ? 'text-right' : ''}`}>
+        <div className="px-4 py-5 border-b border-white/10">
           <Link href="/">
-            <div className={`flex items-center gap-3 cursor-pointer group ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className="flex items-center gap-3 cursor-pointer group">
               <img
                 src={logo}
                 alt="Wathbat"
@@ -63,7 +63,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <Link href="/">
             <div
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-2 cursor-pointer transition-all duration-150 border ${isRtl ? 'flex-row-reverse' : ''}`}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-2 cursor-pointer transition-all duration-150 border"
               style={{
                 color: '#f59e0b',
                 background: 'rgba(255,165,0,0.15)',
@@ -75,7 +75,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           </Link>
 
-          <p className={`text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 pt-1 ${isRtl ? 'text-right' : ''}`}>
+          <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 pt-1">
             {isRtl ? 'القائمة' : 'Navigation'}
           </p>
           {navItems.map(item => {
@@ -88,7 +88,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     active
                       ? 'bg-white/[0.12] text-white'
                       : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
-                  } ${isRtl ? 'flex-row-reverse' : ''}`}
+                  }`}
                 >
                   <item.icon
                     className={`w-[18px] h-[18px] shrink-0 transition-colors ${
@@ -97,7 +97,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   />
                   <span className="flex-1">{item.label}</span>
                   {active && (
-                    <div className={`w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ${isRtl ? 'me-auto' : 'ms-auto'}`} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
                   )}
                 </div>
               </Link>
@@ -110,7 +110,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Language toggle */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all group ${isRtl ? 'flex-row-reverse' : ''}`}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all group"
           >
             <Globe className="w-[18px] h-[18px] shrink-0 text-white/30 group-hover:text-white/60" />
             <span>{language === 'en' ? 'العربية' : 'English'}</span>
@@ -121,7 +121,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* User row */}
           {user && (
-            <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
               <div className="w-7 h-7 rounded-full bg-[#C89B3C]/20 border border-[#C89B3C]/30 flex items-center justify-center text-[#C89B3C] text-xs font-bold shrink-0">
                 {user.username.charAt(0).toUpperCase()}
               </div>
@@ -141,7 +141,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className={`flex min-h-screen bg-[#F0F2F5] ${isRtl ? 'flex-row-reverse' : ''}`}>
+    <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen overflow-y-auto shadow-xl">
         <SidebarContent />
