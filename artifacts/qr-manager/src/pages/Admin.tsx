@@ -459,18 +459,19 @@ export default function Admin() {
               <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
-                    {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, i) => (
+                    {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_message'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, i) => (
                       <th key={i} className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                    <tr><td colSpan={isAdmin ? 9 : 8} className="px-5 py-12 text-center text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
                   ) : requests.length === 0 ? (
-                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td></tr>
+                    <tr><td colSpan={isAdmin ? 9 : 8} className="px-5 py-12 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td></tr>
                   ) : (
                     shownRequests.map((row, i) => (
+
                       <motion.tr
                         key={row.id}
                         initial={{ opacity: 0 }}
@@ -490,6 +491,13 @@ export default function Admin() {
                             >
                               {row.projectName}
                             </button>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-600 max-w-[160px]">
+                          {row.message ? (
+                            <span className="block truncate text-sm" title={row.message}>{row.message}</span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}

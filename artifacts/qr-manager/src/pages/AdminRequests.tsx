@@ -194,6 +194,7 @@ export default function AdminRequests() {
                       t('admin_col_type'),
                       t('admin_col_phone'),
                       t('admin_history_project'),
+                      t('admin_col_message'),
                       t('admin_col_date'),
                       t('admin_col_status'),
                       ...(isAdmin ? [''] : []),
@@ -205,13 +206,13 @@ export default function AdminRequests() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400">
+                      <td colSpan={isAdmin ? 9 : 8} className="px-5 py-16 text-center text-slate-400">
                         <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                       </td>
                     </tr>
                   ) : shown.length === 0 ? (
                     <tr>
-                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td>
+                      <td colSpan={isAdmin ? 9 : 8} className="px-5 py-16 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td>
                     </tr>
                   ) : (
                     shown.map((row, i) => (
@@ -234,6 +235,13 @@ export default function AdminRequests() {
                             >
                               {row.projectName}
                             </button>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-600 max-w-[180px]">
+                          {row.message ? (
+                            <span className="block truncate" title={row.message}>{row.message}</span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
