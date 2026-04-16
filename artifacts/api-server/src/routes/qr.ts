@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { eq } from "drizzle-orm";
 import { recordProcessed } from "../lib/stats.js";
 import { db, processedDocsTable } from "@workspace/db";
+import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -141,7 +142,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   const rawTableRanges = findTableRanges(rawDocXml);
-  console.log(`[QR] findTableRanges found ${rawTableRanges.length} top-level tables`);
+  logger.debug(`[QR] findTableRanges found ${rawTableRanges.length} top-level tables`);
 
   // ── Step 2: Deduplicate tables (Orgadata may export screen + print copies) ───
   const seenFingerprints = new Set<string>();
@@ -161,7 +162,7 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   }
 
   if (dataTables.length === 0) throw new Error("NO_POSITIONS");
-  console.log(`[QR] ${dataTables.length} unique data table(s) after deduplication`);
+  logger.debug(`[QR] ${dataTables.length} unique data table(s) after deduplication`);
 
   // ── Step 3: Walk rows of each table; detect glass sections by "Name:" rows ───
   // Structure: a table contains rows in this repeating pattern:
@@ -222,15 +223,13 @@ async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   const positionData: PositionData[] = positionGroups.flatMap(g => g.positions);
   const rawPositionCount = positionData.length;
 
-  console.log(`[QR] ${positionGroups.length} glass group(s): ${positionGroups.map(g => `"${g.glassName}" (${g.positions.length})`).join(", ")}`);
+  logger.info({ groups: positionGroups.map(g => ({ name: g.glassName, count: g.positions.length })) }, `[QR] ${positionGroups.length} glass group(s)`);
   if (positionData.length === 0) throw new Error("NO_POSITIONS");
 
   // ── Step 4: Generate QR data URLs ────────────────────────────────────────────
-  const domain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
-  const qrBaseUrl = process.env.QR_SCAN_BASE_URL ||
-    (domain ? `https://${domain}/scan` : '/scan');
+  const qrBaseUrl = process.env.QR_SCAN_BASE_URL || '/scan';
 
-  console.log(`[QR] Scan page URL base: ${qrBaseUrl}`);
+  logger.info({ qrBaseUrl }, `[QR] Scan page URL base`);
 
   const qrEntries: QREntry[] = [];
   for (const p of positionData) {
@@ -571,7 +570,7 @@ ${subtotalRow}
 </body>
 </html>`;
 
-  console.log(`[QR] HTML report built — ${positionData.length} positions across ${positionGroups.length} glass section(s)`);
+  logger.info({ positions: positionData.length, sections: positionGroups.length }, `[QR] HTML report built`);
 
   return {
     positions: positionData.map((p, i) => ({

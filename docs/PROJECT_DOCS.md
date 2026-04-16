@@ -337,7 +337,7 @@ Routing library: **wouter**. Base path set from Vite's `BASE_URL`.
 ### 7b. QR Code Generation Flow
 
 - QR codes encode a URL: `{QR_SCAN_BASE_URL}/scan?pos=XX/Y&w=NNN&h=NNN&qty=N&ref=ProjectName`
-- `QR_SCAN_BASE_URL` env var overrides the default; fallback uses `REPLIT_DOMAINS` or `/scan`.
+- `QR_SCAN_BASE_URL` env var sets the base URL; falls back to `/scan` if not set.
 - Codes are 200×200 px, margin 1, error correction level M.
 - Generated as base64 data URLs and embedded directly in the HTML report.
 
@@ -377,9 +377,10 @@ Routing library: **wouter**. Base path set from Vite's `BASE_URL`.
 | `PORT`            | Yes      | —                         | API server          | TCP port the Express server listens on                     |
 | `NODE_ENV`        | No       | `development`             | Both                | `production` enables stricter behaviour                    |
 | `JWT_SECRET`      | No       | auto-generated on Render  | API server          | Secret for signing JWT tokens                              |
-| `QR_SCAN_BASE_URL`| No       | `/scan` (or Replit domain)| API server (qr.ts)  | Base URL embedded in QR codes; set to production front-end URL |
+| `QR_SCAN_BASE_URL`| No       | `/scan`                   | API server (qr.ts)  | Base URL embedded in QR codes; set to production front-end URL |
 | `VITE_API_URL`    | No       | `""` (relative paths)     | Frontend build      | Full URL of the API service; baked into JS bundle at build time |
-| `BASE_PATH`       | No       | `/`                       | Frontend build      | Vite base path for the static site                         |
+| `BASE_PATH`       | **Yes**  | —                         | Frontend build      | Vite base path; build throws if missing (use `/` for Render) |
+| `LOG_LEVEL`       | No       | `info`                    | API server          | Pino log level: `trace`/`debug`/`info`/`warn`/`error`      |
 
 > **Important:** After the first Render deploy, set `VITE_API_URL` to the full API service URL (e.g. `https://qr-asset-manager-api.onrender.com`) and redeploy the static site. Without this, the frontend will use relative API paths and fail since the two services are on different domains.
 

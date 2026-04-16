@@ -78,11 +78,13 @@ This updates `lib/api-client-react/` — never hand-edit generated files there.
 | Variable | Purpose |
 |----------|---------|
 | `DATABASE_URL` | PostgreSQL connection string (required) |
-| `PORT` | API server port |
+| `PORT` | API server port (**required** — frontend build fails without it) |
 | `NODE_ENV` | `development` or `production` |
-| `BASE_PATH` | Frontend base URL path (default `/`) |
+| `BASE_PATH` | Frontend base URL path (**required** — frontend build fails without it) |
 | `VITE_API_URL` | Frontend API base URL (optional; uses relative paths if unset) |
 | `JWT_SECRET` | JWT signing secret (auto-generated if omitted on Render) |
+| `QR_SCAN_BASE_URL` | Base URL embedded in QR codes; falls back to `/scan` |
+| `LOG_LEVEL` | Pino log level: `trace`/`debug`/`info`/`warn`/`error` (default: `info`) |
 
 ## Key Conventions
 
@@ -115,10 +117,10 @@ Read this before making any changes to auth, deployment, or stats features.
 
 ### Stats / Metrics
 - **`lib/stats.ts` uses in-memory counters** (`totalDocsProcessed`, `totalQRsGenerated`). These reset to zero on every server restart or Render.com redeploy. Dashboard KPIs for "Total Docs" and "Total QRs" are unreliable after cold starts. Fix: persist to DB.
+- **For v1.1 stats dashboard work**: migrate counters to a PostgreSQL table first — otherwise any real-time dashboard will show zeros after every cold start.
 
-### Logging
-- **`artifacts/api-server/src/routes/qr.ts`** uses `console.log` in 5 places instead of the structured pino `logger`. These bypass log level control and redaction.
-- `LOG_LEVEL` environment variable is accepted by pino but not documented elsewhere.
+### OpenAPI / Codegen
+- **`lib/api-spec/openapi.yaml`** only covers ~3 of 19 routes. Do **NOT** run `pnpm --filter @workspace/api-spec run codegen` until the spec is fully updated — it will overwrite `lib/api-client-react/` with incomplete hooks that break any page relying on them. Use direct `fetch` calls for all undocumented routes (as the existing admin pages do).
 
 ### Build / Environment
 - **`PORT` and `BASE_PATH` are strictly required** by `artifacts/qr-manager/vite.config.ts` — the build throws an error if either is missing. They are NOT optional.
@@ -130,11 +132,8 @@ Read this before making any changes to auth, deployment, or stats features.
 - **`replit.md`** describes an old Replit-specific architecture and parsing approach that no longer matches the current codebase. It should be deleted or marked as outdated.
 - **`lib/api-spec/openapi.yaml`** only documents 3 of 19 API routes. The `/qr/download/{fileId}` response type is wrong (listed as `.docx`, actual is `text/html`). Do not rely on the spec or generated React Query hooks for undocumented routes — use direct `fetch` calls as the existing admin pages do.
 
-### Missing Env Vars (used in code but absent from the table above)
-| Variable | Where used | Notes |
-|----------|-----------|-------|
-| `LOG_LEVEL` | `artifacts/api-server/src/lib/logger.ts` | pino log level; defaults to `info` |
-| `QR_SCAN_BASE_URL` | `artifacts/api-server/src/routes/qr.ts` | Base URL embedded in QR codes |
+### Previously Missing Env Vars (now in the table above)
+`LOG_LEVEL` and `QR_SCAN_BASE_URL` were previously absent from the env table — both are now documented in the Environment Variables section.
 
 ### Unused Code (safe to remove in v1.1)
 - ~38 shadcn/ui components in `artifacts/qr-manager/src/components/ui/` are installed but never imported
