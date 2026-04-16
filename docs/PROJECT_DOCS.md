@@ -87,7 +87,7 @@ Asset-Manager-Wathbat/
 |-----------------|-------------|--------------------------|---------------------------------|
 | `id`            | SERIAL      | PRIMARY KEY              | Auto-increment ID               |
 | `username`      | TEXT        | NOT NULL, UNIQUE         | Login username                  |
-| `password_hash` | TEXT        | NOT NULL                 | SHA-256 hashed password         |
+| `password_hash` | TEXT        | NOT NULL                 | scrypt hashed password (via Node.js `crypto.scryptSync`) |
 | `role`          | TEXT        | NOT NULL, DEFAULT 'User' | `Admin` or `User`               |
 | `created_at`    | TIMESTAMP   | NOT NULL, DEFAULT NOW()  | Account creation timestamp      |
 
@@ -360,7 +360,7 @@ Routing library: **wouter**. Base path set from Vite's `BASE_URL`.
 ### 7e. Authentication Flow
 
 1. User submits username + password to `POST /api/auth/login`.
-2. Server looks up the user, verifies the SHA-256 password hash.
+2. Server looks up the user, verifies the scrypt password hash (`crypto.scryptSync`).
 3. A JWT is created (`createSession`) and returned with the user record.
 4. Frontend stores the token in `localStorage['auth_token']`.
 5. All subsequent `/api/` requests have the `Authorization: Bearer <token>` header injected automatically by the patched `globalThis.fetch` in `main.tsx`.
@@ -435,7 +435,7 @@ pnpm install --no-frozen-lockfile && pnpm --filter @workspace/qr-manager build
 - **Free-tier cold starts:** Render's free plan spins down services after inactivity. The first request after a sleep period will be slow (15–60 s cold start).
 - **In-memory stats:** `totalDocsProcessed` and `totalQRsGenerated` counters in `lib/stats.ts` are in-memory only. They reset to zero on every server restart/redeploy.
 - **No file size check on original DOCX in DB:** Files are stored as BYTEA in PostgreSQL. Large DOCX files will increase DB storage usage; the free PostgreSQL tier has a 1 GB limit.
-- **Password hashing uses SHA-256 (not bcrypt):** Acceptable for an internal tool but not hardened for public-facing authentication.
+- **Password hashing uses scrypt** (`crypto.scryptSync`): A memory-hard KDF. Not SHA-256 (earlier docs incorrectly stated SHA-256).
 - **No email / notification system:** Administrators must manually check the dashboard for new scan requests.
 - **OpenAPI spec is incomplete:** The `lib/api-spec/openapi.yaml` only documents `/healthz` and `/qr/process`. All admin, auth, and additional QR endpoints exist only in the Express routes and are not reflected in the generated client hooks.
 - **`invoice_number` is a legacy field:** Old QR codes sent the project name in `invoice_number`. A startup migration backfills existing rows, but the field remains in the schema.

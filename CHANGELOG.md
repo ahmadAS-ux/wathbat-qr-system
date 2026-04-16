@@ -92,7 +92,7 @@ All endpoints are prefixed with `/api`.
 - Added `GET  /api/healthz` — health check (public)
 - Added `GET  /api/health` — health check alias (public)
 - Added `POST /api/auth/login` — log in, receive JWT (public)
-- Added `POST /api/auth/logout` — invalidate session (auth required)
+- Added `POST /api/auth/logout` — client-side logout only (auth required). ⚠️ Does NOT invalidate the JWT server-side; tokens remain valid until their 7-day expiry. A token blocklist is required for true server-side invalidation.
 - Added `GET  /api/auth/me` — get current user from token (auth required)
 - Added `POST /api/qr/process` — upload DOCX, parse positions, generate QR HTML report (auth required)
 - Added `GET  /api/qr/download/:fileId` — download generated HTML report (auth required)
@@ -114,7 +114,7 @@ All endpoints are prefixed with `/api`.
 - **Free-tier cold starts:** Render's free plan spins down services after inactivity. The first request after a sleep period will be slow (15–60 s cold start).
 - **In-memory stats:** `totalDocsProcessed` and `totalQRsGenerated` counters reset to zero on every server restart/redeploy.
 - **No DB file size limit:** Both the original DOCX and HTML report are stored as BYTEA in PostgreSQL. Large files consume DB storage; the free tier has a 1 GB limit.
-- **Password hashing uses SHA-256 (not bcrypt):** Acceptable for an internal tool but not hardened for public-facing authentication.
+- **Password hashing uses scrypt** (`crypto.scryptSync`): A memory-hard KDF suitable for internal tool authentication. Not SHA-256 (earlier docs incorrectly stated SHA-256).
 - **No notifications:** Administrators must manually check the dashboard for new scan requests — there is no email or push alert system.
 - **OpenAPI spec is incomplete:** `lib/api-spec/openapi.yaml` only documents `/healthz` and `/qr/process`. All admin, auth, and additional QR endpoints are not reflected in the generated React Query hooks.
 - **Legacy `invoice_number` field:** Old QR codes sent the project name in `invoice_number`. A startup migration backfills existing rows but the column remains in the schema.
