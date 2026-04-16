@@ -4,6 +4,17 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [1.1.0] - April 2026
+
+### Changed
+- **Simplified customer scan page (`/scan`):** Removed the request type dropdown (previously had 5 options: Item Received, Manufacturing Defect, Maintenance Request, Replacement Request, Order Inquiry). All scan form submissions now use `"Customer Request"` as the hardcoded request type. Customers no longer select a reason.
+- **Admin dashboard and requests table:** Removed the "Type / نوع الطلب" column from both the dashboard preview table (`Admin.tsx`) and the full requests page (`AdminRequests.tsx`).
+- **Admin "New Request" modal:** Removed the request type dropdown; new requests created by admins also use `"Customer Request"` automatically.
+- **i18n cleanup:** Removed `scan_reason_label`, `scan_reason_placeholder`, and the five `scan_reason_*` translation keys from both `en` and `ar` locales.
+- The `requestType` field still exists in the database schema and API — it now always receives `"Customer Request"` from both the scan form and the admin modal.
+
+---
+
 ## [1.0.0] - April 2026
 
 ### System

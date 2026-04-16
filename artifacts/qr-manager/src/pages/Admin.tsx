@@ -104,7 +104,7 @@ export default function Admin() {
 
   const [showNewReq, setShowNewReq] = useState(false);
   const [projects, setProjects] = useState<string[]>([]);
-  const [newReq, setNewReq] = useState({ projectName: '', positionId: '', requestType: '', customerPhone: '', invoiceNumber: '', message: '' });
+  const [newReq, setNewReq] = useState({ projectName: '', positionId: '', customerPhone: '', invoiceNumber: '', message: '' });
   const [newReqSubmitting, setNewReqSubmitting] = useState(false);
   const [newReqSuccess, setNewReqSuccess] = useState(false);
 
@@ -163,7 +163,7 @@ export default function Admin() {
   };
 
   const openNewReq = async () => {
-    setNewReq({ projectName: '', positionId: '', requestType: '', customerPhone: '', invoiceNumber: '', message: '' });
+    setNewReq({ projectName: '', positionId: '', customerPhone: '', invoiceNumber: '', message: '' });
     setNewReqSuccess(false);
     setShowNewReq(true);
     if (projects.length === 0) {
@@ -173,7 +173,7 @@ export default function Admin() {
   };
 
   const submitNewReq = async () => {
-    if (!newReq.projectName || !newReq.positionId || !newReq.requestType) return;
+    if (!newReq.projectName || !newReq.positionId) return;
     setNewReqSubmitting(true);
     try {
       const res = await fetch(`${BASE}/api/admin/requests`, {
@@ -182,7 +182,7 @@ export default function Admin() {
         body: JSON.stringify({
           projectName: newReq.projectName,
           positionId: newReq.positionId,
-          requestType: newReq.requestType,
+          requestType: "Customer Request",
           customerPhone: newReq.customerPhone || undefined,
           invoiceNumber: newReq.invoiceNumber || undefined,
           message: newReq.message || undefined,
@@ -459,16 +459,16 @@ export default function Admin() {
               <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
-                    {[t('admin_col_id'), t('admin_col_position'), t('admin_col_type'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_message'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, i) => (
+                    {[t('admin_col_id'), t('admin_col_position'), t('admin_col_phone'), t('admin_history_project'), t('admin_col_message'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, i) => (
                       <th key={i} className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td colSpan={isAdmin ? 9 : 8} className="px-5 py-12 text-center text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
                   ) : requests.length === 0 ? (
-                    <tr><td colSpan={isAdmin ? 9 : 8} className="px-5 py-12 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td></tr>
+                    <tr><td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td></tr>
                   ) : (
                     shownRequests.map((row, i) => (
 
@@ -481,7 +481,6 @@ export default function Admin() {
                       >
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{row.id}</td>
                         <td className="px-5 py-3.5 font-semibold text-slate-800">{row.positionId}</td>
-                        <td className="px-5 py-3.5 text-slate-600">{row.requestType}</td>
                         <td className="px-5 py-3.5 text-slate-600">{row.customerPhone || '—'}</td>
                         <td className="px-5 py-3.5">
                           {row.projectName ? (
@@ -601,25 +600,6 @@ export default function Admin() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('admin_col_type')} *</label>
-                  <div className="relative">
-                    <select
-                      value={newReq.requestType}
-                      onChange={e => setNewReq(p => ({ ...p, requestType: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50 pr-8"
-                    >
-                      <option value="">{t('scan_reason_placeholder')}</option>
-                      <option value={t('scan_reason_received')}>{t('scan_reason_received')}</option>
-                      <option value={t('scan_reason_defect')}>{t('scan_reason_defect')}</option>
-                      <option value={t('scan_reason_maintenance')}>{t('scan_reason_maintenance')}</option>
-                      <option value={t('scan_reason_replacement')}>{t('scan_reason_replacement')}</option>
-                      <option value={t('scan_reason_inquiry')}>{t('scan_reason_inquiry')}</option>
-                    </select>
-                    <ChevronDown className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none ${isRtl ? 'left-3' : 'right-3'}`} />
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('admin_col_phone')}</label>
@@ -662,7 +642,7 @@ export default function Admin() {
                   </button>
                   <button
                     onClick={submitNewReq}
-                    disabled={newReqSubmitting || !newReq.projectName || !newReq.positionId || !newReq.requestType}
+                    disabled={newReqSubmitting || !newReq.projectName || !newReq.positionId}
                     className="px-5 py-2 text-sm font-semibold bg-[#1B2A4A] hover:bg-[#142240] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors shadow-sm"
                   >
                     {newReqSubmitting ? t('admin_creating') : t('admin_submit_btn')}

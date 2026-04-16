@@ -187,6 +187,8 @@ Routing library: **wouter**. Base path set from Vite's `BASE_URL`.
 
 **Purpose:** Customer-facing QR code scan page. Reads panel data from URL params, lets the customer submit a service request.
 
+**Form fields:** Phone number (required, Saudi format `05XXXXXXXX`), optional notes (200-char limit). There is no request type dropdown — all submissions are hardcoded as `"Customer Request"`.
+
 **Components used:**
 | Component / Hook | Role |
 |---|---|
@@ -345,7 +347,7 @@ Routing library: **wouter**. Base path set from Vite's `BASE_URL`.
 
 1. Customer scans a QR code on a delivered panel; browser opens `/scan?pos=...&ref=...&w=...&h=...&qty=...`.
 2. The `Scan` page (public, no login required) displays panel details pre-filled from URL params.
-3. Customer fills in `requestType`, optional phone and message, then submits.
+3. Customer fills in their phone number (required) and optional notes, then submits. `requestType` is hardcoded as `"Customer Request"` — there is no dropdown.
 4. Frontend posts to `POST /api/admin/requests` (the only unauthenticated POST endpoint).
 5. A new `requests` row is created with `status = "New"`.
 

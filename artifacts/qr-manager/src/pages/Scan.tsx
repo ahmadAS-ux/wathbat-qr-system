@@ -1,26 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Loader2, Phone, MessageSquare, ChevronDown, Package, Ruler, Hash, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Phone, Package, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 
 const NOTES_MAX = 200;
 import { API_BASE as BASE } from '@/lib/api-base';
-
-const REASONS_EN = [
-  'Item Received / استلام القطعة',
-  'Manufacturing Defect / عيب تصنيع',
-  'Maintenance Request / طلب صيانة',
-  'Replacement Request / طلب استبدال',
-  'Order Inquiry / استفسار عن الطلبية',
-];
-
-const REASONS_AR = [
-  'استلام القطعة / Item Received',
-  'الإبلاغ عن عيب تصنيع / Report Defect',
-  'طلب صيانة / Maintenance Request',
-  'طلب استبدال / Replacement Request',
-  'استفسار عن الطلبية / Order Inquiry',
-];
 
 function isValidSaudiPhone(v: string) {
   return /^05\d{8}$/.test(v.replace(/\s/g, ''));
@@ -69,7 +53,6 @@ export default function Scan() {
   const ref = params.get('ref') || '';
   const isValidScan = Boolean(pos);
 
-  const [reason, setReason] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneBlurred, setPhoneBlurred] = useState(false);
   const [notes, setNotes] = useState('');
@@ -77,10 +60,9 @@ export default function Scan() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const reasons = isRtl ? REASONS_AR : REASONS_EN;
   const phoneValid = isValidSaudiPhone(phone);
   const phoneError = phoneBlurred && phone.length > 0 && !phoneValid;
-  const canSubmit = reason && phoneValid && !submitting;
+  const canSubmit = phoneValid && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -92,7 +74,7 @@ export default function Scan() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           positionId: pos,
-          requestType: reason,
+          requestType: "Customer Request",
           customerPhone: phone.replace(/\s/g, ''),
           projectName: ref || undefined,
           message: notes || undefined,
@@ -178,10 +160,6 @@ export default function Scan() {
                     <span className="font-semibold text-[#1B2A4A]">{ref}</span>
                   </div>
                 )}
-                <div className={`flex items-center justify-between gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-muted-foreground">{t('scan_reason_label')}</span>
-                  <span className="font-semibold text-[#1B2A4A] text-end">{reason}</span>
-                </div>
               </div>
             </motion.div>
           ) : (
@@ -230,27 +208,6 @@ export default function Scan() {
               {/* ── Request Form ── */}
               <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-5 space-y-4">
                 <h3 className={`font-bold text-[#1B2A4A] text-base ${isRtl ? 'text-right' : ''}`}>{t('scan_form_title')}</h3>
-
-                {/* Reason dropdown */}
-                <div className="space-y-1.5">
-                  <label className={`block text-sm font-semibold text-[#1B2A4A] ${isRtl ? 'text-right' : ''}`}>
-                    {t('scan_reason_label')} <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={reason}
-                      onChange={e => setReason(e.target.value)}
-                      className={`w-full appearance-none border border-border rounded-xl px-4 py-3 text-sm bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/30 focus:border-[#4A6FA5] transition-all ${!reason ? 'text-muted-foreground' : ''} ${isRtl ? 'pr-4 pl-10 text-right' : 'pl-4 pr-10'}`}
-                      dir={isRtl ? 'rtl' : 'ltr'}
-                    >
-                      <option value="" disabled>{t('scan_reason_placeholder')}</option>
-                      {reasons.map((r, i) => (
-                        <option key={i} value={r}>{r}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${isRtl ? 'left-3' : 'right-3'}`} />
-                  </div>
-                </div>
 
                 {/* Phone */}
                 <div className="space-y-1.5">

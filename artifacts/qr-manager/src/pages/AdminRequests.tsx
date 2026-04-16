@@ -191,7 +191,6 @@ export default function AdminRequests() {
                     {[
                       t('admin_col_id'),
                       t('admin_col_position'),
-                      t('admin_col_type'),
                       t('admin_col_phone'),
                       t('admin_history_project'),
                       t('admin_col_message'),
@@ -206,13 +205,13 @@ export default function AdminRequests() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={isAdmin ? 9 : 8} className="px-5 py-16 text-center text-slate-400">
+                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400">
                         <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                       </td>
                     </tr>
                   ) : shown.length === 0 ? (
                     <tr>
-                      <td colSpan={isAdmin ? 9 : 8} className="px-5 py-16 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td>
+                      <td colSpan={isAdmin ? 8 : 7} className="px-5 py-16 text-center text-slate-400 text-sm">{t('admin_no_requests')}</td>
                     </tr>
                   ) : (
                     shown.map((row, i) => (
@@ -225,7 +224,6 @@ export default function AdminRequests() {
                       >
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{row.id}</td>
                         <td className="px-5 py-3.5 font-semibold text-slate-800">{row.positionId}</td>
-                        <td className="px-5 py-3.5 text-slate-600">{row.requestType}</td>
                         <td className="px-5 py-3.5 text-slate-600">{row.customerPhone || '—'}</td>
                         <td className="px-5 py-3.5">
                           {row.projectName ? (
