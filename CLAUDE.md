@@ -159,12 +159,12 @@ Commit: feat: v2.4.1 — Home.tsx project picker dialog (Issue #4 extension)
 Push + tag v2.4.1
 ```
 
-### ⚠️ Maintenance Rule
+### IMPORTANT — Maintenance rule for this section
 
-When a sub-phase completes:
-1. Move ⏳ → ✅ in the Sub-Phase Status table above
-2. Replace this prompt block with the next sub-phase's prompt
-3. When all sub-phases complete → delete this entire section (CHANGELOG is the record)
+Every time a sub-phase is completed:
+1. Update the Sub-Phase Status table (move ⏳ → ✅, promote next to ⏳)
+2. Replace the "v2.4.1 Implementation Prompt" block with the next sub-phase's prompt, OR remove the block entirely when all sub-phases are complete
+3. When the entire feature is complete, delete this whole "Current Active Work" section — CHANGELOG is the historical record
 
 ---
 
