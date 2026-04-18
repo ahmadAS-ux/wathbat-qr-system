@@ -4,6 +4,27 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.4.0] - April 2026
+
+### Added (Backend only — Frontend in v2.4.1 and v2.4.2)
+
+- New utility: `artifacts/api-server/src/lib/orgadata.ts` — extracts project name and person in charge from Orgadata DOCX without saving to DB (pure function)
+- New utility: `artifacts/api-server/src/lib/fuzzy-match.ts` — finds projects with similar names using string-similarity library (tolerant of spaces, case, punctuation; score 0–100, threshold 60, max 5 results)
+- New endpoint: `POST /api/erp/files/detect-project` — analyzes uploaded DOCX, returns Orgadata name + fuzzy-matched existing projects (no save, multipart/form-data)
+- New endpoint: `POST /api/erp/files/create-project-from-file` — creates new project with Orgadata name + user-provided customer data (buildingType, productInterest required)
+- New dependency: `string-similarity@^4.0.4` + `@types/string-similarity@^4.0.2`
+
+### Why
+
+Issue #4 required every Orgadata file to be linked to a project. v2.3 solved it for files uploaded from inside an existing project. v2.4 extends this to the Home.tsx upload path — Admin can now upload a file and either link to an existing project (fuzzy match) or create a new project inline. This commit adds only the backend — frontend follows in v2.4.1 (Home.tsx) and v2.4.2 (ProjectDetail.tsx).
+
+### Framework compliance
+
+- Gate 11 (Data Ownership): Every new endpoint enforces project_id linkage — no file can exist without a parent entity
+- Gate 12 (Version Bump): All 3 package.json files synced to 2.4.0
+
+---
+
 ## [2.3.1] - April 2026
 
 ### Added

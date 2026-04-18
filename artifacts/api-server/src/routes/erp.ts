@@ -15,6 +15,8 @@ import {
 import { requireRole } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
 import { parseAndInjectQR } from "./qr.js";
+import { extractOrgadataMetadata } from "../lib/orgadata.js";
+import { findFuzzyMatches } from "../lib/fuzzy-match.js";
 
 const router: IRouter = Router();
 
@@ -639,5 +641,114 @@ router.get("/erp/projects/:id/qr-orders", requireRole(...NO_SALES_NO_ACCT), asyn
     res.status(500).json({ error: "Internal error" });
   }
 });
+
+// POST /erp/files/detect-project — analyze DOCX and return suggested projects (no save)
+router.post(
+  '/erp/files/detect-project',
+  requireRole(...NO_SALES_NO_ACCT),
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      const metadata = extractOrgadataMetadata(req.file.buffer);
+
+      if (!metadata.projectName) {
+        res.status(200).json({
+          orgadataName: null,
+          orgadataPerson: null,
+          matches: [],
+          warning: 'Could not extract project name from file',
+        });
+        return;
+      }
+
+      const allProjects = await db
+        .select({
+          id: projectsTable.id,
+          name: projectsTable.name,
+          customerName: projectsTable.customerName,
+        })
+        .from(projectsTable);
+
+      const matches = findFuzzyMatches(metadata.projectName, allProjects);
+
+      res.status(200).json({
+        orgadataName: metadata.projectName,
+        orgadataPerson: metadata.personInCharge,
+        matches,
+      });
+    } catch (err) {
+      logger.error(err, 'detect-project failed');
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+// POST /erp/files/create-project-from-file — create new project with Orgadata name + user-provided fields
+router.post(
+  '/erp/files/create-project-from-file',
+  requireRole(...NO_SALES_NO_ACCT),
+  async (req: Request, res: Response) => {
+    try {
+      const {
+        name,
+        customerName,
+        phone,
+        buildingType,
+        productInterest,
+        personInCharge,
+      } = req.body;
+
+      if (!name || name.trim().length < 2) {
+        res.status(400).json({ error: 'Project name is required (min 2 chars)' });
+        return;
+      }
+      if (!customerName || customerName.trim().length < 2) {
+        res.status(400).json({ error: 'Customer name is required (min 2 chars)' });
+        return;
+      }
+      if (!buildingType) {
+        res.status(400).json({ error: 'Building type is required' });
+        return;
+      }
+      if (!productInterest) {
+        res.status(400).json({ error: 'Product interest is required' });
+        return;
+      }
+      if (phone && !/^05\d{8}$/.test(phone)) {
+        res.status(400).json({ error: 'Phone must be Saudi format: 05XXXXXXXX' });
+        return;
+      }
+
+      const sess = session(req);
+
+      const [newProject] = await db
+        .insert(projectsTable)
+        .values({
+          name: name.trim(),
+          customerName: customerName.trim(),
+          phone: phone || null,
+          buildingType,
+          productInterest,
+          stageDisplay: 'new',
+          stageInternal: 2,
+          notes: personInCharge
+            ? `Auto-created from Orgadata file. Person in charge: ${personInCharge}`
+            : 'Auto-created from Orgadata file',
+          createdBy: sess.userId,
+        })
+        .returning();
+
+      res.status(201).json(newProject);
+    } catch (err) {
+      logger.error(err, 'create-project-from-file failed');
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
 
 export default router;
