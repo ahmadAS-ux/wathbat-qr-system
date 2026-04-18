@@ -4,6 +4,49 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.3.0] - April 2026
+
+### Fixed
+
+#### Critical: Glass Order → Project linking (Issue #4)
+- DOCX uploads via the legacy QR system produced `processed_docs` records with no link to any ERP project or customer — impossible to trace which delivery belonged to which customer
+- Root cause: Layer 1 (QR system, v1.0) was built before Layer 2 (ERP, v2.x) existed. The `processed_docs` table was never designed with a `project_id` foreign key
+- Why the framework missed it: QUALITY_GATES.md had no gate checking data ownership or cross-system binding. PROJECT_HEALTH_REVIEW.md Part A had no question asking "can this data exist without a parent entity?"
+
+### Added
+
+- Idempotent migration: `ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`
+- Glass order upload from `ProjectDetail.tsx` now extracts the project name from the Orgadata DOCX and compares it to the ERP `projects.name`
+- If names differ: returns `409 Conflict` with both names → employee sees a confirmation dialog with 3 options:
+  - Update system name to match Orgadata
+  - Keep current system name
+  - Cancel upload
+- New endpoint: `GET /api/erp/projects/:id/qr-orders` — returns all glass order records linked to a project (without binary blobs)
+- New section in `ProjectDetail.tsx`: "طلبيات QR / QR Orders" shows all glass orders linked to the project with filename, position count, upload date, and View Report button
+- `Home.tsx` (legacy QR upload page) is now Admin-only. Non-Admin users are auto-redirected to `/erp/projects` via `useEffect`. Admin sees a banner explaining the new workflow.
+- 11 new i18n keys for the QR orders section, conflict dialog, and admin-only banner
+
+### Framework improvements (prevent recurrence)
+
+- **QUALITY_GATES.md Gate 11** added — Data Ownership & Integration Check. Every new feature must verify: data source, foreign key binding, cross-system data flow, and conflict handling.
+- **PROJECT_HEALTH_REVIEW.md Part A Section A1** — new row asking about data ownership per data type (origin, storage, parent link, unbound behavior)
+- **Issue #4 documented in Part D** with 6-step fix plan and "Why the framework missed it" root cause analysis
+
+### Removed — Deployment cleanup
+
+- Deleted `railway.toml` — Railway was abandoned, kept sending build failure notifications on every push
+- Removed all Railway references from `DEPLOY.md`, `CLAUDE.md`, and `PROJECT_DOCS.md`
+- Render.com is now the only documented deployment platform
+
+### Known Limitations (carried from v2.2)
+
+- Free-tier cold starts on Render (15-60s first load)
+- In-memory stats counters reset on every restart
+- `deleteSession()` still a no-op — JWTs valid 7 days after logout
+- No automated tests
+
+---
+
 ## [2.2.0] - April 2026
 
 ### Fixed

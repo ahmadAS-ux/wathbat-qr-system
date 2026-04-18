@@ -173,7 +173,6 @@ wathbah/Asset-Manager-Wathbat/
 │
 ├── scripts/                     # Build utility scripts (export-zip.mjs)
 ├── render.yaml                  # Render Blueprint (infrastructure as code)
-├── railway.toml                 # Railway deployment config
 ├── pnpm-workspace.yaml          # Workspace package locations
 ├── pnpm-lock.yaml               # Locked dependency versions
 ├── tsconfig.json                # Root TypeScript config (composite build)
@@ -357,7 +356,7 @@ Database: **PostgreSQL**. Tables are auto-created on server startup via Drizzle 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | ✅ **Required** | — | PostgreSQL connection string. Format: `postgresql://user:pass@host:5432/dbname` |
-| `PORT` | ✅ Required | `3000` | Port for the HTTP server. Set automatically by Render/Railway |
+| `PORT` | ✅ Required | `3000` | Port for the HTTP server. Set automatically by Render |
 | `NODE_ENV` | Recommended | `development` | Set to `production` for deployments |
 | `JWT_SECRET` | Optional | Auto-generated random string | Secret key for signing JWT tokens. Must be persistent across restarts in production |
 | `QR_SCAN_BASE_URL` | Optional | Derived from `Origin` header | Full URL of the scan page for QR codes (e.g. `https://qr-asset-manager-web.onrender.com/scan`). Falls back to the request's `Origin` header if not set |
@@ -547,7 +546,7 @@ After either fix: delete old reports and re-upload DOCX files to regenerate QR c
 
 **Cause:** The `pnpm-lock.yaml` was generated on a different platform or pnpm version than the build environment.
 
-**Fix:** Both `render.yaml` and `railway.toml` use `--no-frozen-lockfile` flag:
+**Fix:** The build command uses `--no-frozen-lockfile` flag:
 ```
 pnpm install --no-frozen-lockfile
 ```

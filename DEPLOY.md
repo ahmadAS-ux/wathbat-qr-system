@@ -1,6 +1,8 @@
-# Deployment Guide — QR Asset Manager
+# Deployment Guide — Wathbah Manufacturing System
 
-This guide explains how to deploy the QR Asset Manager (front-end) and the API Server (back-end) to **Railway** or **Render.com** using the exported ZIP.
+> **Deployment: Render.com only. Railway was abandoned.**
+
+This guide explains how to deploy the API server and frontend to **Render.com** using the `render.yaml` Blueprint.
 
 ---
 
@@ -19,7 +21,7 @@ qr-asset-manager-export.zip
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── pnpm-lock.yaml
-├── railway.toml
+├── render.yaml              # Render Blueprint (infrastructure as code)
 └── DEPLOY.md                # This file
 ```
 
@@ -30,78 +32,79 @@ qr-asset-manager-export.zip
 | Variable       | Description                                                                 | Example                          |
 |----------------|-----------------------------------------------------------------------------|----------------------------------|
 | `DATABASE_URL` | PostgreSQL connection string (required by the API)                          | `postgresql://user:pass@host/db` |
-| `PORT`         | Port the API server listens on (set automatically by hosting platforms)     | `3000`                           |
+| `PORT`         | Port the API server listens on (set automatically by Render)                | `3000`                           |
 | `NODE_ENV`     | Node environment — set to `production` for live deployments                 | `production`                     |
 | `BASE_PATH`    | URL base path for the front-end Vite build (use `/` for root deployments)   | `/`                              |
+| `VITE_API_URL` | Full API URL baked into the frontend bundle at build time                   | `https://qr-asset-manager-api.onrender.com` |
 
-> **Note:** The front-end (`artifacts/qr-manager/dist/public/`) is a static site and does not require a Node.js process. It just needs to be served by a web server or CDN.
-
----
-
-## Option 1: Deploy to Railway
-
-Railway can host both the API and the front-end from a single project.
-
-### Prerequisites
-- A Railway account at [railway.app](https://railway.app)
-- A PostgreSQL add-on provisioned in Railway (or an external DB URL)
-
-### Steps
-
-#### 1. Upload or connect the project
-- **From ZIP:** Extract the ZIP, push the contents to a new GitHub repository, then in Railway click **New Project → Deploy from GitHub Repo**.
-- **Or:** Use the Railway CLI: `railway init && railway up` from the extracted folder.
-
-#### 2. Configure the API Service
-
-The repository includes a `railway.toml` that configures the API build and start commands automatically:
-
-```toml
-[build]
-buildCommand = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build"
-
-[deploy]
-startCommand = "pnpm --filter @workspace/api-server start"
-```
-
-In Railway's **Variables** tab for the API service, set:
-
-| Variable       | Value                                  |
-|----------------|----------------------------------------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (or your own) |
-| `NODE_ENV`     | `production`                           |
-
-Railway sets `PORT` automatically — the API server reads it via `process.env.PORT`.
-
-#### 3. Serve the front-end
-
-The front-end build output is in `artifacts/qr-manager/dist/public/`. Add a Static Service in Railway:
-
-1. In your Railway project, add a new **Static** service.
-2. Set the root directory to `artifacts/qr-manager`.
-3. Set the build command: `pnpm install --no-frozen-lockfile && pnpm --filter @workspace/qr-manager build`
-4. Set the publish directory: `dist/public`
-5. Set environment variables: `BASE_PATH=/`, `NODE_ENV=production`
-
-#### 4. Deploy
-
-Railway will automatically build and deploy. Check the **Logs** tab for any errors.
+> **Note:** The front-end (`artifacts/qr-manager/dist/public/`) is a static site served by Render as a Static Site resource.
 
 ---
 
-## Option 2: Deploy to Render.com
+## Deploy to Render.com
 
-Render separates back-end (Web Service) and front-end (Static Site) into two services.
+Render separates back-end (Web Service) and front-end (Static Site) into two services, plus a managed PostgreSQL database. All three are defined in `render.yaml`.
 
 ### Prerequisites
 - A Render account at [render.com](https://render.com)
-- A PostgreSQL database (use Render's built-in Postgres or an external URL)
+- The repository pushed to GitHub
 
-### Service 1: API Server (Web Service)
+### Step 1: Create Blueprint
 
-1. In Render, click **New → Web Service**.
-2. Connect your GitHub repository (push the extracted ZIP contents first).
-3. Configure the service:
+1. Go to [render.com](https://render.com) → **New → Blueprint**
+2. Connect your GitHub repository
+3. Render detects `render.yaml` and creates 3 resources:
+   - `qr-asset-manager-db` — managed PostgreSQL database
+   - `qr-asset-manager-api` — Express API (Web Service)
+   - `qr-asset-manager-web` — React SPA (Static Site)
+
+### Step 2: Set VITE_API_URL (Critical)
+
+After the first deploy completes:
+
+1. Copy the API service URL from `qr-asset-manager-api` (e.g. `https://qr-asset-manager-api.onrender.com`)
+2. Go to `qr-asset-manager-web` → **Environment**
+3. Add variable: `VITE_API_URL` = `https://qr-asset-manager-api.onrender.com`
+4. Click **Save Changes**
+5. Click **Manual Deploy → Deploy latest commit**
+
+> Without this step the frontend will show a blank page / connection error because it cannot reach the API.
+
+### Step 3: Set QR Scan URL (for working QR codes)
+
+1. Copy the frontend URL from `qr-asset-manager-web` (e.g. `https://qr-asset-manager-web.onrender.com`)
+2. Go to `qr-asset-manager-api` → **Environment**
+3. Add variable: `QR_SCAN_BASE_URL` = `https://qr-asset-manager-web.onrender.com/scan`
+4. Click **Save Changes** (service restarts automatically)
+
+> Without this step QR codes will embed `/scan` (relative URL) which phone cameras cannot follow.
+
+### Environment Variables Summary
+
+**qr-asset-manager-api (Web Service):**
+
+| Variable | Value | Set by |
+|----------|-------|--------|
+| `DATABASE_URL` | Auto-linked from PostgreSQL | render.yaml |
+| `NODE_ENV` | `production` | render.yaml |
+| `JWT_SECRET` | Auto-generated | render.yaml |
+| `QR_SCAN_BASE_URL` | `https://YOUR-FRONTEND.onrender.com/scan` | **Manual — set after first deploy** |
+
+**qr-asset-manager-web (Static Site):**
+
+| Variable | Value | Set by |
+|----------|-------|--------|
+| `NODE_ENV` | `production` | render.yaml |
+| `BASE_PATH` | `/` | render.yaml |
+| `VITE_API_URL` | `https://YOUR-API.onrender.com` | **Manual — set after first deploy** |
+
+---
+
+## Service Configuration (Manual, without render.yaml)
+
+If you need to configure services manually instead of using the Blueprint:
+
+### API Server (Web Service)
 
 | Field              | Value                                                       |
 |--------------------|-------------------------------------------------------------|
@@ -111,20 +114,7 @@ Render separates back-end (Web Service) and front-end (Static Site) into two ser
 | **Build Command**  | `pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build` |
 | **Start Command**  | `pnpm --filter @workspace/api-server start`                 |
 
-4. Add environment variables:
-
-| Variable       | Value                         |
-|----------------|-------------------------------|
-| `DATABASE_URL` | Your PostgreSQL connection URL |
-| `NODE_ENV`     | `production`                  |
-
-Render sets `PORT` automatically.
-
-### Service 2: QR Manager Front-end (Static Site)
-
-1. In Render, click **New → Static Site**.
-2. Connect the same repository.
-3. Configure the site:
+### Frontend (Static Site)
 
 | Field                  | Value                                                        |
 |------------------------|--------------------------------------------------------------|
@@ -133,29 +123,14 @@ Render sets `PORT` automatically.
 | **Build Command**      | `cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/qr-manager build` |
 | **Publish Directory**  | `dist/public`                                                |
 
-4. Add environment variables:
-
-| Variable    | Value           |
-|-------------|-----------------|
-| `BASE_PATH` | `/`             |
-| `NODE_ENV`  | `production`    |
-
-> **Note:** Render Static Sites do not use `PORT` — Render manages the serving automatically.
-
-5. Under **Redirects/Rewrites**, add a rewrite rule for SPA routing:
-   - Source: `/*`
-   - Destination: `/index.html`
-   - Action: `Rewrite`
-
-### Connecting front-end to the API
-
-In the front-end's environment variables, set the API base URL to point to your Render API service URL. Check `artifacts/qr-manager/src/` for the API client configuration and update accordingly.
+Under **Redirects/Rewrites**, add a rewrite rule for SPA routing:
+- Source: `/*`
+- Destination: `/index.html`
+- Action: `Rewrite`
 
 ---
 
 ## Running the Built Output Locally
-
-To test the exported build locally before deploying:
 
 ```bash
 # Install dependencies
@@ -172,13 +147,7 @@ BASE_PATH=/ PORT=5173 NODE_ENV=production pnpm --filter @workspace/qr-manager se
 
 ## Database Migrations
 
-The project uses Drizzle ORM. To run migrations on a fresh database:
-
-```bash
-DATABASE_URL=your_connection_string pnpm --filter @workspace/db run migrate
-```
-
-Check `lib/db/` for migration files and configuration.
+Tables are auto-created on server startup via Drizzle ORM. No manual migration step is needed for fresh deployments.
 
 ---
 
@@ -186,8 +155,9 @@ Check `lib/db/` for migration files and configuration.
 
 | Problem                        | Solution                                                               |
 |-------------------------------|------------------------------------------------------------------------|
-| `DATABASE_URL` not set         | Ensure the env var is configured in your hosting platform dashboard    |
-| `PORT` conflicts               | Let the platform assign `PORT` automatically; don't hardcode it        |
-| Front-end shows blank page     | Check `BASE_PATH` matches the path where the site is served            |
-| API returns 500 errors         | Check server logs; ensure DB is reachable and migrations have been run |
+| `DATABASE_URL` not set         | Ensure the env var is configured in your Render dashboard              |
+| `PORT` conflicts               | Let Render assign `PORT` automatically; don't hardcode it              |
+| Front-end shows blank page     | Set `VITE_API_URL` in Render dashboard and trigger a Manual Deploy     |
+| API returns 500 errors         | Check server logs; ensure DB is reachable and started correctly        |
 | `pnpm: command not found`      | The build environment needs Node 18+ and pnpm. Install: `npm i -g pnpm` |
+| pnpm lockfile conflict         | Build commands use `--no-frozen-lockfile` to handle this automatically |
