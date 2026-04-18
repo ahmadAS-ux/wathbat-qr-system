@@ -18,9 +18,159 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 🎯 Current Active Work
+
+**Feature:** Unified Upload + Fuzzy Match (Issue #4 extension)  
+**Linked to:** `WORKFLOW_REFERENCE_v3.md` → Section 9 "Active Sub-Phase Work"  
+**Business goal:** Every Orgadata file (from any upload point) must be linked to a project — either existing or newly created inline.
+
+### Sub-Phase Status
+
+| Sub-Phase | Version | Status | Scope |
+|-----------|---------|--------|-------|
+| Backend utilities | v2.4.0 | ✅ Complete | `detect-project` + `create-project-from-file` endpoints |
+| Home.tsx dialog | v2.4.1 | ⏳ **NEXT** | Admin upload flow with project picker |
+| ProjectDetail.tsx dialog | v2.4.2 | 🔜 Queued | Unify existing conflict logic with same pattern |
+
+**Blocker:** None — v2.4.0 tested and deployed. Ready for v2.4.1.
+
+### Context for Next Session
+
+The backend endpoints from v2.4.0 exist and work:
+- `POST /api/erp/files/detect-project` — analyzes DOCX, returns Orgadata name + fuzzy matches
+- `POST /api/erp/files/create-project-from-file` — creates project with user-provided customer data
+
+Currently `Home.tsx` still uses the legacy `POST /api/qr/process` endpoint and does NOT link files to projects. v2.4.1 replaces this with a 3-step dialog flow:
+
+1. User selects file → frontend calls `detect-project`
+2. Dialog shows: matched projects (with fuzzy score) OR "Create new project" option
+3. On selection/creation → call existing glass order upload with resolved `project_id`
+
+### v2.4.1 Implementation Prompt (ready to run)
+
+```
+Read CLAUDE.md, CODE_STRUCTURE.md, and UI_UX_CHECKLIST.md before starting.
+
+Implement v2.4.1 — Frontend A. Home.tsx gets a 3-step project picker dialog.
+Backend endpoints already exist from v2.4.0. No backend changes in this commit.
+
+---
+
+CONTEXT
+
+Currently Home.tsx uses POST /api/qr/process directly and saves to
+processed_docs with no project_id. v2.4.1 intercepts the file drop,
+detects the project from the DOCX, and asks the user to confirm before
+uploading. The glass order then saves to processed_docs WITH project_id.
+
+Endpoints to use (already deployed in v2.4.0):
+
+  POST ${API_BASE}/api/erp/files/detect-project
+    - multipart/form-data, field: "file"
+    - response: { orgadataName, orgadataPerson, matches: [{ id, name, customerName, score }] }
+
+  POST ${API_BASE}/api/erp/files/create-project-from-file
+    - JSON body: { name, customerName, phone?, buildingType, productInterest, personInCharge? }
+    - response: new project row
+
+  POST ${API_BASE}/api/erp/projects/:id/files?fileType=glass_order
+    - multipart/form-data, field "file" + body: { fileType: "glass_order" }
+    - This is the EXISTING upload endpoint — re-use it, not /api/qr/process
+
+---
+
+CHANGES
+
+File: artifacts/qr-manager/src/pages/Home.tsx
+
+Replace the current single-step upload with a 3-state flow:
+
+  STATE 1 — idle: show FileUpload dropzone (existing component)
+  STATE 2 — detecting: spinner while POST /detect-project runs
+  STATE 3 — dialog: show DetectDialog component
+
+DetectDialog component (inline or separate file):
+
+Props:
+  orgadataName: string
+  orgadataPerson: string | null
+  matches: { id, name, customerName, score }[]
+  pendingFile: File
+  onSelect: (projectId: number) => void
+  onCreateNew: (data: CreateProjectForm) => void
+  onCancel: () => void
+
+Dialog layout (RTL-first, same card style as rest of app):
+  - Header: "رفع طلبية QR / Upload Glass Order"
+  - Orgadata name pill: shows orgadataName
+  - If matches.length > 0:
+      List of match cards: project name + customer name + score badge
+      (green ≥80, amber 60–79)
+      Clicking a card → onSelect(match.id)
+  - Divider + "إنشاء مشروع جديد / Create New Project" expandable form:
+      Fields: customerName (required), phone (optional),
+              buildingType (dropdown), productInterest (dropdown)
+      Project name pre-filled from orgadataName (editable)
+      Submit → onCreateNew(formData)
+  - Cancel button → onCancel()
+  - If matches.length === 0: skip to expanded create form, no list
+
+Upload flow:
+
+  handleFileSelect(file):
+    1. setDetecting(true), POST to /detect-project with file
+    2. On error → show uploadError banner, reset to idle
+    3. On success → setPendingFile(file), setDetectResult, show dialog
+
+  handleProjectSelected(projectId):
+    1. Close dialog, show processing spinner
+    2. POST to /api/erp/projects/${projectId}/files
+       FormData: file + fileType=glass_order
+    3. On success → setResult(data) — show QR report
+    4. On 409 → show conflict warning (reuse v2.3 pattern)
+    5. On error → show uploadError banner
+
+  handleCreateAndUpload(formData):
+    1. POST /create-project-from-file
+    2. On success → handleProjectSelected(project.id)
+
+  handleCancel():
+    reset all state → return to idle
+
+---
+
+i18n keys to add (both ar + en):
+
+  detect_dialog_title:    "رفع طلبية QR" / "Upload Glass Order"
+  detect_orgadata_label:  "الاسم في الملف" / "Name in file"
+  detect_matches_heading: "مشاريع مطابقة" / "Matching projects"
+  detect_no_matches:      "لا توجد مشاريع مطابقة" / "No matching projects found"
+  detect_score_label:     "تطابق" / "Match"
+  detect_create_heading:  "إنشاء مشروع جديد" / "Create new project"
+  detect_create_submit:   "إنشاء ورفع" / "Create & Upload"
+  detect_cancel:          "إلغاء" / "Cancel"
+  detect_customer_name:   "اسم العميل" / "Customer name"
+
+---
+
+Version bump: all 3 package.json 2.4.0 → 2.4.1
+CHANGELOG: add v2.4.1 entry
+Commit: feat: v2.4.1 — Home.tsx project picker dialog (Issue #4 extension)
+Push + tag v2.4.1
+```
+
+### ⚠️ Maintenance Rule
+
+When a sub-phase completes:
+1. Move ⏳ → ✅ in the Sub-Phase Status table above
+2. Replace this prompt block with the next sub-phase's prompt
+3. When all sub-phases complete → delete this entire section (CHANGELOG is the record)
+
+---
+
 ## Project Overview
 
-**Wathbah Manufacturing System (v2.2)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
+**Wathbah Manufacturing System (v2.4)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
 
 Built in two layers:
 - **Layer 1 (v1.0):** QR Asset Manager — processes Orgadata DOCX files, generates QR codes, tracks customer service requests
@@ -182,7 +332,7 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ## Quality & Security Summary
 
-### Before every commit — all 10 gates must pass (QUALITY_GATES.md):
+### Before every commit — all 12 gates must pass (QUALITY_GATES.md):
 1. `pnpm run typecheck` — zero errors
 2. `pnpm run build` — succeeds
 3. Server starts, `/api/healthz` responds
