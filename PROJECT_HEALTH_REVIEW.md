@@ -214,9 +214,9 @@ Track every issue found during reviews. Carry forward to the next phase.
 **Category:** Bug
 **Description:** Lead creation form dropdowns show "—" instead of "واتساب", "فيلا" etc.
 **Impact:** Employees can't create leads properly
-**Root cause:** Seed data had incorrect Arabic labels / frontend label mapping mismatch
-**Fix:** Fixed in seed migration + dropdown label rendering
-**Status:** Fixed in v2.1
+**Root cause:** Two causes: (1) seed data had incorrect Arabic labels, (2) apiBase missing from ERP fetch calls — requests hit frontend static site instead of API server (see Issue #3)
+**Fix:** (1) Seed migration + label rendering fix in v2.2. (2) apiBase added to all ERP fetch calls in v2.2 (commit 836d98f).
+**Status:** Fixed in v2.2
 **Preventable by:** CODE_STRUCTURE.md Section 3 (dropdown data flow) + QUALITY_GATES.md Gate 5
 
 ### Issue #2: Phone number accepts any input
@@ -226,9 +226,20 @@ Track every issue found during reviews. Carry forward to the next phase.
 **Description:** Phone field accepts letters, short numbers, any format — no Saudi 05XXXXXXXX validation
 **Impact:** Invalid phone data in database, can't call customers back
 **Root cause:** No validation spec existed when Phase 1 was built
-**Fix:** [Pending — needs frontend regex + backend validation]
-**Status:** Open
+**Fix:** Frontend: type=tel, maxLength=10, /^05\d{8}$/ regex, Arabic error message. Backend: same regex in POST /api/erp/leads returns 400 if invalid.
+**Status:** Fixed in v2.2 (commit 4c68bbf)
 **Preventable by:** CODE_STRUCTURE.md Section 4 (form field specifications)
+
+### Issue #3: All ERP API calls hitting frontend URL instead of API server
+**Found in:** Phase 1 production testing
+**Severity:** Critical
+**Category:** Bug
+**Description:** All 21 fetch calls across 6 ERP files used relative URLs without apiBase, which worked in dev (Vite proxy) but failed in production (static site has no proxy)
+**Impact:** Entire ERP system non-functional in production — dropdowns empty, leads can't load, projects can't load
+**Root cause:** apiBase import was missing from all ERP page files
+**Fix:** Added `${API_BASE}` prefix to all 21 fetch calls across Leads, LeadDetail, Projects, ProjectDetail, AdminUsers, AdminLayout
+**Status:** Fixed in v2.2 (commit 836d98f)
+**Preventable by:** CODE_STRUCTURE.md Section 8 (Frontend API Call Pattern) — states "Use apiBase from lib/api-base.ts — don't hardcode URLs"
 ```
 
 ---
