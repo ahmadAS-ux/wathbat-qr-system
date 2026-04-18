@@ -1,17 +1,20 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
-import { eq, and, lt, sql, ne, isNull, or } from "drizzle-orm";
+import AdmZip from "adm-zip";
+import { eq, and, lt, sql, ne, isNull, or, desc } from "drizzle-orm";
 import {
   db,
   leadsTable,
   leadLogsTable,
   projectsTable,
   projectFilesTable,
+  processedDocsTable,
   dropdownOptionsTable,
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
+import { parseAndInjectQR } from "./qr.js";
 
 const router: IRouter = Router();
 
@@ -37,6 +40,29 @@ const ADMIN_FM = ["Admin", "FactoryManager"];
 const ADMIN_ONLY = ["Admin"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractProjectNameFromDocx(buffer: Buffer): string | null {
+  try {
+    const zip = new AdmZip(buffer);
+    const xml = zip.readAsText("word/document.xml");
+    const re = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    const segments: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(xml)) !== null) {
+      if (m[1].trim()) segments.push(m[1]);
+    }
+    for (let i = 0; i < segments.length; i++) {
+      const t = segments[i];
+      if ((t === "Project name:" || t === "Project Name:") && segments[i + 2]) {
+        return segments[i + 2].trim();
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function session(req: Request) {
   return (req as any).session as { userId: number; username: string; role: string };
 }
@@ -447,17 +473,94 @@ router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request
 });
 
 // POST /erp/projects/:id/files — upload file
+// For glass_order: runs QR pipeline → saved to processed_docs with project_id
+// For all other types: saved to project_files as before
 router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.single("file"), async (req: Request, res: Response) => {
   try {
     const projectId = Number(req.params.id);
-    const { fileType } = req.body;
+    const fileType = String(req.body?.fileType ?? "");
     if (!req.file || !fileType) {
       res.status(400).json({ error: "file and fileType are required" });
       return;
     }
     const sess = session(req);
 
-    // Non-attachment types: delete existing file of same type first (one per type)
+    // ── Glass order: QR pipeline → processed_docs ──────────────────────────
+    if (fileType === "glass_order") {
+      const confirm = req.query.confirm === "true";
+      const updateName = req.query.updateName === "true";
+
+      const orgadataName = extractProjectNameFromDocx(req.file.buffer);
+
+      if (!confirm) {
+        const [project] = await db
+          .select({ name: projectsTable.name })
+          .from(projectsTable)
+          .where(eq(projectsTable.id, projectId));
+        if (!project) return notFound(res);
+
+        if (
+          orgadataName &&
+          orgadataName.toLowerCase().trim() !== project.name.toLowerCase().trim()
+        ) {
+          res.status(409).json({
+            conflict: true,
+            orgadataName,
+            systemName: project.name,
+            message: "Project name in file differs from system name",
+          });
+          return;
+        }
+      }
+
+      if (confirm && updateName && orgadataName) {
+        await db
+          .update(projectsTable)
+          .set({ name: orgadataName })
+          .where(eq(projectsTable.id, projectId));
+      }
+
+      let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
+      try {
+        result = await parseAndInjectQR(req.file.buffer);
+      } catch (err: any) {
+        if (err?.message === "NO_POSITIONS") {
+          res.status(400).json({
+            error: "ParseError",
+            message: "No positions found. Upload a valid Orgadata glass order (.docx).",
+          });
+          return;
+        }
+        throw err;
+      }
+
+      const originalName = req.file.originalname.replace(/\.docx$/i, "");
+      const reportFilename = `${originalName}_QR_Report.html`;
+
+      const [saved] = await db
+        .insert(processedDocsTable)
+        .values({
+          originalFilename: req.file.originalname,
+          reportFilename,
+          projectName: result.projectName || null,
+          processingDate: result.date || null,
+          positionCount: result.positions.length,
+          originalFile: req.file.buffer,
+          reportFile: result.outputBuffer,
+          projectId,
+        })
+        .returning({ id: processedDocsTable.id });
+
+      res.status(201).json({
+        fileId: saved.id,
+        projectName: result.projectName,
+        totalPositions: result.positions.length,
+        positions: result.positions,
+      });
+      return;
+    }
+
+    // ── All other file types → project_files ────────────────────────────────
     if (fileType !== "attachment") {
       await db.delete(projectFilesTable).where(
         and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, fileType))
@@ -509,6 +612,30 @@ router.delete("/erp/projects/:id/files/:fileId", requireRole(...ADMIN_FM), async
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "DELETE /erp/projects/:id/files/:fileId failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/qr-orders — list QR-processed glass orders linked to a project
+router.get("/erp/projects/:id/qr-orders", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const rows = await db
+      .select({
+        id: processedDocsTable.id,
+        originalFilename: processedDocsTable.originalFilename,
+        projectName: processedDocsTable.projectName,
+        processingDate: processedDocsTable.processingDate,
+        positionCount: processedDocsTable.positionCount,
+        createdAt: processedDocsTable.createdAt,
+      })
+      .from(processedDocsTable)
+      .where(eq(processedDocsTable.projectId, id))
+      .orderBy(desc(processedDocsTable.createdAt));
+    res.json(rows.map(r => ({ ...r, reportFileId: r.id })));
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/qr-orders failed");
     res.status(500).json({ error: "Internal error" });
   }
 });

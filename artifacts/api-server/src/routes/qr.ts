@@ -74,7 +74,7 @@ function extractTextSegments(xml: string): Array<{ text: string; index: number }
 
 // ─── Main processor ───────────────────────────────────────────────────────────
 
-async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
+export async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   positions: PositionItem[];
   projectName: string;
   date: string;

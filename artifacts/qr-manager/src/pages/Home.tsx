@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileUpload } from '@/components/FileUpload';
@@ -6,7 +6,7 @@ import { ResultsView } from '@/components/ResultsView';
 import { useProcessDocument, ProcessResult } from '@workspace/api-client-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, QrCode, AlertTriangle, CheckCircle2, UploadCloud, Download, XCircle, Lock } from 'lucide-react';
+import { Loader2, QrCode, AlertTriangle, CheckCircle2, UploadCloud, Download, XCircle, Info } from 'lucide-react';
 
 // ── Step guide ────────────────────────────────────────────────────────────────
 function StepGuide() {
@@ -117,33 +117,12 @@ export default function Home() {
     setShowSuccess(false);
   };
 
-  // Non-Admin users are redirected to use ProjectDetail file uploads
-  if (user && user.role !== 'Admin') {
-    return (
-      <div className="min-h-screen bg-[#F8F9FB] flex items-center justify-center p-6">
-        <div
-          className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col items-center gap-4 text-center"
-          dir={isRtl ? 'rtl' : 'ltr'}
-        >
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
-            <Lock className="w-6 h-6 text-amber-500" />
-          </div>
-          <h2 className={`text-lg font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
-            {t('home_admin_only_title')}
-          </h2>
-          <p className={`text-sm text-slate-500 leading-relaxed ${isRtl ? 'font-[Tajawal]' : ''}`}>
-            {t('home_admin_only_desc')}
-          </p>
-          <button
-            onClick={() => navigate('/erp/projects')}
-            className={`mt-2 px-5 py-2.5 rounded-xl bg-[#1B2A4A] text-white text-sm font-semibold hover:bg-[#1B2A4A]/90 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-          >
-            {t('erp_projects_title')}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Non-Admin users are auto-redirected to the ERP projects page
+  useEffect(() => {
+    if (user && user.role !== 'Admin') {
+      navigate('/erp/projects');
+    }
+  }, [user]);
 
   // BiDi-safe Arabic subtitle — LTR brand names wrapped in explicit ltr spans
   const arabicSubtitle = (
@@ -217,6 +196,15 @@ export default function Home() {
 
               {/* Upload area */}
               <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 pb-6 -mt-2 flex flex-col gap-3">
+
+                {/* Admin-only banner */}
+                <div
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium ${isRtl ? 'flex-row-reverse' : ''}`}
+                  dir={isRtl ? 'rtl' : 'ltr'}
+                >
+                  <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className={isRtl ? 'font-[Tajawal]' : ''}>{t('home_admin_only_banner')}</span>
+                </div>
 
                 {/* Dropzone — hidden while processing or showing success flash */}
                 {!isPending && !showSuccess && (

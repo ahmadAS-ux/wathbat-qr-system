@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
 interface ProjectFile {
@@ -13,6 +13,22 @@ interface ProjectFile {
   originalFilename: string;
   uploadedAt: string;
   uploadedBy: number;
+}
+
+interface QROrder {
+  id: number;
+  originalFilename: string;
+  projectName: string | null;
+  processingDate: string | null;
+  positionCount: number;
+  createdAt: string;
+  reportFileId: number;
+}
+
+interface ConflictData {
+  orgadataName: string;
+  systemName: string;
+  pendingFile: File;
 }
 
 interface Project {
@@ -84,6 +100,9 @@ export default function ErpProjectDetail() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFileType, setPendingFileType] = useState<string>('');
+  const [conflictData, setConflictData] = useState<ConflictData | null>(null);
+  const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
+  const [loadingQrOrders, setLoadingQrOrders] = useState(false);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
@@ -103,7 +122,17 @@ export default function ErpProjectDetail() {
     }
   };
 
-  useEffect(() => { loadProject(); }, [id]);
+  const loadQrOrders = async () => {
+    setLoadingQrOrders(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/qr-orders`);
+      if (res.ok) setQrOrders(await res.json());
+    } finally {
+      setLoadingQrOrders(false);
+    }
+  };
+
+  useEffect(() => { loadProject(); loadQrOrders(); }, [id]);
 
   const saveNotes = async () => {
     setSavingNotes(true);
@@ -125,21 +154,45 @@ export default function ErpProjectDetail() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !pendingFileType) return;
-    setUploadingFor(pendingFileType);
+  const uploadFile = async (file: File, fileType: string, extraQuery = '') => {
+    setUploadingFor(fileType);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('fileType', pendingFileType);
-      await fetch(`${API_BASE}/api/erp/projects/${id}/files`, { method: 'POST', body: fd });
-      await loadProject();
+      fd.append('fileType', fileType);
+      const res = await fetch(
+        `${API_BASE}/api/erp/projects/${id}/files${extraQuery}`,
+        { method: 'POST', body: fd }
+      );
+      if (res.status === 409 && fileType === 'glass_order') {
+        const data = await res.json();
+        setConflictData({ orgadataName: data.orgadataName, systemName: data.systemName, pendingFile: file });
+        return;
+      }
+      if (fileType === 'glass_order') {
+        await loadQrOrders();
+      } else {
+        await loadProject();
+      }
     } finally {
       setUploadingFor(null);
       setPendingFileType('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !pendingFileType) return;
+    await uploadFile(file, pendingFileType);
+  };
+
+  const handleConflictDecision = async (updateName: boolean) => {
+    if (!conflictData) return;
+    const { pendingFile } = conflictData;
+    setConflictData(null);
+    await uploadFile(pendingFile, 'glass_order', `?confirm=true&updateName=${updateName}`);
+    if (updateName) await loadProject();
   };
 
   const downloadFile = (fileId: number, filename: string) => {
@@ -355,7 +408,98 @@ export default function ErpProjectDetail() {
             })}
           </div>
         </div>
+
+        {/* QR Orders Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <QrCode className="w-4 h-4 text-[#C89B3C]" />
+            <h2 className="font-semibold text-[#1B2A4A]">{t('qr_orders_title')}</h2>
+          </div>
+          {loadingQrOrders ? (
+            <div className="text-center py-6 text-slate-400 text-sm">...</div>
+          ) : qrOrders.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">{t('qr_orders_empty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {qrOrders.map(order => (
+                <div key={order.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{order.originalFilename}</p>
+                    <p className="text-xs text-slate-400 mt-0.5" dir="ltr">
+                      {order.processingDate && <span>{order.processingDate} · </span>}
+                      {order.positionCount} {t('qr_orders_positions')} · {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <a
+                    href={`${API_BASE}/api/qr/download/${order.reportFileId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] hover:bg-[#1B2A4A]/8 transition-colors shrink-0"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    {t('qr_orders_view_report')}
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
+
+      {/* Conflict Dialog */}
+      {conflictData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setConflictData(null)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden"
+            dir={isRtl ? 'rtl' : 'ltr'}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <h3 className="font-semibold text-slate-900 text-sm">{t('qr_conflict_title')}</h3>
+              </div>
+              <button onClick={() => setConflictData(null)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
+                  <p className="font-semibold text-[#1B2A4A]">"{conflictData.systemName}"</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_orgadata_name')}</p>
+                  <p className="font-semibold text-slate-700" dir="ltr">"{conflictData.orgadataName}"</p>
+                </div>
+              </div>
+              <div className={`flex flex-wrap gap-2 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <button
+                  onClick={() => handleConflictDecision(true)}
+                  className="flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors"
+                >
+                  {t('qr_conflict_update')}
+                </button>
+                <button
+                  onClick={() => handleConflictDecision(false)}
+                  className="flex-1 px-4 py-2 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  {t('qr_conflict_keep')}
+                </button>
+                <button
+                  onClick={() => setConflictData(null)}
+                  className="px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  {t('qr_conflict_cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
