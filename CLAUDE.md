@@ -8,11 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. `CLAUDE.md` (this file) — commands, architecture, roles, RTL rules
 2. `WORKFLOW_REFERENCE_v3.md` — business logic, DB schemas, API contracts, phase plan
 3. `CODE_STRUCTURE.md` — exact file paths, data flows, form specs, validation rules
-4. `QUALITY_GATES.md` — verify all 10 gates before every commit
+4. `QUALITY_GATES.md` — verify all 12 gates before every commit
 5. `UI_UX_CHECKLIST.md` — read before modifying any frontend component
 6. `SECURITY_BASELINE.md` — read before modifying any backend route
 
 **Golden rule:** Claude Code runs fully autonomously — no confirmation steps, commits and pushes all changes automatically.
+
+**Version rule:** Every commit that changes behavior bumps version in all 3 package.json files + CHANGELOG + git tag. See QUALITY_GATES.md Gate 12.
 
 ---
 

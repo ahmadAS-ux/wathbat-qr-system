@@ -4,6 +4,30 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.3.1] - April 2026
+
+### Added
+
+- Version display in admin footer — shows on every admin page (Dashboard, History, Requests, Users, Dropdowns, Leads, Projects)
+- Footer format: "Wathbat Aluminum · wathbat.sa" + "vX.Y.Z · Build [hash] · [date]"
+- Commit hash and build date auto-injected at Vite build time via `define` compile-time constants
+- Not visible on Login page or public Scan page (by design — those use Header.tsx, not AdminLayout)
+
+### Framework improvements
+
+- **QUALITY_GATES.md Gate 12** added — Version Bump on Every Release
+  - Enforces Semantic Versioning (MAJOR.MINOR.PATCH)
+  - Requires version sync across all 3 package.json files
+  - Requires CHANGELOG entry + git tag
+  - Verifies footer displays correct version
+- CLAUDE.md Quick Reference updated with version rule (gate count 10 → 12)
+
+### Why this was added
+
+Previously there was no visible indicator of which version was deployed. When a bug occurred, we had no easy way to tell if the user was seeing the old or new code after a deploy. The footer now makes this instant — screenshot a bug → see exactly which commit introduced it.
+
+---
+
 ## [2.3.0] - April 2026
 
 ### Fixed
