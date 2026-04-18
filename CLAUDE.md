@@ -306,8 +306,8 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ## Version & Phase Status
 
-- **Current:** v2.3 — Glass Order linking (Issue #4) + framework Gate 11 + Railway cleanup
-- **Previous:** v2.2 — Phone validation + API_BASE fix + quality/security docs
+- **Current:** v2.4.0 — Orgadata detect + fuzzy match backend (Issue #4 extension)
+- **Previous:** v2.3.1 — Version display in footer + Gate 12 version workflow
 - **Baseline:** v1.0 (tag `v1.0`, commit `c3ee916`) — original QR Asset Manager, safe rollback point
 
 ### ERP Phase Status
