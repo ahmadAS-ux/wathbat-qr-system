@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText } from 'lucide-react';
+import { API_BASE } from '@/lib/api-base';
 
 interface ProjectFile {
   id: number;
@@ -91,7 +92,7 @@ export default function ErpProjectDetail() {
   const loadProject = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/erp/projects/${id}`);
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}`);
       if (res.ok) {
         const data = await res.json();
         setProject(data);
@@ -107,7 +108,7 @@ export default function ErpProjectDetail() {
   const saveNotes = async () => {
     setSavingNotes(true);
     try {
-      await fetch(`/api/erp/projects/${id}`, {
+      await fetch(`${API_BASE}/api/erp/projects/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes }),
@@ -132,7 +133,7 @@ export default function ErpProjectDetail() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('fileType', pendingFileType);
-      await fetch(`/api/erp/projects/${id}/files`, { method: 'POST', body: fd });
+      await fetch(`${API_BASE}/api/erp/projects/${id}/files`, { method: 'POST', body: fd });
       await loadProject();
     } finally {
       setUploadingFor(null);
@@ -143,7 +144,7 @@ export default function ErpProjectDetail() {
 
   const downloadFile = (fileId: number, filename: string) => {
     const a = document.createElement('a');
-    a.href = `/api/erp/projects/${id}/files/${fileId}`;
+    a.href = `${API_BASE}/api/erp/projects/${id}/files/${fileId}`;
     a.download = filename;
     a.click();
   };

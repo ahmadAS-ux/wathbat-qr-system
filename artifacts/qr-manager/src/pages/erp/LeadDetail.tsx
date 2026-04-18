@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { API_BASE } from '@/lib/api-base';
 
 interface LeadLog {
   id: number;
@@ -64,7 +65,7 @@ export default function ErpLeadDetail() {
   const loadLead = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/erp/leads/${id}`);
+      const res = await fetch(`${API_BASE}/api/erp/leads/${id}`);
       if (res.ok) setLead(await res.json());
     } finally {
       setLoading(false);
@@ -78,7 +79,7 @@ export default function ErpLeadDetail() {
     if (!note.trim()) return;
     setSavingLog(true);
     try {
-      await fetch(`/api/erp/leads/${id}/logs`, {
+      await fetch(`${API_BASE}/api/erp/leads/${id}/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note, nextFollowupDate: nextDate || undefined }),
@@ -93,7 +94,7 @@ export default function ErpLeadDetail() {
   const convertToProject = async () => {
     setConverting(true);
     try {
-      const res = await fetch(`/api/erp/leads/${id}/convert`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/erp/leads/${id}/convert`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         navigate(`/erp/projects/${data.projectId}`);
@@ -106,7 +107,7 @@ export default function ErpLeadDetail() {
   const markLost = async () => {
     setLosing(true);
     try {
-      await fetch(`/api/erp/leads/${id}/lose`, {
+      await fetch(`${API_BASE}/api/erp/leads/${id}/lose`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: loseReason }),

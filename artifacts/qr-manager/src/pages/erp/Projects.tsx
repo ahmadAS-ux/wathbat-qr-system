@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { Plus } from 'lucide-react';
+import { API_BASE } from '@/lib/api-base';
 
 interface Project {
   id: number;
@@ -50,8 +51,8 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/erp/options/product_interest').then(r => r.json()),
-      fetch('/api/erp/options/building_type').then(r => r.json()),
+      fetch(`${API_BASE}/api/erp/options/product_interest`).then(r => r.json()),
+      fetch(`${API_BASE}/api/erp/options/building_type`).then(r => r.json()),
     ]).then(([p, b]) => { setProducts(p); setBuildings(b); }).catch(() => {});
   }, []);
 
@@ -60,7 +61,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
     if (!form.name || !form.customerName) { setError(t('erp_required_fields')); return; }
     setSaving(true);
     try {
-      const res = await fetch('/api/erp/projects', {
+      const res = await fetch(`${API_BASE}/api/erp/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined }),
@@ -144,7 +145,7 @@ export default function ErpProjects() {
   const loadProjects = async () => {
     setLoading(true);
     try {
-      const url = filter !== 'all' ? `/api/erp/projects?stageDisplay=${filter}` : '/api/erp/projects';
+      const url = filter !== 'all' ? `${API_BASE}/api/erp/projects?stageDisplay=${filter}` : `${API_BASE}/api/erp/projects`;
       const res = await fetch(url);
       if (res.ok) setProjects(await res.json());
     } finally {

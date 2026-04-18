@@ -6,6 +6,7 @@ import {
   Menu, QrCode, Briefcase, Truck, CreditCard,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { API_BASE } from '@/lib/api-base';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
@@ -24,7 +25,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   useEffect(() => {
     if (!isErpUser) return;
-    fetch('/api/erp/leads/overdue-count')
+    fetch(`${API_BASE}/api/erp/leads/overdue-count`)
       .then(r => r.ok ? r.json() : { count: 0 })
       .then(d => setOverdueCount(d.count ?? 0))
       .catch(() => {});

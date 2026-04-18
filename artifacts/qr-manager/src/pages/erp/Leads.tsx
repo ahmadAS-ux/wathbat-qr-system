@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { Plus, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { API_BASE } from '@/lib/api-base';
 
 interface Lead {
   id: number;
@@ -55,9 +56,9 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/erp/options/lead_source').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-      fetch('/api/erp/options/product_interest').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-      fetch('/api/erp/options/building_type').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch(`${API_BASE}/api/erp/options/lead_source`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch(`${API_BASE}/api/erp/options/product_interest`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch(`${API_BASE}/api/erp/options/building_type`).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
     ]).then(([s, p, b]) => {
       setSources(Array.isArray(s) ? s : []);
       setProducts(Array.isArray(p) ? p : []);
@@ -83,7 +84,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/erp/leads', {
+      const res = await fetch(`${API_BASE}/api/erp/leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined }),
@@ -232,7 +233,7 @@ export default function ErpLeads() {
   const loadLeads = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/erp/leads');
+      const res = await fetch(`${API_BASE}/api/erp/leads`);
       if (res.ok) setLeads(await res.json());
     } finally {
       setLoading(false);

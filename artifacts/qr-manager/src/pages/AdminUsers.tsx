@@ -56,7 +56,7 @@ export default function AdminUsers() {
   const [addingCat, setAddingCat] = useState<string | null>(null);
 
   const loadOptions = () => {
-    fetch('/api/erp/options')
+    fetch(`${BASE}/api/erp/options`)
       .then(r => r.ok ? r.json() : [])
       .then(setOptions)
       .catch(() => {});
@@ -70,7 +70,7 @@ export default function AdminUsers() {
     if (!window.confirm(t('dropdown_delete_confirm'))) return;
     setDeletingOptId(id);
     try {
-      await fetch(`/api/erp/options/${id}`, { method: 'DELETE' });
+      await fetch(`${BASE}/api/erp/options/${id}`, { method: 'DELETE' });
       setOptions(prev => prev.filter(o => o.id !== id));
     } finally {
       setDeletingOptId(null);
@@ -84,7 +84,7 @@ export default function AdminUsers() {
     try {
       const existing = optionsFor(cat);
       const value = f.labelEn.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      const res = await fetch('/api/erp/options', {
+      const res = await fetch(`${BASE}/api/erp/options`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
