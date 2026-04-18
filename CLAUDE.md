@@ -102,8 +102,8 @@ This updates `lib/api-client-react/` — never hand-edit generated files there.
 - CSS class for inline English: `.ltr { direction: ltr; display: inline-block; font-family: 'DM Sans', sans-serif; }`
 
 ## Version
-- Current: **v1.0** (deployed on Render.com)
-- Deployment date: April 2026
+- Current: **v2.1** — Phase 1 ERP (Leads, Projects, File Upload)
+- Previous: v1.0 — QR Asset Manager baseline (deployed on Render.com, April 2026)
 - Services: `qr-asset-manager-db` (PostgreSQL), `qr-asset-manager-api` (Express), `qr-asset-manager-web` (React static site)
 
 ## ⚠️ Known Risks & Technical Debt (v1.0)
