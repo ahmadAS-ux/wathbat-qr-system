@@ -243,6 +243,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <main className="flex-1">
           {children}
         </main>
+
+        {/* Version footer */}
+        <footer className="mt-auto border-t border-border px-6 py-4">
+          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <div>Wathbat Aluminum · <span dir="ltr" className="ltr">wathbat.sa</span></div>
+            <div dir="ltr" className="ltr">
+              v{__APP_VERSION__} · Build {__APP_COMMIT__} · {__APP_BUILD_DATE__}
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

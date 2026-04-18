@@ -196,6 +196,40 @@ For every NEW feature or Phase that creates or consumes data:
 
 ---
 
+### Gate 12: Version Bump on Every Release ✅
+
+Every commit that adds a feature, fixes a bug, or changes behavior must:
+
+**Version bump in 3 package.json files (keep them in sync):**
+- [ ] package.json (root)
+- [ ] artifacts/qr-manager/package.json
+- [ ] artifacts/api-server/package.json
+
+**Follow Semantic Versioning:**
+- **PATCH** (x.y.Z) — bug fixes, documentation updates, small tweaks
+  Example: v2.3.0 → v2.3.1
+- **MINOR** (x.Y.0) — new features, non-breaking changes
+  Example: v2.3.x → v2.4.0
+- **MAJOR** (X.0.0) — breaking changes, architecture shifts
+  Example: v2.x.x → v3.0.0
+
+**Update CHANGELOG.md:**
+- [ ] Add new entry at the top under ## [X.Y.Z] - [Month Year]
+- [ ] Group changes into: Added / Changed / Fixed / Removed
+- [ ] Include root cause for any bug fix
+
+**Create Git tag:**
+- [ ] After commit is pushed: git tag vX.Y.Z && git push origin vX.Y.Z
+
+**Verify version displays correctly:**
+- [ ] Footer on any admin page shows new version number
+- [ ] Build hash in footer matches the commit being released
+- [ ] Build date is current
+
+**FAIL if:** Version is bumped in one package.json but not the others, or CHANGELOG is not updated, or git tag is missing.
+
+---
+
 ## Commit Message Convention
 
 ```
@@ -231,4 +265,5 @@ Before committing, verify all gates in QUALITY_GATES.md pass:
 9. Seed data doesn't duplicate on restart
 10. Existing QR system features still work
 11. Every new data record has a parent entity link (no unbound records without design intent)
+12. Version bumped in all 3 package.json files + CHANGELOG updated + git tag created
 ```
