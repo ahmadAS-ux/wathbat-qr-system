@@ -60,12 +60,17 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
     ]).then(([s, p, b]) => { setSources(s); setProducts(p); setBuildings(b); }).catch(() => {});
   }, []);
 
-  const label = (item: { labelAr: string; labelEn: string }) => isRtl ? item.labelAr : item.labelEn;
+  const label = (item: { labelAr: string; labelEn: string }) =>
+    (isRtl ? item.labelAr : item.labelEn) || item.labelAr || item.labelEn;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.customerName || !form.phone || !form.source || !form.productInterest || !form.buildingType || !form.firstFollowupDate) {
       setError(t('erp_required_fields'));
+      return;
+    }
+    if (!/^05\d{8}$/.test(form.phone)) {
+      setError(t('erp_phone_error'));
       return;
     }
     setSaving(true);
@@ -106,10 +111,14 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_phone')} *</label>
             <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="05XXXXXXXX"
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
               dir="ltr"
               value={form.phone}
-              onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '') }))}
             />
           </div>
 

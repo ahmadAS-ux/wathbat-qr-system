@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
-import { eq, and, lt, sql } from "drizzle-orm";
+import { eq, and, lt, sql, ne, isNull, or } from "drizzle-orm";
 import {
   db,
   leadsTable,
@@ -60,7 +60,7 @@ router.get("/erp/options/:category", async (req: Request, res: Response) => {
       .where(
         and(
           eq(dropdownOptionsTable.category, String(req.params.category)),
-          eq(dropdownOptionsTable.active, true)
+          or(eq(dropdownOptionsTable.active, true), isNull(dropdownOptionsTable.active))
         )
       )
       .orderBy(dropdownOptionsTable.sortOrder);
@@ -165,6 +165,10 @@ router.post("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "Sa
     const { customerName, phone, source, productInterest, buildingType, location, assignedTo, budgetRange, estimatedValue, firstFollowupDate } = req.body;
     if (!customerName || !phone || !source || !productInterest || !buildingType || !firstFollowupDate) {
       res.status(400).json({ error: "customerName, phone, source, productInterest, buildingType, firstFollowupDate are required" });
+      return;
+    }
+    if (!/^05\d{8}$/.test(phone)) {
+      res.status(400).json({ error: "Phone must be a valid Saudi number starting with 05 (10 digits)" });
       return;
     }
     const sess = session(req);

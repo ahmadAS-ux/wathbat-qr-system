@@ -220,6 +220,7 @@ export const translations = {
     erp_cancel: "Cancel",
     erp_create: "Create",
     erp_required_fields: "Please fill all required fields.",
+    erp_phone_error: "Phone must start with 05 and be exactly 10 digits",
     erp_overdue_badge: "overdue",
   },
   ar: {
@@ -441,6 +442,7 @@ export const translations = {
     erp_cancel: "إلغاء",
     erp_create: "إنشاء",
     erp_required_fields: "يرجى تعبئة جميع الحقول المطلوبة.",
+    erp_phone_error: "رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام",
     erp_overdue_badge: "متأخر",
   }
 };
