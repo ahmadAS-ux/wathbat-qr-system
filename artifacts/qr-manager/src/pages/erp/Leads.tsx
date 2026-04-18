@@ -51,13 +51,21 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [buildings, setBuildings] = useState<{ value: string; labelAr: string; labelEn: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [optionsError, setOptionsError] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/erp/options/lead_source').then(r => r.json()),
-      fetch('/api/erp/options/product_interest').then(r => r.json()),
-      fetch('/api/erp/options/building_type').then(r => r.json()),
-    ]).then(([s, p, b]) => { setSources(s); setProducts(p); setBuildings(b); }).catch(() => {});
+      fetch('/api/erp/options/lead_source').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch('/api/erp/options/product_interest').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch('/api/erp/options/building_type').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    ]).then(([s, p, b]) => {
+      setSources(Array.isArray(s) ? s : []);
+      setProducts(Array.isArray(p) ? p : []);
+      setBuildings(Array.isArray(b) ? b : []);
+    }).catch((err) => {
+      console.error('Failed to fetch dropdown options:', err);
+      setOptionsError(true);
+    });
   }, []);
 
   const label = (item: { labelAr: string; labelEn: string }) =>
@@ -97,6 +105,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          {optionsError && <p className="text-amber-600 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{t('erp_options_load_error')}</p>}
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div>

@@ -60,7 +60,7 @@ router.get("/erp/options/:category", async (req: Request, res: Response) => {
       .where(
         and(
           eq(dropdownOptionsTable.category, String(req.params.category)),
-          or(eq(dropdownOptionsTable.active, true), isNull(dropdownOptionsTable.active))
+          ne(dropdownOptionsTable.active, false)
         )
       )
       .orderBy(dropdownOptionsTable.sortOrder);

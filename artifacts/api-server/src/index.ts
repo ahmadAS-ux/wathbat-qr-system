@@ -162,6 +162,12 @@ async function runStartupMigrations() {
       )
     `);
 
+    // Ensure columns added after initial table creation exist (idempotent)
+    await db.execute(sql`ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`);
+    await db.execute(sql`ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+    // Backfill any rows that were inserted before the active column existed
+    await db.execute(sql`UPDATE dropdown_options SET active = true WHERE active IS NULL`);
+
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 
