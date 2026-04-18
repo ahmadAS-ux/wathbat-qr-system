@@ -171,6 +171,31 @@ After every change, verify these existing features still work:
 
 ---
 
+### Gate 11: Data Ownership & Integration Check ✅
+
+For every NEW feature or Phase that creates or consumes data:
+
+**Data source:**
+- [ ] Every piece of data has a clear single source of truth (Orgadata file / manual entry / external system)
+- [ ] If two systems produce the same data field (e.g. project name from Orgadata AND from ERP) → conflict resolution is defined before coding starts
+
+**Data binding:**
+- [ ] Every record is bound to its parent entity via a foreign key (project_id / lead_id / request_id)
+- [ ] It is impossible to create an unbound record unless explicitly designed that way
+- [ ] If unbound records are allowed → there is a notification or warning visible to Admin
+
+**Cross-system data flow:**
+- [ ] If this feature consumes data from a previous Phase or system → the DB foreign key linking them is documented in CODE_STRUCTURE.md before coding starts
+- [ ] If the foreign key is missing from an existing table → an idempotent ALTER TABLE migration is added
+
+**Conflict handling:**
+- [ ] If data comes from an external file (e.g. Orgadata .docx) AND from user input → conflict is detected server-side and surfaced to the user — never silently overwritten
+- [ ] User confirmation is required before any system name/value is updated based on file content
+
+**FAIL if:** Any record can be created without a parent entity when one is required, OR if two data sources can conflict without the user being notified.
+
+---
+
 ## Commit Message Convention
 
 ```
@@ -205,4 +230,5 @@ Before committing, verify all gates in QUALITY_GATES.md pass:
 8. Role permissions match WORKFLOW_REFERENCE_v3.md
 9. Seed data doesn't duplicate on restart
 10. Existing QR system features still work
+11. Every new data record has a parent entity link (no unbound records without design intent)
 ```

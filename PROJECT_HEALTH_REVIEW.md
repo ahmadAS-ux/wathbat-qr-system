@@ -34,6 +34,7 @@ For each feature built in this phase, answer:
 | Are there steps the factory does that the system doesn't cover? | Ask: "Is there anything you do between [stage X] and [stage Y] that isn't here?" | |
 | Are there fields the factory never uses? | Ask: "Do you actually track [field name] for every customer?" If "no" or "sometimes" → consider making it optional | |
 | Is the Arabic terminology correct? | Ask: "Is [Arabic label] the word you use, or do you call it something else?" | |
+| Does every piece of data know who it belongs to? For each data type: where does it come from? (Orgadata / manual / external), where is it stored?, is it linked to the correct entity? (lead / project / request), what happens if it arrives without a linked entity? | Walk through each data type with the factory manager. For each one, open the DB and confirm the foreign key exists. If any data type has no parent link → that is a critical gap. | |
 
 ### A2. Data Quality Check
 
@@ -240,6 +241,24 @@ Track every issue found during reviews. Carry forward to the next phase.
 **Fix:** Added `${API_BASE}` prefix to all 21 fetch calls across Leads, LeadDetail, Projects, ProjectDetail, AdminUsers, AdminLayout
 **Status:** Fixed in v2.2 (commit 836d98f)
 **Preventable by:** CODE_STRUCTURE.md Section 8 (Frontend API Call Pattern) — states "Use apiBase from lib/api-base.ts — don't hardcode URLs"
+
+### Issue #4: Glass/Panel order not linked to ERP project or customer
+**Found in:** Post-Phase 1 architecture review
+**Severity:** Critical
+**Category:** Business gap / Architecture
+**Description:** When a DOCX file is uploaded via the legacy QR system (Home.tsx / POST /api/qr/process), the resulting processed_docs record has no project_id or lead_id. It is impossible to know which ERP customer or project the glass order belongs to.
+**Impact:** Glass orders are floating in the system with no customer or project link. Admin cannot trace which delivery belongs to which customer. QR codes generated have no ERP context.
+**Root cause:** Layer 1 (QR system) was built before Layer 2 (ERP) existed. The processed_docs table was never designed with a project_id foreign key. The decision to keep Layer 2 "additive only" (WORKFLOW_REFERENCE_v3.md Section 11) meant the integration gap was never addressed.
+**Why the framework missed it:** QUALITY_GATES.md had no gate checking data ownership or cross-system binding. PROJECT_HEALTH_REVIEW.md Part A had no question asking "can this data exist without a parent entity?" Gate 11 and the new A1 row have been added to prevent recurrence.
+**Fix (planned):**
+- Step 1: Add project_id (nullable) to processed_docs via idempotent migration
+- Step 2: Disable Home.tsx upload for all roles except Admin (legacy mode)
+- Step 3: Force glass_order upload through ProjectDetail.tsx (ERP context) for all new uploads
+- Step 4: On technical_doc upload (first Orgadata file per project): extract project name from DOCX, compare to projects.name — if different, return 409 Conflict with both names, require employee confirmation before proceeding. Employee can confirm to update projects.name or cancel the upload.
+- Step 5: On price_quotation and glass_order uploads: skip name comparison (already resolved in Step 4)
+- Step 6: Existing processed_docs records with project_id = NULL remain as-is (no data loss)
+**Status:** Open — planned for implementation before Phase 2
+**Preventable by:** QUALITY_GATES.md Gate 11 (newly added) + PROJECT_HEALTH_REVIEW.md Part A Section A1 (newly added row)
 ```
 
 ---
