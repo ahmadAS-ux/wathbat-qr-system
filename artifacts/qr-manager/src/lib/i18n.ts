@@ -223,6 +223,8 @@ export const translations = {
     erp_phone_error: "Phone must start with 05 and be exactly 10 digits",
     erp_options_load_error: "Failed to load options — try refreshing the page",
     erp_overdue_badge: "overdue",
+    home_admin_only_title: "Legacy QR Upload — Admin Only",
+    home_admin_only_desc: "To upload a glass order file linked to a project, open the project page and use the file upload section there.",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -446,6 +448,8 @@ export const translations = {
     erp_phone_error: "رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام",
     erp_options_load_error: "تعذر تحميل الخيارات — حاول تحديث الصفحة",
     erp_overdue_badge: "متأخر",
+    home_admin_only_title: "رفع QR القديم — للمدير فقط",
+    home_admin_only_desc: "لرفع ملف طلبية الزجاج وربطه بمشروع، انتقل إلى صفحة المشروع واستخدم قسم رفع الملفات من هناك.",
   }
 };
 

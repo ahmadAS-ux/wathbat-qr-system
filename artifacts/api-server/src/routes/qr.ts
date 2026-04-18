@@ -631,6 +631,12 @@ router.post(
         }
       }
 
+      const rawProjectId = req.body?.project_id;
+      const linkedProjectId =
+        rawProjectId && !Number.isNaN(parseInt(rawProjectId, 10))
+          ? parseInt(rawProjectId, 10)
+          : null;
+
       const [saved] = await db
         .insert(processedDocsTable)
         .values({
@@ -641,6 +647,7 @@ router.post(
           positionCount: result.positions.length,
           originalFile: req.file.buffer,
           reportFile: result.outputBuffer,
+          projectId: linkedProjectId,
         })
         .returning({ id: processedDocsTable.id });
 

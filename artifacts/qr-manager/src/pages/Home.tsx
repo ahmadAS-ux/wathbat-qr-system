@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileUpload } from '@/components/FileUpload';
 import { ResultsView } from '@/components/ResultsView';
 import { useProcessDocument, ProcessResult } from '@workspace/api-client-react';
 import { useLanguage } from '@/hooks/use-language';
-import { Loader2, QrCode, AlertTriangle, CheckCircle2, UploadCloud, Download, XCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Loader2, QrCode, AlertTriangle, CheckCircle2, UploadCloud, Download, XCircle, Lock } from 'lucide-react';
 
 // ── Step guide ────────────────────────────────────────────────────────────────
 function StepGuide() {
@@ -66,6 +68,8 @@ function StepGuide() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Home() {
   const { t, isRtl } = useLanguage();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [duplicateProjectName, setDuplicateProjectName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -112,6 +116,34 @@ export default function Home() {
     setUploadError(null);
     setShowSuccess(false);
   };
+
+  // Non-Admin users are redirected to use ProjectDetail file uploads
+  if (user && user.role !== 'Admin') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FB] flex items-center justify-center p-6">
+        <div
+          className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col items-center gap-4 text-center"
+          dir={isRtl ? 'rtl' : 'ltr'}
+        >
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-amber-500" />
+          </div>
+          <h2 className={`text-lg font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
+            {t('home_admin_only_title')}
+          </h2>
+          <p className={`text-sm text-slate-500 leading-relaxed ${isRtl ? 'font-[Tajawal]' : ''}`}>
+            {t('home_admin_only_desc')}
+          </p>
+          <button
+            onClick={() => navigate('/erp/projects')}
+            className={`mt-2 px-5 py-2.5 rounded-xl bg-[#1B2A4A] text-white text-sm font-semibold hover:bg-[#1B2A4A]/90 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+          >
+            {t('erp_projects_title')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // BiDi-safe Arabic subtitle — LTR brand names wrapped in explicit ltr spans
   const arabicSubtitle = (

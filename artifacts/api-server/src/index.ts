@@ -162,6 +162,9 @@ async function runStartupMigrations() {
       )
     `);
 
+    // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
+    await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);
+
     // Ensure columns added after initial table creation exist (idempotent)
     await db.execute(sql`ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`);
     await db.execute(sql`ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);

@@ -1,5 +1,6 @@
 import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
 import { customType } from "drizzle-orm/pg-core";
+import { projectsTable } from "./projects";
 
 const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
   dataType() {
@@ -16,6 +17,7 @@ export const processedDocsTable = pgTable("processed_docs", {
   positionCount: integer("position_count").notNull().default(0),
   originalFile: bytea("original_file").notNull(),
   reportFile: bytea("report_file").notNull(),
+  projectId: integer("project_id").references(() => projectsTable.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
