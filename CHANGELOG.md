@@ -4,6 +4,76 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.2.0] - April 2026
+
+### Fixed
+
+#### Critical: ERP API calls hitting frontend instead of API server (Issue #3)
+- All 21 `fetch()` calls across 6 ERP files were using bare `/api/erp/...` paths with no `API_BASE` prefix
+- In production, bare paths resolve to the frontend static site (which has no proxy), not the API server — entire ERP system was non-functional in production
+- Added `import { API_BASE } from '@/lib/api-base'` and prepended `${API_BASE}` to every ERP fetch call
+- Files fixed: `Leads.tsx`, `LeadDetail.tsx`, `Projects.tsx`, `ProjectDetail.tsx`, `AdminUsers.tsx` (ERP option calls), `AdminLayout.tsx` (overdue badge)
+
+#### Phone number validation (Issue #2)
+- Lead creation form accepted any text in the phone field — no format enforcement
+- Frontend: added `type="tel"`, `maxLength={10}`, digits-only filter, `05XXXXXXXX` placeholder, `/^05\d{8}$/` regex validation, Arabic/English error message via `erp_phone_error` i18n key
+- Backend: same regex enforced in `POST /api/erp/leads` — returns `400` if phone doesn't match
+
+#### Dropdown options visibility (Issue #1)
+- Options were invisible in the lead creation form due to two compounding bugs:
+  1. `active` filter used `eq(active, true)` which excludes SQL `NULL` rows — changed to `ne(active, false)` (includes `NULL`)
+  2. `ALTER TABLE ... ADD COLUMN IF NOT EXISTS active` missing — tables created before this column was added never got it; now added as an idempotent startup migration
+  3. `Promise.all` error was silently swallowed — replaced `.catch(() => {})` with logging + visible amber error banner (`erp_options_load_error` i18n key)
+  4. Array guard added: `Array.isArray(s) ? s : []` prevents crashes if API returns unexpected shape
+
+### Added
+- `erp_phone_error` i18n key (ar + en) for phone validation error message
+- `erp_options_load_error` i18n key (ar + en) for dropdown fetch failure banner
+- Startup migration: `ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS active / sort_order`
+- Startup migration: `UPDATE dropdown_options SET active = true WHERE active IS NULL`
+
+---
+
+## [2.1.0] - April 2026
+
+### Added — Phase 1 ERP Foundation
+
+#### Leads CRM
+- New `leads` and `lead_logs` DB tables (auto-created on startup)
+- Full leads list page (`/erp/leads`) with status tabs: Active / All
+- Lead creation modal with all required fields and dropdown integration
+- Lead detail page (`/erp/leads/:id`) with contact log timeline (reverse-chronological)
+- "Convert to Project" action — copies lead data to new project, marks lead as converted
+- "Mark as Lost" action with reason modal
+- Overdue detection: leads with `firstFollowupDate` in the past shown with red badge
+- Sidebar badge on "العملاء والمشاريع" shows count of overdue leads
+
+#### Projects
+- New `projects` and `project_files` DB tables
+- Projects list page (`/erp/projects`) — card grid with 4 display stage filters
+- Project detail page (`/erp/projects/:id`) with 13-step internal stage timeline
+- File upload per file type (glass order, technical doc, price quotation, Qoyod docs)
+- File download (streams BYTEA from DB as attachment)
+- Notes editor with save/cancel
+
+#### Dropdown System
+- New `dropdown_options` DB table with `category`, `value`, `labelAr`, `labelEn`, `sortOrder`, `active`
+- Seeded with 18 defaults across 4 categories: `lead_source`, `product_interest`, `building_type`, `budget_range`
+- Public endpoint `GET /api/erp/options/:category` (no auth required — used by forms)
+- Admin endpoint `GET /api/erp/options` — all options for all categories
+- Admin Dropdown Editor in Settings page (`/admin/users`) — collapsible per-category, add/delete options
+
+#### Infrastructure
+- 5 new roles: `Admin`, `FactoryManager`, `Employee`, `SalesAgent`, `Accountant`
+- `requireRole(...roles)` middleware added to `src/lib/auth.ts`
+- Startup migration: `'User'` role renamed to `'Employee'` (idempotent)
+- All ERP routes in `artifacts/api-server/src/routes/erp.ts`, mounted at `/api/erp/`
+- ERP pages in `artifacts/qr-manager/src/pages/erp/`
+- ~60 new i18n keys added to `src/lib/i18n.ts` for all ERP UI strings
+- New support docs: `QUALITY_GATES.md`, `UI_UX_CHECKLIST.md`, `SECURITY_BASELINE.md`, `CODE_STRUCTURE.md`
+
+---
+
 ## [1.1.0] - April 2026
 
 ### Changed

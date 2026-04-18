@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Wathbah Manufacturing System (v2.1) — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty. Built on top of the QR Asset Manager which processes DOCX files, generates QR codes, and tracks customer service requests. Includes a multi-role admin dashboard with JWT authentication. Frontend is a React SPA; backend is an Express API backed by PostgreSQL.
+Wathbah Manufacturing System (v2.2) — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty. Built on top of the QR Asset Manager which processes DOCX files, generates QR codes, and tracks customer service requests. Includes a multi-role admin dashboard with JWT authentication. Frontend is a React SPA; backend is an Express API backed by PostgreSQL.
 
 ## Commands
 
@@ -110,6 +110,7 @@ This updates `lib/api-client-react/` — never hand-edit generated files there.
 - Composite TypeScript projects — libs emit declarations only (`emitDeclarationOnly: true`)
 - API build uses esbuild (`artifacts/api-server/build.mjs`); frontend uses Vite
 - Deployment target: **Render.com** only (`render.yaml`). Railway was abandoned.
+- **⚠️ Every ERP page that calls the API MUST import `API_BASE`:** `import { API_BASE } from '@/lib/api-base'` and prefix every fetch: `fetch(\`${API_BASE}/api/erp/...\`)`. Bare paths like `fetch('/api/erp/...')` silently break in production (Issue #3 — caused entire ERP to fail in production for v2.1 release). See CODE_STRUCTURE.md Section 8.
 
 ## 5 User Roles
 

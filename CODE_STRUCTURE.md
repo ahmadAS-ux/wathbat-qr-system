@@ -428,9 +428,26 @@ router.post('/leads', requireAuth, requireRole('Admin','FactoryManager','Employe
 
 ## 8. Frontend API Call Pattern
 
+> ⚠️ **CRITICAL — Production will break without this**
+>
+> Bare paths like `fetch('/api/erp/...')` work in dev (Vite proxy forwards them to localhost:3001).
+> In production on Render.com, they resolve to the **static frontend site**, which has no proxy and returns 404/HTML.
+> This was Issue #3 — caused the **entire ERP system to be non-functional in production**.
+>
+> **Every file that calls the API MUST import and prepend `API_BASE`:**
+> ```typescript
+> import { API_BASE } from '@/lib/api-base';
+> // Then: fetch(`${API_BASE}/api/erp/leads`)
+> // NEVER: fetch('/api/erp/leads')   ← breaks in production
+> ```
+> `API_BASE` is `''` (empty string) in dev → paths stay relative, Vite proxy handles them.
+> `API_BASE` is `https://qr-asset-manager-api.onrender.com` in production → full URL hits the API server.
+
 Every frontend API call must follow this pattern:
 
 ```typescript
+import { API_BASE } from '@/lib/api-base';   // ← MANDATORY — add to every ERP page
+
 // In a page component
 const [data, setData] = useState<Lead[]>([]);
 const [loading, setLoading] = useState(true);
@@ -440,7 +457,7 @@ useEffect(() => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${apiBase}/api/erp/leads`);
+      const res = await fetch(`${API_BASE}/api/erp/leads`);  // ← prefix every call
       if (!res.ok) {
         if (res.status === 401) { /* redirect to login */ }
         throw new Error(`HTTP ${res.status}`);
@@ -448,6 +465,7 @@ useEffect(() => {
       const json = await res.json();
       setData(json);
     } catch (err) {
+      logger.error(err, 'Failed to load leads');
       setError(isArabic ? 'حدث خطأ في تحميل البيانات' : 'Failed to load data');
     } finally {
       setLoading(false);
@@ -464,11 +482,12 @@ useEffect(() => {
 ```
 
 **Rules:**
+- **Import `API_BASE` in EVERY page/component that makes API calls** — missing this is a production-only silent failure
 - Always show loading state while fetching
-- Always handle errors with user-friendly message in current language
+- Always handle errors with user-friendly message in current language — never swallow errors with `.catch(() => {})`
 - Always handle empty state (don't show a blank page)
 - The global fetch patch in `main.tsx` adds the JWT token automatically — don't add it manually
-- Use `apiBase` from `lib/api-base.ts` — don't hardcode URLs
+- `API_BASE` already imported in: `Admin.tsx`, `AdminHistory.tsx`, `AdminRequests.tsx`, `AdminUsers.tsx`, `AdminLayout.tsx`, `Leads.tsx`, `LeadDetail.tsx`, `Projects.tsx`, `ProjectDetail.tsx`
 
 ---
 
