@@ -48,7 +48,7 @@ sleep 5
 curl http://localhost:3001/api/healthz
 ```
 
-- Server must respond `{ "ok": true }` within 10 seconds
+- Server must respond `{ "status": "ok" }` within 10 seconds
 - Check terminal output for startup errors (migration failures, seed failures, missing env vars)
 - All new tables must be auto-created via Drizzle migration on startup
 - Seed data (admin user, dropdown options) must insert without errors

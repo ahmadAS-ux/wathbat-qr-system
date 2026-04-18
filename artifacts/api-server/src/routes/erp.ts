@@ -18,10 +18,20 @@ const router: IRouter = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.originalname.toLowerCase().endsWith(".docx")
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .docx files are accepted"));
+    }
+  },
 });
 
 // ─── Role sets ────────────────────────────────────────────────────────────────
-const ALL_ERP = ["Admin", "FactoryManager", "Employee", "SalesAgent", "Accountant"];
 const NO_SALES_NO_ACCT = ["Admin", "FactoryManager", "Employee"];
 const ADMIN_FM = ["Admin", "FactoryManager"];
 const ADMIN_ONLY = ["Admin"];
