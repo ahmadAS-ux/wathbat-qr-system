@@ -4,6 +4,27 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.4.1] - April 2026
+
+### Added (Frontend — Home.tsx project picker dialog)
+
+- `DetectDialog` component inline in `Home.tsx` — 3-step upload flow: detect → pick project → upload
+- Step 1: File drop → `POST /api/erp/files/detect-project` → show orgadata name pill + fuzzy-matched project cards
+- Step 2: User clicks a matching project card (green ≥80% match, amber 60–79%) to upload; or expands "Create new project" form
+- Step 3: Create-new form pre-fills project name from Orgadata; requires customerName, buildingType, productInterest; calls `POST /api/erp/files/create-project-from-file` then uploads to resulting project
+- Upload calls `POST /api/erp/projects/:id/files?confirm=true&fileType=glass_order` — saves to `processed_docs` with `project_id` set
+- 9 new i18n keys in both Arabic and English (`detect_dialog_title`, `detect_orgadata_label`, `detect_matches_heading`, `detect_no_matches`, `detect_score_label`, `detect_create_heading`, `detect_create_submit`, `detect_cancel`, `detect_customer_name`)
+
+### Changed
+
+- `Home.tsx` no longer uses `useProcessDocument` hook (`POST /api/qr/process`); replaced with direct fetch calls to the ERP endpoints from v2.4.0
+- All glass orders uploaded from Home.tsx now save to `processed_docs` with a `project_id` (Issue #4 fully resolved for Admin upload path)
+
+### Gate 12 — Version Bump
+All 3 package.json files synced to 2.4.1.
+
+---
+
 ## [2.4.0] - April 2026
 
 ### Added (Backend only — Frontend in v2.4.1 and v2.4.2)

@@ -29,10 +29,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Sub-Phase | Version | Status | Scope |
 |-----------|---------|--------|-------|
 | Backend utilities | v2.4.0 | ✅ Complete | `detect-project` + `create-project-from-file` endpoints |
-| Home.tsx dialog | v2.4.1 | ⏳ **NEXT** | Admin upload flow with project picker |
-| ProjectDetail.tsx dialog | v2.4.2 | 🔜 Queued | Unify existing conflict logic with same pattern |
+| Home.tsx dialog | v2.4.1 | ✅ Complete | Admin upload flow with project picker |
+| ProjectDetail.tsx dialog | v2.4.2 | ⏳ **NEXT** | Unify existing conflict logic with same pattern |
 
-**Blocker:** None — v2.4.0 tested and deployed. Ready for v2.4.1.
+**Blocker:** None — v2.4.1 tested and deployed. Ready for v2.4.2.
 
 ### Context for Next Session
 

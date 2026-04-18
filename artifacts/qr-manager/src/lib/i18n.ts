@@ -236,6 +236,15 @@ export const translations = {
     qr_conflict_update: "Update system name",
     qr_conflict_keep: "Keep current name",
     qr_conflict_cancel: "Cancel",
+    detect_dialog_title: "Upload Glass Order",
+    detect_orgadata_label: "Name in file",
+    detect_matches_heading: "Matching projects",
+    detect_no_matches: "No matching projects found",
+    detect_score_label: "Match",
+    detect_create_heading: "Create new project",
+    detect_create_submit: "Create & Upload",
+    detect_cancel: "Cancel",
+    detect_customer_name: "Customer name",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -472,6 +481,15 @@ export const translations = {
     qr_conflict_update: "تحديث اسم النظام",
     qr_conflict_keep: "إبقاء الاسم الحالي",
     qr_conflict_cancel: "إلغاء",
+    detect_dialog_title: "رفع طلبية QR",
+    detect_orgadata_label: "الاسم في الملف",
+    detect_matches_heading: "مشاريع مطابقة",
+    detect_no_matches: "لا توجد مشاريع مطابقة",
+    detect_score_label: "تطابق",
+    detect_create_heading: "إنشاء مشروع جديد",
+    detect_create_submit: "إنشاء ورفع",
+    detect_cancel: "إلغاء",
+    detect_customer_name: "اسم العميل",
   }
 };
 
