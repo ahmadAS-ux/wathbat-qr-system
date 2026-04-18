@@ -165,34 +165,43 @@ async function runStartupMigrations() {
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 
+    // Correct any stale Arabic labels from earlier seed versions
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'حضوري'         WHERE category = 'lead_source'      AND value = 'walk_in'      AND label_ar = 'زيارة مباشرة'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'تحويل'          WHERE category = 'lead_source'      AND value = 'referral'     AND label_ar = 'توصية'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'تواصل اجتماعي' WHERE category = 'lead_source'      AND value = 'social'       AND label_ar = 'سوشال ميديا'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'واجهات ستائرية' WHERE category = 'product_interest' AND value = 'curtain_wall' AND label_ar = 'واجهات زجاجية'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'زجاج شاور'     WHERE category = 'product_interest' AND value = 'shower'       AND label_ar = 'زجاج حمامات'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'عالي'          WHERE category = 'budget_range'     AND value = 'high'         AND label_ar = 'مرتفع'`);
+    await db.execute(sql`UPDATE dropdown_options SET label_ar = 'ممتاز'         WHERE category = 'budget_range'     AND value = 'premium'      AND label_ar = 'بريميوم'`);
+
     // Seed dropdown options if empty
     const optResult = await db.execute(sql`SELECT COUNT(*) as count FROM dropdown_options`);
     const optRow = optResult.rows[0] as any;
     if (Number(optRow?.count ?? 0) === 0) {
       const seedRows = [
         // lead_source
-        ["lead_source", "whatsapp", "واتساب", "WhatsApp", 1],
-        ["lead_source", "phone", "هاتف", "Phone", 2],
-        ["lead_source", "walk_in", "زيارة مباشرة", "Walk-in", 3],
-        ["lead_source", "referral", "توصية", "Referral", 4],
-        ["lead_source", "social", "سوشال ميديا", "Social media", 5],
+        ["lead_source", "whatsapp", "واتساب",         "WhatsApp",     1],
+        ["lead_source", "phone",    "هاتف",            "Phone",        2],
+        ["lead_source", "walk_in",  "حضوري",           "Walk-in",      3],
+        ["lead_source", "referral", "تحويل",           "Referral",     4],
+        ["lead_source", "social",   "تواصل اجتماعي",  "Social media", 5],
         // product_interest
-        ["product_interest", "windows", "نوافذ", "Windows", 1],
-        ["product_interest", "doors", "أبواب", "Doors", 2],
-        ["product_interest", "curtain_wall", "واجهات زجاجية", "Curtain wall", 3],
-        ["product_interest", "facades", "واجهات", "Facades", 4],
-        ["product_interest", "shower", "زجاج حمامات", "Shower glass", 5],
-        ["product_interest", "other", "أخرى", "Other", 6],
+        ["product_interest", "windows",      "نوافذ",           "Windows",      1],
+        ["product_interest", "doors",        "أبواب",           "Doors",        2],
+        ["product_interest", "curtain_wall", "واجهات ستائرية", "Curtain wall", 3],
+        ["product_interest", "facades",      "واجهات",          "Facades",      4],
+        ["product_interest", "shower",       "زجاج شاور",      "Shower glass", 5],
+        ["product_interest", "other",        "أخرى",            "Other",        6],
         // building_type
-        ["building_type", "villa", "فيلا", "Villa", 1],
-        ["building_type", "apartment", "شقة", "Apartment", 2],
-        ["building_type", "commercial", "تجاري", "Commercial", 3],
-        ["building_type", "tower", "برج", "Tower", 4],
+        ["building_type", "villa",      "فيلا",   "Villa",      1],
+        ["building_type", "apartment",  "شقة",    "Apartment",  2],
+        ["building_type", "commercial", "تجاري",  "Commercial", 3],
+        ["building_type", "tower",      "برج",    "Tower",      4],
         // budget_range
-        ["budget_range", "low", "منخفض", "Low", 1],
-        ["budget_range", "medium", "متوسط", "Medium", 2],
-        ["budget_range", "high", "مرتفع", "High", 3],
-        ["budget_range", "premium", "بريميوم", "Premium", 4],
+        ["budget_range", "low",     "منخفض", "Low",     1],
+        ["budget_range", "medium",  "متوسط", "Medium",  2],
+        ["budget_range", "high",    "عالي",  "High",    3],
+        ["budget_range", "premium", "ممتاز", "Premium", 4],
       ];
       for (const [category, value, labelAr, labelEn, sortOrder] of seedRows) {
         await db.insert(dropdownOptionsTable).values({

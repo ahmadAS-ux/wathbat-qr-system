@@ -37,6 +37,20 @@ function notFound(res: Response): void {
 
 // ─── DROPDOWN OPTIONS ─────────────────────────────────────────────────────────
 
+// GET /erp/options — all options for all categories (Admin only)
+router.get("/erp/options", requireRole(...ADMIN_ONLY), async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select()
+      .from(dropdownOptionsTable)
+      .orderBy(dropdownOptionsTable.category, dropdownOptionsTable.sortOrder);
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/options failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // GET /erp/options/:category — public, used by forms
 router.get("/erp/options/:category", async (req: Request, res: Response) => {
   try {
