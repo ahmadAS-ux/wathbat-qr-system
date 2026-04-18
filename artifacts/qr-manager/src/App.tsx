@@ -16,6 +16,10 @@ import AdminUsers from "@/pages/AdminUsers";
 import Login from "@/pages/Login";
 import Scan from "@/pages/Scan";
 import NotFound from "@/pages/not-found";
+import ErpLeads from "@/pages/erp/Leads";
+import ErpLeadDetail from "@/pages/erp/LeadDetail";
+import ErpProjects from "@/pages/erp/Projects";
+import ErpProjectDetail from "@/pages/erp/ProjectDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,7 +59,7 @@ function AppRoutes() {
   const [, navigate] = useLocation();
   const isScanPage = location === '/scan';
   const isLoginPage = location === '/login';
-  const isAdminPage = location.startsWith('/admin');
+  const isAdminPage = location.startsWith('/admin') || location.startsWith('/erp');
 
   // Redirect already-logged-in users away from /login
   useEffect(() => {
@@ -75,6 +79,10 @@ function AppRoutes() {
         <Route path="/admin/history" component={P(AdminHistory)} />
         <Route path="/admin/requests" component={P(AdminRequests)} />
         <Route path="/admin/users" component={P(AdminUsers, true)} />
+        <Route path="/erp/leads" component={P(ErpLeads)} />
+        <Route path="/erp/leads/:id" component={P(ErpLeadDetail)} />
+        <Route path="/erp/projects" component={P(ErpProjects)} />
+        <Route path="/erp/projects/:id" component={P(ErpProjectDetail)} />
         <Route component={NotFound} />
       </Switch>
     </div>

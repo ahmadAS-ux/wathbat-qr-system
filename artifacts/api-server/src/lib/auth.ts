@@ -55,6 +55,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 }
 
+export function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const session = (req as any).session as SessionData;
+    if (!session || !roles.includes(session.role)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    next();
+  };
+}
+
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
     const session = (req as any).session as SessionData;

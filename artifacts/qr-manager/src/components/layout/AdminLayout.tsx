@@ -3,9 +3,9 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, QrCode,
+  Menu, QrCode, Briefcase, Truck, CreditCard,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
@@ -18,7 +18,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, logout } = useAuth();
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [overdueCount, setOverdueCount] = useState(0);
   const isAdmin = user?.role === 'Admin';
+  const isErpUser = user?.role !== 'Accountant';
+
+  useEffect(() => {
+    if (!isErpUser) return;
+    fetch('/api/erp/leads/overdue-count')
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setOverdueCount(d.count ?? 0))
+      .catch(() => {});
+  }, [isErpUser]);
 
   const navItems = [
     { href: '/admin', label: t('admin_nav'), icon: LayoutDashboard, exact: true },
@@ -103,6 +113,42 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Link>
             );
           })}
+
+          {/* ERP Section Divider */}
+          {isErpUser && (
+            <>
+              <div className="border-t border-white/[0.08] my-2" />
+              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2">
+                {isRtl ? t('erp_section_label') : t('erp_section_label')}
+              </p>
+
+              {/* العملاء والمشاريع */}
+              <Link href="/erp/leads">
+                <div
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
+                    isActive('/erp/leads', false) || isActive('/erp/projects', false)
+                      ? 'bg-white/[0.12] text-white'
+                      : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
+                  }`}
+                >
+                  <Briefcase
+                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                      isActive('/erp/leads', false) || isActive('/erp/projects', false)
+                        ? 'text-[#C89B3C]'
+                        : 'text-white/40 group-hover:text-white/70'
+                    }`}
+                  />
+                  <span className="flex-1">{t('erp_leads_nav')}</span>
+                  {overdueCount > 0 && (
+                    <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                      {overdueCount}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Footer */}

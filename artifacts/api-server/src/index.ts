@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 
@@ -83,6 +83,127 @@ async function runStartupMigrations() {
     if (!existing) {
       await db.insert(usersTable).values({ username: "admin", passwordHash: hashPassword("admin123"), role: "Admin" });
       logger.info("Default admin account created: admin / admin123");
+    }
+
+    // ERP tables
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS leads (
+        id SERIAL PRIMARY KEY,
+        customer_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        source TEXT NOT NULL,
+        product_interest TEXT NOT NULL,
+        building_type TEXT NOT NULL,
+        location TEXT,
+        assigned_to INTEGER REFERENCES users(id),
+        budget_range TEXT,
+        estimated_value INTEGER,
+        first_followup_date DATE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'new',
+        lost_reason TEXT,
+        converted_project_id INTEGER,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER REFERENCES users(id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS lead_logs (
+        id SERIAL PRIMARY KEY,
+        lead_id INTEGER NOT NULL REFERENCES leads(id),
+        note TEXT NOT NULL,
+        next_followup_date DATE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NOT NULL REFERENCES users(id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        customer_name TEXT NOT NULL,
+        phone TEXT,
+        location TEXT,
+        building_type TEXT,
+        product_interest TEXT,
+        estimated_value INTEGER,
+        stage_display TEXT NOT NULL DEFAULT 'new',
+        stage_internal INTEGER NOT NULL DEFAULT 1,
+        from_lead_id INTEGER REFERENCES leads(id),
+        assigned_to INTEGER REFERENCES users(id),
+        delivery_deadline DATE,
+        warranty_months INTEGER,
+        warranty_start_date DATE,
+        warranty_end_date DATE,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NOT NULL REFERENCES users(id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS project_files (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        file_type TEXT NOT NULL,
+        original_filename TEXT NOT NULL,
+        file_data BYTEA NOT NULL,
+        uploaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        uploaded_by INTEGER NOT NULL REFERENCES users(id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS dropdown_options (
+        id SERIAL PRIMARY KEY,
+        category TEXT NOT NULL,
+        value TEXT NOT NULL,
+        label_ar TEXT NOT NULL,
+        label_en TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        active BOOLEAN DEFAULT TRUE
+      )
+    `);
+
+    // Rename legacy 'User' role to 'Employee'
+    await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
+
+    // Seed dropdown options if empty
+    const optResult = await db.execute(sql`SELECT COUNT(*) as count FROM dropdown_options`);
+    const optRow = optResult.rows[0] as any;
+    if (Number(optRow?.count ?? 0) === 0) {
+      const seedRows = [
+        // lead_source
+        ["lead_source", "whatsapp", "واتساب", "WhatsApp", 1],
+        ["lead_source", "phone", "هاتف", "Phone", 2],
+        ["lead_source", "walk_in", "زيارة مباشرة", "Walk-in", 3],
+        ["lead_source", "referral", "توصية", "Referral", 4],
+        ["lead_source", "social", "سوشال ميديا", "Social media", 5],
+        // product_interest
+        ["product_interest", "windows", "نوافذ", "Windows", 1],
+        ["product_interest", "doors", "أبواب", "Doors", 2],
+        ["product_interest", "curtain_wall", "واجهات زجاجية", "Curtain wall", 3],
+        ["product_interest", "facades", "واجهات", "Facades", 4],
+        ["product_interest", "shower", "زجاج حمامات", "Shower glass", 5],
+        ["product_interest", "other", "أخرى", "Other", 6],
+        // building_type
+        ["building_type", "villa", "فيلا", "Villa", 1],
+        ["building_type", "apartment", "شقة", "Apartment", 2],
+        ["building_type", "commercial", "تجاري", "Commercial", 3],
+        ["building_type", "tower", "برج", "Tower", 4],
+        // budget_range
+        ["budget_range", "low", "منخفض", "Low", 1],
+        ["budget_range", "medium", "متوسط", "Medium", 2],
+        ["budget_range", "high", "مرتفع", "High", 3],
+        ["budget_range", "premium", "بريميوم", "Premium", 4],
+      ];
+      for (const [category, value, labelAr, labelEn, sortOrder] of seedRows) {
+        await db.insert(dropdownOptionsTable).values({
+          category: category as string,
+          value: value as string,
+          labelAr: labelAr as string,
+          labelEn: labelEn as string,
+          sortOrder: sortOrder as number,
+        });
+      }
+      logger.info("Seeded dropdown_options with default values");
     }
   } catch (err) {
     logger.error({ err }, "Failed to initialise tables — server will still start");

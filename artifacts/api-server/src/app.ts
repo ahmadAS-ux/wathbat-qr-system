@@ -35,7 +35,8 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   const isPublic =
     (req.method === "POST" && req.path === "/auth/login") ||
     (req.method === "GET"  && (req.path === "/healthz" || req.path === "/health")) ||
-    (req.method === "POST" && req.path === "/admin/requests"); // scan form
+    (req.method === "POST" && req.path === "/admin/requests") || // scan form
+    (req.method === "GET"  && req.path.startsWith("/erp/options/")); // dropdown options used by public forms
   if (isPublic) return next();
   requireAuth(req, res, next);
 });

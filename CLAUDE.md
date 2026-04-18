@@ -140,3 +140,6 @@ Read this before making any changes to auth, deployment, or stats features.
 - Custom unused components: `empty.tsx`, `field.tsx`, `item.tsx`, `spinner.tsx`, `button-group.tsx`, `input-group.tsx`
 - Unused hook: `hooks/use-mobile.tsx`
 - Unused npm packages: `embla-carousel-react`, `react-icons`, `input-otp`, `date-fns`, `next-themes`, `react-resizable-panels`, `recharts`, `cmdk`, `@radix-ui/react-context-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-navigation-menu`
+## ERP System Reference
+Read WORKFLOW_REFERENCE_v3.md before working on any ERP feature.
+It contains: DB schema, API contracts, permissions, and Claude Code prompts per phase.
