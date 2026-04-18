@@ -13,6 +13,7 @@ import Admin from "@/pages/Admin";
 import AdminHistory from "@/pages/AdminHistory";
 import AdminRequests from "@/pages/AdminRequests";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminDropdowns from "@/pages/AdminDropdowns";
 import Login from "@/pages/Login";
 import Scan from "@/pages/Scan";
 import NotFound from "@/pages/not-found";
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/admin/history" component={P(AdminHistory)} />
         <Route path="/admin/requests" component={P(AdminRequests)} />
         <Route path="/admin/users" component={P(AdminUsers, true)} />
+        <Route path="/admin/dropdowns" component={P(AdminDropdowns, true)} />
         <Route path="/erp/leads" component={P(ErpLeads)} />
         <Route path="/erp/leads/:id" component={P(ErpLeadDetail)} />
         <Route path="/erp/projects" component={P(ErpProjects)} />
