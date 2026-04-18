@@ -2,7 +2,7 @@
 # نظام وثبة لإدارة المصنع — مرجع سير العمل
 
 > **Version:** 3.0 — April 2026
-> **Status:** Ready for Claude Code execution — Phase 1
+> **Status:** Phase 1 Complete — v2.2 deployed on Render.com (3 production bugs fixed)
 > **Built on top of:** QR Asset Manager v1.1.0 (Render.com)
 > **Tech stack:** TypeScript · React 19 · Express · PostgreSQL · Drizzle ORM · pnpm monorepo
 > **Primary change from v2.2:** Restructured for Claude Code — added DB schemas, API contracts, component specs, and ready-to-use prompts per phase
@@ -14,7 +14,8 @@
 Before starting any session, Claude Code must read:
 1. `CLAUDE.md` — commands, monorepo structure, RTL rules
 2. This file — business logic, DB schema, API design, permissions
-3. `lib/db/src/schema/` — existing tables (users, requests, processed_docs)
+3. `CODE_STRUCTURE.md` — exact file paths, data flows, API_BASE rule (⚠️ critical)
+4. `lib/db/src/schema/` — existing tables (users, requests, processed_docs)
 
 **Golden rule for every prompt:** Claude Code runs fully autonomously — no confirmation steps, commits and pushes all changes automatically.
 
@@ -607,7 +608,7 @@ Sidebar (existing + new):
 
 ---
 
-### 🔵 Phase 1: Leads + Projects + File Upload
+### ✅ Phase 1: Leads + Projects + File Upload — COMPLETE (v2.2)
 
 **Goal:** Team can register leads, track follow-ups, convert to projects, upload Orgadata files.
 
@@ -620,6 +621,11 @@ Sidebar (existing + new):
 - Existing QR system untouched
 
 **Blocked by:** Orgadata Technical Document and Price Quotation samples (can build UI, defer parsing)
+
+**v2.2 Production fixes (all resolved):**
+- Issue #1: Dropdown labels showing "—" — active filter excluded NULL rows; fixed with `ne(active, false)` + idempotent column migration
+- Issue #2: Phone field accepted any text — added `/^05\d{8}$/` validation on frontend + backend
+- Issue #3: ALL ERP fetch calls used bare `/api/erp/...` paths — worked in dev (Vite proxy), failed in production (static site has no proxy). Fixed by prepending `${API_BASE}` to all 21 fetch calls across 6 files. **This is now enforced in CODE_STRUCTURE.md Section 8.**
 
 #### 🤖 Claude Code Prompt — Phase 1
 
