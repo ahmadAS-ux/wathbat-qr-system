@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, Briefcase, CreditCard, List, Settings, Upload,
+  Menu, Briefcase, CreditCard, List, Settings, Upload, ChevronDown,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -21,6 +21,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
   const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
+  const [mfgCollapsed, setMfgCollapsed] = useState(() => localStorage.getItem('sidebar_mfg_collapsed') === 'true');
+  const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
+
   const isAdmin = user?.role === 'Admin';
   const isErpUser = user?.role !== 'Accountant';
   const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -41,17 +44,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       .catch(() => {});
   }, [isPaymentsUser]);
 
-  const navItems = [
-    { href: '/admin', label: t('admin_nav'), icon: LayoutDashboard, exact: true },
-    { href: '/admin/history', label: t('archive_title'), icon: Archive, exact: false },
-    { href: '/admin/requests', label: t('requests_title'), icon: Wrench, exact: false },
-    ...(isAdmin ? [
-      { href: '/qr/upload',       label: t('qr_upload_nav'),         icon: Upload, exact: true },
-      { href: '/admin/users',     label: t('users_nav'),             icon: Users, exact: false },
-      { href: '/admin/dropdowns', label: t('dropdown_editor_title'), icon: List,  exact: false },
-    ] : []),
-  ];
-
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -61,6 +53,38 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (exact) return location === href;
     return location.startsWith(href);
   };
+
+  const handleNavClick = (href: string, exact: boolean) => {
+    setMobileOpen(false);
+    const active = exact ? location === href : location.startsWith(href);
+    if (active) {
+      window.location.href = href;
+    }
+  };
+
+  const toggleMfg = () => {
+    const next = !mfgCollapsed;
+    setMfgCollapsed(next);
+    localStorage.setItem('sidebar_mfg_collapsed', String(next));
+  };
+
+  const toggleQr = () => {
+    const next = !qrCollapsed;
+    setQrCollapsed(next);
+    localStorage.setItem('sidebar_qr_collapsed', String(next));
+  };
+
+  const navItem = (active: boolean) =>
+    `flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group border-s-[3px] ${
+      active
+        ? 'bg-white/[0.12] text-white border-[#C89B3C]'
+        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07] border-transparent'
+    }`;
+
+  const navIcon = (active: boolean) =>
+    `w-5 h-5 shrink-0 transition-colors ${active ? 'text-[#C89B3C]' : 'text-white/40 group-hover:text-white/70'}`;
+
+  const sectionBtn = 'w-full flex items-center gap-1 px-3 mt-4 mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors cursor-pointer';
 
   function SidebarContent() {
     return (
@@ -83,145 +107,134 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 pt-1">
-            {isRtl ? 'القائمة' : 'Navigation'}
-          </p>
-          {navItems.map(item => {
-            const active = isActive(item.href, item.exact);
-            return (
-              <Link key={item.href} href={item.href}>
-                <div
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
-                    active
-                      ? 'bg-white/[0.12] text-white'
-                      : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
-                  }`}
-                >
-                  <item.icon
-                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                      active ? 'text-[#C89B3C]' : 'text-white/40 group-hover:text-white/70'
-                    }`}
-                  />
-                  <span className="flex-1">{item.label}</span>
-                  {active && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
-                  )}
-                </div>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
 
-          {/* ERP Section Divider */}
-          {isErpUser && (
+          {/* Dashboard — always first */}
+          <Link href="/admin">
+            <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))}>
+              <LayoutDashboard className={navIcon(isActive('/admin', true))} />
+              <span className="flex-1">{t('admin_nav')}</span>
+            </div>
+          </Link>
+
+          {/* ── MANUFACTURING SYSTEM ── */}
+          {(isErpUser || isPaymentsUser) && (
             <>
-              <div className="border-t border-white/[0.08] my-2" />
-              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2">
-                {isRtl ? t('erp_section_label') : t('erp_section_label')}
-              </p>
-
-              {/* الإعدادات — Admin only */}
-              {isAdmin && (
-                <Link href="/erp/settings">
-                  <div
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
-                      isActive('/erp/settings', false)
-                        ? 'bg-white/[0.12] text-white'
-                        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
-                    }`}
-                  >
-                    <Settings
-                      className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                        isActive('/erp/settings', false)
-                          ? 'text-[#C89B3C]'
-                          : 'text-white/40 group-hover:text-white/70'
-                      }`}
-                    />
-                    <span className="flex-1">{isRtl ? 'الإعدادات' : 'Settings'}</span>
-                    {isActive('/erp/settings', false) && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
-                    )}
-                  </div>
-                </Link>
-              )}
-
-              {/* العملاء والمشاريع */}
-              <Link href="/erp/leads">
-                <div
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
-                    isActive('/erp/leads', false) || isActive('/erp/projects', false)
-                      ? 'bg-white/[0.12] text-white'
-                      : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
-                  }`}
-                >
-                  <Briefcase
-                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                      isActive('/erp/leads', false) || isActive('/erp/projects', false)
-                        ? 'text-[#C89B3C]'
-                        : 'text-white/40 group-hover:text-white/70'
-                    }`}
-                  />
-                  <span className="flex-1">{t('erp_leads_nav')}</span>
-                  {overdueCount > 0 && (
-                    <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                      {overdueCount}
-                    </span>
+              <button onClick={toggleMfg} className={sectionBtn}>
+                <span className="flex-1 text-start">{t('erp_section_label')}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mfgCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!mfgCollapsed && (
+                <div className="space-y-0.5">
+                  {isErpUser && (
+                    <Link href="/erp/leads">
+                      <div
+                        onClick={() => handleNavClick('/erp/leads', false)}
+                        className={navItem(isActive('/erp/leads', false) || isActive('/erp/projects', false))}
+                      >
+                        <Briefcase className={navIcon(isActive('/erp/leads', false) || isActive('/erp/projects', false))} />
+                        <span className="flex-1">{t('erp_leads_nav')}</span>
+                        {overdueCount > 0 && (
+                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                            {overdueCount}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )}
+                  {isPaymentsUser && (
+                    <Link href="/erp/payments">
+                      <div
+                        onClick={() => handleNavClick('/erp/payments', false)}
+                        className={navItem(isActive('/erp/payments', false))}
+                      >
+                        <CreditCard className={navIcon(isActive('/erp/payments', false))} />
+                        <span className="flex-1">{t('erp_payments_nav')}</span>
+                        {overduePaymentsCount > 0 && (
+                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                            {overduePaymentsCount}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )}
+                  {isAdmin && (
+                    <Link href="/erp/settings">
+                      <div
+                        onClick={() => handleNavClick('/erp/settings', false)}
+                        className={navItem(isActive('/erp/settings', false))}
+                      >
+                        <Settings className={navIcon(isActive('/erp/settings', false))} />
+                        <span className="flex-1">{t('erp_settings_nav')}</span>
+                      </div>
+                    </Link>
                   )}
                 </div>
-              </Link>
-
-              {/* المدفوعات — Admin + Accountant */}
-              {isPaymentsUser && (
-                <Link href="/erp/payments">
-                  <div
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
-                      isActive('/erp/payments', false)
-                        ? 'bg-white/[0.12] text-white'
-                        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
-                    }`}
-                  >
-                    <CreditCard
-                      className={`w-[18px] h-[18px] shrink-0 transition-colors ${
-                        isActive('/erp/payments', false)
-                          ? 'text-[#C89B3C]'
-                          : 'text-white/40 group-hover:text-white/70'
-                      }`}
-                    />
-                    <span className="flex-1">{t('erp_payments_nav')}</span>
-                    {overduePaymentsCount > 0 && (
-                      <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                        {overduePaymentsCount}
-                      </span>
-                    )}
-                    {isActive('/erp/payments', false) && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
-                    )}
-                  </div>
-                </Link>
               )}
             </>
           )}
+
+          {/* ── QR SYSTEM ── */}
+          <>
+            <button onClick={toggleQr} className={sectionBtn}>
+              <span className="flex-1 text-start">{t('qr_section_label')}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${qrCollapsed ? '-rotate-90' : ''}`} />
+            </button>
+            {!qrCollapsed && (
+              <div className="space-y-0.5">
+                {isAdmin && (
+                  <Link href="/qr/upload">
+                    <div onClick={() => handleNavClick('/qr/upload', true)} className={navItem(isActive('/qr/upload', true))}>
+                      <Upload className={navIcon(isActive('/qr/upload', true))} />
+                      <span className="flex-1">{t('qr_upload_nav')}</span>
+                    </div>
+                  </Link>
+                )}
+                <Link href="/admin/history">
+                  <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))}>
+                    <Archive className={navIcon(isActive('/admin/history', false))} />
+                    <span className="flex-1">{t('archive_title')}</span>
+                  </div>
+                </Link>
+                <Link href="/admin/requests">
+                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))}>
+                    <Wrench className={navIcon(isActive('/admin/requests', false))} />
+                    <span className="flex-1">{t('requests_title')}</span>
+                  </div>
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin/users">
+                    <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))}>
+                      <Users className={navIcon(isActive('/admin/users', false))} />
+                      <span className="flex-1">{t('users_nav')}</span>
+                    </div>
+                  </Link>
+                )}
+                {isAdmin && (
+                  <Link href="/admin/dropdowns">
+                    <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))}>
+                      <List className={navIcon(isActive('/admin/dropdowns', false))} />
+                      <span className="flex-1">{t('dropdown_editor_title')}</span>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            )}
+          </>
         </nav>
 
         {/* Footer */}
         <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-          {/* Language toggle */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all group"
+            className="w-full flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all group"
           >
-            <Globe className="w-[18px] h-[18px] shrink-0 text-white/30 group-hover:text-white/60" />
+            <Globe className="w-5 h-5 shrink-0 text-white/30 group-hover:text-white/60" />
             <span>{language === 'en' ? 'العربية' : 'English'}</span>
           </button>
 
-          {/* Divider */}
           <div className="border-t border-white/[0.08] my-1" />
 
-          {/* User row */}
           {user && (
             <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
               <div className="w-7 h-7 rounded-full bg-[#C89B3C]/20 border border-[#C89B3C]/30 flex items-center justify-center text-[#C89B3C] text-xs font-bold shrink-0">
@@ -245,7 +258,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen overflow-y-auto shadow-xl">
+      <aside className="hidden lg:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen overflow-y-auto shadow-xl">
         <SidebarContent />
       </aside>
 
@@ -266,7 +279,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               animate={{ x: 0 }}
               exit={{ x: isRtl ? '100%' : '-100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className={`fixed top-0 ${isRtl ? 'right-0' : 'left-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl lg:hidden overflow-y-auto`}
+              className={`fixed top-0 ${isRtl ? 'end-0' : 'start-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl lg:hidden overflow-y-auto`}
             >
               <SidebarContent />
             </motion.aside>

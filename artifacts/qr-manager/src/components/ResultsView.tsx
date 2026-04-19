@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Download, CheckCircle2, QrCode, FileText, Calendar, Box, Loader2, Printer } from 'lucide-react';
+import { Download, CheckCircle2, QrCode, FileText, Calendar, Box, Loader2, Printer, Mail } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { ProcessResult } from '@workspace/api-client-react';
 import { useState } from 'react';
@@ -15,6 +15,8 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
   const { t, isRtl } = useLanguage();
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
 
   const handleDownload = async () => {
     try {
@@ -37,6 +39,19 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const handleSendEmail = () => {
+    const projectName = result.projectName || (isRtl ? 'المستند' : 'Document');
+    const subject = encodeURIComponent(`QR Report — ${projectName}`);
+    const body = encodeURIComponent(
+      isRtl
+        ? `مرحباً،\n\nيرجى الاطلاع على تقرير QR للمشروع: ${projectName}\n\nالتاريخ: ${result.date || '—'}\nعدد المواضع: ${result.totalPositions ?? '—'}\n\nلتحميل التقرير، يرجى تسجيل الدخول إلى نظام وثبة.\n\nمع التحية،\nوثبة للألمنيوم`
+        : `Hello,\n\nPlease find the QR report for project: ${projectName}\n\nDate: ${result.date || '—'}\nPositions: ${result.totalPositions ?? '—'}\n\nTo download the report, please log in to the Wathbat system.\n\nBest regards,\nWathbat Aluminum`
+    );
+    window.location.href = `mailto:${encodeURIComponent(emailTo)}?subject=${subject}&body=${body}`;
+    setShowEmailModal(false);
+    setEmailTo('');
   };
 
   const columns = [
@@ -88,6 +103,13 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
               >
                 <Printer className="w-5 h-5" />
                 {t('print_btn')}
+              </button>
+              <button
+                onClick={() => setShowEmailModal(true)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-sm px-5 py-4 rounded-2xl border border-white/20 transition-all duration-200 hover:scale-105"
+              >
+                <Mail className="w-5 h-5" />
+                {t('email_send_btn')}
               </button>
             </div>
             {downloadError && (
@@ -205,6 +227,58 @@ export function ResultsView({ result, onReset }: ResultsViewProps) {
           {t('back_home')}
         </button>
       </div>
+
+      {/* Email modal */}
+      {showEmailModal && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className={`bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 ${isRtl ? 'text-end' : ''}`}
+            dir={isRtl ? 'rtl' : 'ltr'}
+          >
+            <h3 className="text-lg font-bold text-[#1B2A4A] mb-4">{t('email_modal_title')}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('email_address_label')}</label>
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={e => setEmailTo(e.target.value)}
+                  placeholder={t('email_address_placeholder')}
+                  dir="ltr"
+                  className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('email_subject_label')}</label>
+                <input
+                  type="text"
+                  value={`QR Report — ${result.projectName || 'Document'}`}
+                  readOnly
+                  dir="ltr"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 text-slate-500 cursor-default"
+                />
+              </div>
+              <p className="text-xs text-slate-500">{t('email_note')}</p>
+            </div>
+            <div className={`flex gap-3 mt-5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button
+                onClick={handleSendEmail}
+                disabled={!emailTo.includes('@')}
+                className="flex-1 flex items-center justify-center gap-2 bg-[#4A6FA5] hover:bg-[#3d5f94] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-3 rounded-xl transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                {t('email_send')}
+              </button>
+              <button
+                onClick={() => { setShowEmailModal(false); setEmailTo(''); }}
+                className="px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                {t('email_cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

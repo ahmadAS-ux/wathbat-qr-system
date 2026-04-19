@@ -337,6 +337,18 @@ export const translations = {
     erp_payments_page_title: "Payments",
     erp_payments_all_projects: "All Projects",
     erp_payments_no_data: "No payment milestones found.",
+    // Sidebar section labels
+    qr_section_label: "QR System",
+    erp_settings_nav: "Settings",
+    // Email modal
+    email_send_btn: "Send Email",
+    email_modal_title: "Send Report by Email",
+    email_address_label: "Email Address",
+    email_address_placeholder: "example@email.com",
+    email_subject_label: "Subject",
+    email_send: "Open Email Client",
+    email_cancel: "Cancel",
+    email_note: "This will open your email client with the report details pre-filled.",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -674,6 +686,18 @@ export const translations = {
     erp_payments_page_title: "المدفوعات",
     erp_payments_all_projects: "جميع المشاريع",
     erp_payments_no_data: "لا توجد دفعات مسجلة.",
+    // Sidebar section labels
+    qr_section_label: "نظام QR",
+    erp_settings_nav: "الإعدادات",
+    // Email modal
+    email_send_btn: "إرسال بالبريد",
+    email_modal_title: "إرسال التقرير بالبريد",
+    email_address_label: "البريد الإلكتروني",
+    email_address_placeholder: "example@email.com",
+    email_subject_label: "موضوع الرسالة",
+    email_send: "فتح تطبيق البريد",
+    email_cancel: "إلغاء",
+    email_note: "سيتم فتح تطبيق البريد مع تفاصيل التقرير جاهزة للإرسال.",
   }
 };
 
