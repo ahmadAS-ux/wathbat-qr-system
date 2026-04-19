@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, QrCode, Briefcase, Truck, CreditCard, List, Settings, Upload,
+  Menu, Briefcase, CreditCard, List, Settings, Upload,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -84,22 +84,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {/* QR Asset Manager — pinned first, amber accent */}
-          <Link href="/">
-            <div
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold mb-2 cursor-pointer transition-all duration-150 border"
-              style={{
-                color: '#f59e0b',
-                background: 'rgba(255,165,0,0.15)',
-                borderColor: 'rgba(245,158,11,0.35)',
-              }}
-            >
-              <QrCode className="w-[18px] h-[18px] shrink-0" style={{ color: '#f59e0b' }} />
-              <span className="flex-1">{t('app_title')}</span>
-            </div>
-          </Link>
-
           <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2 pt-1">
             {isRtl ? 'القائمة' : 'Navigation'}
           </p>
