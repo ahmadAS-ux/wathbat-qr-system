@@ -20,8 +20,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
+  const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
   const isAdmin = user?.role === 'Admin';
   const isErpUser = user?.role !== 'Accountant';
+  const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
 
   useEffect(() => {
     if (!isErpUser) return;
@@ -30,6 +32,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       .then(d => setOverdueCount(d.count ?? 0))
       .catch(() => {});
   }, [isErpUser]);
+
+  useEffect(() => {
+    if (!isPaymentsUser) return;
+    fetch(`${API_BASE}/api/erp/payments/overdue-count`)
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(d => setOverduePaymentsCount(d.count ?? 0))
+      .catch(() => {});
+  }, [isPaymentsUser]);
 
   const navItems = [
     { href: '/admin', label: t('admin_nav'), icon: LayoutDashboard, exact: true },
@@ -177,6 +187,37 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   )}
                 </div>
               </Link>
+
+              {/* المدفوعات — Admin + Accountant */}
+              {isPaymentsUser && (
+                <Link href="/erp/payments">
+                  <div
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
+                      isActive('/erp/payments', false)
+                        ? 'bg-white/[0.12] text-white'
+                        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
+                    }`}
+                  >
+                    <CreditCard
+                      className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                        isActive('/erp/payments', false)
+                          ? 'text-[#C89B3C]'
+                          : 'text-white/40 group-hover:text-white/70'
+                      }`}
+                    />
+                    <span className="flex-1">{t('erp_payments_nav')}</span>
+                    {overduePaymentsCount > 0 && (
+                      <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                        {overduePaymentsCount}
+                      </span>
+                    )}
+                    {isActive('/erp/payments', false) && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
+                    )}
+                  </div>
+                </Link>
+              )}
             </>
           )}
         </nav>

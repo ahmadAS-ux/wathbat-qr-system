@@ -27,6 +27,59 @@ interface QROrder {
   reportFileId: number;
 }
 
+interface AssemblyGlassItem {
+  quantity: number;
+  widthMm: number;
+  heightMm: number;
+  areaSqm: number;
+  description: string;
+}
+
+interface AssemblyPosition {
+  positionCode: string;
+  quantity: number;
+  system: string | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  glassItems: AssemblyGlassItem[];
+}
+
+interface ParsedAssemblyList {
+  positionCount: number;
+  projectNameInFile: string | null;
+  positions: AssemblyPosition[];
+}
+
+interface CutProfile {
+  number: string;
+  description: string;
+  colour: string;
+  quantity: number;
+  lengthMm: number;
+  wastageMm: number;
+  wastagePercent: number;
+}
+
+interface ParsedCutOptimisation {
+  profileCount: number;
+  projectNameInFile: string | null;
+  profiles: CutProfile[];
+}
+
+interface PaymentMilestone {
+  id: number;
+  projectId: number;
+  label: string;
+  percentage: number | null;
+  amount: number | null;
+  paidAmount: number | null;
+  dueDate: string | null;
+  status: string;
+  paidAt: string | null;
+  qoyodDocFileId: number | null;
+  notes: string | null;
+}
+
 interface GlassDetectResult {
   orgadataName: string;
   orgadataPerson: string | null;
@@ -116,10 +169,22 @@ export default function ErpProjectDetail() {
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
   const [nameMismatch, setNameMismatch] = useState<NameMismatchData | null>(null);
+  const [parsedAssemblyList, setParsedAssemblyList] = useState<ParsedAssemblyList | null>(null);
+  const [parsedCutOptimisation, setParsedCutOptimisation] = useState<ParsedCutOptimisation | null>(null);
+  const [milestones, setMilestones] = useState<PaymentMilestone[]>([]);
+  const [showAddMilestone, setShowAddMilestone] = useState(false);
+  const [milestoneForm, setMilestoneForm] = useState({ label: '', percentage: '', amount: '', dueDate: '', notes: '' });
+  const [savingMilestone, setSavingMilestone] = useState(false);
+  const [payingMilestoneId, setPayingMilestoneId] = useState<number | null>(null);
+  const [payForm, setPayForm] = useState({ paidAmount: '', notes: '', file: null as File | null });
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const payFileInputRef = useRef<HTMLInputElement>(null);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
   const canUpload = user?.role !== 'SalesAgent' && user?.role !== 'Accountant';
+  const canManagePayments = user?.role === 'Admin' || user?.role === 'Accountant';
+  const canCreateMilestone = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
 
   const loadProject = async () => {
     setLoading(true);
@@ -145,7 +210,83 @@ export default function ErpProjectDetail() {
     }
   };
 
-  useEffect(() => { loadProject(); loadQrOrders(); }, [id]);
+  const loadParsedData = async () => {
+    const [alRes, coRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/api/erp/projects/${id}/parsed-assembly-list`),
+      fetch(`${API_BASE}/api/erp/projects/${id}/parsed-cut-optimisation`),
+    ]);
+    if (alRes.status === 'fulfilled' && alRes.value.ok) {
+      setParsedAssemblyList(await alRes.value.json());
+    } else {
+      setParsedAssemblyList(null);
+    }
+    if (coRes.status === 'fulfilled' && coRes.value.ok) {
+      setParsedCutOptimisation(await coRes.value.json());
+    } else {
+      setParsedCutOptimisation(null);
+    }
+  };
+
+  const loadMilestones = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/payments`);
+      if (res.ok) setMilestones(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); }, [id]);
+
+  const completionPct = (m: PaymentMilestone): number | null => {
+    if (!m.paidAmount || !m.amount || m.amount === 0) return null;
+    return Math.min(100, Math.round((m.paidAmount / m.amount) * 100));
+  };
+
+  const handleAddMilestone = async () => {
+    if (!milestoneForm.label.trim()) return;
+    setSavingMilestone(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: milestoneForm.label,
+          percentage: milestoneForm.percentage ? Number(milestoneForm.percentage) : undefined,
+          amount: milestoneForm.amount ? Number(milestoneForm.amount) : undefined,
+          dueDate: milestoneForm.dueDate || undefined,
+          notes: milestoneForm.notes || undefined,
+        }),
+      });
+      if (res.ok) {
+        setShowAddMilestone(false);
+        setMilestoneForm({ label: '', percentage: '', amount: '', dueDate: '', notes: '' });
+        await loadMilestones();
+      }
+    } finally {
+      setSavingMilestone(false);
+    }
+  };
+
+  const handleMarkPaid = async (milestoneId: number) => {
+    setMarkingPaid(true);
+    try {
+      const fd = new FormData();
+      if (payForm.paidAmount) fd.append('paidAmount', payForm.paidAmount);
+      if (payForm.notes) fd.append('notes', payForm.notes);
+      if (payForm.file) fd.append('file', payForm.file);
+      const res = await fetch(`${API_BASE}/api/erp/payments/${milestoneId}`, {
+        method: 'PATCH',
+        body: fd,
+      });
+      if (res.ok) {
+        setPayingMilestoneId(null);
+        setPayForm({ paidAmount: '', notes: '', file: null });
+        await loadMilestones();
+        await loadProject();
+      }
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
 
   const saveNotes = async () => {
     setSavingNotes(true);
@@ -186,6 +327,9 @@ export default function ErpProjectDetail() {
         await loadQrOrders();
       } else {
         await loadProject();
+        if (fileType === 'assembly_list' || fileType === 'cut_optimisation') {
+          await loadParsedData();
+        }
       }
     } finally {
       setUploadingFor(null);
@@ -510,11 +654,25 @@ export default function ErpProjectDetail() {
 
               // ── Single-file slot ──────────────────────────────────────────
               const existing = fileFor(slot.fileType);
+
+              // Badge for parsed data count
+              const parsedBadge = slot.fileType === 'assembly_list' && parsedAssemblyList
+                ? t('assembly_list_parsed_positions').replace('{count}', String(parsedAssemblyList.positionCount))
+                : slot.fileType === 'cut_optimisation' && parsedCutOptimisation
+                ? t('cut_opt_parsed_profiles').replace('{count}', String(parsedCutOptimisation.profileCount))
+                : null;
+
               return (
-                <div key={slot.fileType} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                <div key={slot.fileType} className="space-y-1">
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
                   <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700">{label}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-slate-700">{label}</p>
+                      {parsedBadge && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-600 border border-teal-100">{parsedBadge}</span>
+                      )}
+                    </div>
                     {existing ? (
                       <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
                     ) : (
@@ -547,6 +705,60 @@ export default function ErpProjectDetail() {
                     )}
                   </div>
                 </div>
+
+                  {/* Assembly List parsed data panel */}
+                  {slot.fileType === 'assembly_list' && parsedAssemblyList && parsedAssemblyList.positionCount > 0 && (
+                    <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-sm">
+                      <p className="text-xs font-semibold text-teal-700 mb-2">{t('assembly_list_parsed_positions').replace('{count}', String(parsedAssemblyList.positionCount))}</p>
+                      <div className="space-y-1.5">
+                        {parsedAssemblyList.positions.map((pos, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                            <span className="font-semibold text-[#1B2A4A] shrink-0" dir="ltr">{pos.positionCode}</span>
+                            <span className="text-slate-400 shrink-0">{pos.quantity} {t('assembly_list_pcs')}</span>
+                            {pos.widthMm && pos.heightMm && (
+                              <span className="text-slate-400 shrink-0" dir="ltr">{pos.widthMm} × {pos.heightMm} mm</span>
+                            )}
+                            {pos.glassItems.length > 0 && (
+                              <span className="text-slate-400 truncate">{pos.glassItems[0].description}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cut Optimisation parsed data panel */}
+                  {slot.fileType === 'cut_optimisation' && parsedCutOptimisation && parsedCutOptimisation.profileCount > 0 && (
+                    <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-sm">
+                      <p className="text-xs font-semibold text-teal-700 mb-2">{t('cut_opt_parsed_profiles').replace('{count}', String(parsedCutOptimisation.profileCount))}</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-slate-600" dir="ltr">
+                          <thead>
+                            <tr className="text-slate-400 border-b border-teal-100">
+                              <th className="text-start pb-1 font-medium">{t('cut_opt_number')}</th>
+                              <th className="text-start pb-1 font-medium">{t('cut_opt_description')}</th>
+                              <th className="text-end pb-1 font-medium">{t('cut_opt_qty')}</th>
+                              <th className="text-end pb-1 font-medium">{t('cut_opt_wastage_pct')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {parsedCutOptimisation.profiles.slice(0, 10).map((p, i) => (
+                              <tr key={i} className="border-b border-teal-50 last:border-0">
+                                <td className="py-0.5 font-medium text-[#1B2A4A]">{p.number}</td>
+                                <td className="py-0.5 truncate max-w-[120px]">{p.description}</td>
+                                <td className="py-0.5 text-end">{p.quantity}</td>
+                                <td className="py-0.5 text-end">{p.wastagePercent}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {parsedCutOptimisation.profileCount > 10 && (
+                          <p className="text-xs text-slate-400 mt-1">+{parsedCutOptimisation.profileCount - 10} {isRtl ? 'مقطع إضافي' : 'more profiles'}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -577,6 +789,231 @@ export default function ErpProjectDetail() {
             </div>
           </div>
         )}
+
+        {/* Payment Milestones Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="font-semibold text-[#1B2A4A]">{t('erp_payment_milestones_title')}</h2>
+            {canCreateMilestone && (
+              <button
+                onClick={() => setShowAddMilestone(v => !v)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                {t('erp_payment_add')}
+              </button>
+            )}
+          </div>
+
+          {/* Add Milestone Form */}
+          {showAddMilestone && canCreateMilestone && (
+            <div className="mb-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_label')} *</label>
+                  <input
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    value={milestoneForm.label}
+                    onChange={e => setMilestoneForm(f => ({ ...f, label: e.target.value }))}
+                    placeholder={isRtl ? 'مثال: دفعة أولى 30%' : 'e.g. Deposit 30%'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_percentage')}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    value={milestoneForm.percentage}
+                    onChange={e => setMilestoneForm(f => ({ ...f, percentage: e.target.value }))}
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_amount')}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    value={milestoneForm.amount}
+                    onChange={e => setMilestoneForm(f => ({ ...f, amount: e.target.value }))}
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_due_date')}</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    value={milestoneForm.dueDate}
+                    onChange={e => setMilestoneForm(f => ({ ...f, dueDate: e.target.value }))}
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
+                  <input
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    value={milestoneForm.notes}
+                    onChange={e => setMilestoneForm(f => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddMilestone}
+                  disabled={savingMilestone || !milestoneForm.label.trim()}
+                  className="px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-lg hover:bg-[#142240] disabled:opacity-40 transition-colors"
+                >
+                  {savingMilestone ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
+                </button>
+                <button
+                  onClick={() => setShowAddMilestone(false)}
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  {t('erp_cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Milestones List */}
+          {milestones.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">{t('erp_payment_no_milestones')}</p>
+          ) : (
+            <div className="space-y-3">
+              {milestones.map(m => {
+                const pct = completionPct(m);
+                const statusStyle = m.status === 'paid'
+                  ? 'bg-teal-50 text-teal-600 border-teal-100'
+                  : m.status === 'overdue'
+                  ? 'bg-red-50 text-red-600 border-red-100'
+                  : 'bg-slate-100 text-slate-500 border-slate-200';
+                const statusLabel = m.status === 'paid'
+                  ? t('erp_payment_status_paid')
+                  : m.status === 'overdue'
+                  ? t('erp_payment_status_overdue')
+                  : t('erp_payment_status_pending');
+
+                return (
+                  <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-slate-100 bg-slate-50/30'}`}>
+                    {/* Milestone header */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-[#1B2A4A] flex-1 min-w-0">{m.label}</span>
+                      {m.percentage != null && (
+                        <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.percentage}%</span>
+                      )}
+                      {m.amount != null && (
+                        <span className="text-xs font-semibold text-slate-600 shrink-0" dir="ltr">
+                          {m.amount.toLocaleString()} {t('erp_payment_sar')}
+                        </span>
+                      )}
+                      {m.dueDate && (
+                        <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.dueDate}</span>
+                      )}
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusStyle}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+
+                    {/* Qoyod attachment row — shows completion badge */}
+                    {m.qoyodDocFileId != null && (() => {
+                      const attachedFile = project?.files.find(f => f.id === m.qoyodDocFileId);
+                      return attachedFile ? (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-100">
+                          <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="text-xs text-slate-600 truncate flex-1 min-w-0" dir="ltr">{attachedFile.originalFilename}</span>
+                          {pct !== null && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${pct >= 100 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                              {pct >= 100 ? t('erp_payment_completion_full') : t('erp_payment_completion_partial').replace('{pct}', String(pct))}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => downloadFile(attachedFile.id, attachedFile.originalFilename)}
+                            className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors shrink-0"
+                            title={t('erp_file_download')}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Mark Paid button */}
+                    {canManagePayments && m.status !== 'paid' && (
+                      payingMilestoneId === m.id ? (
+                        <div className="space-y-2 pt-1">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_paid_amount')} *</label>
+                              <input
+                                type="number"
+                                min="0"
+                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                value={payForm.paidAmount}
+                                onChange={e => setPayForm(f => ({ ...f, paidAmount: e.target.value }))}
+                                dir="ltr"
+                                autoFocus
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
+                              <input
+                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                value={payForm.notes}
+                                onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_upload_proof')}</label>
+                            <input
+                              ref={payFileInputRef}
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                              onChange={e => setPayForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                            />
+                            <button
+                              onClick={() => payFileInputRef.current?.click()}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#1B2A4A] transition-colors"
+                            >
+                              <Upload className="w-3 h-3" />
+                              {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : isRtl ? 'اختر ملفاً' : 'Choose file'}
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleMarkPaid(m.id)}
+                              disabled={markingPaid || !payForm.paidAmount}
+                              className="px-4 py-2 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
+                            >
+                              {markingPaid ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_payment_confirm_paid')}
+                            </button>
+                            <button
+                              onClick={() => { setPayingMilestoneId(null); setPayForm({ paidAmount: '', notes: '', file: null }); }}
+                              className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                              {t('erp_cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setPayingMilestoneId(m.id)}
+                          className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors"
+                        >
+                          {t('erp_payment_mark_paid')}
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* QR Orders Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">

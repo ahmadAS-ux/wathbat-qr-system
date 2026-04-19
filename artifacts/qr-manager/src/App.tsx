@@ -23,6 +23,7 @@ import ErpProjects from "@/pages/erp/Projects";
 import ErpProjectDetail from "@/pages/erp/ProjectDetail";
 import ErpAdminSettings from "@/pages/erp/AdminSettings";
 import ErpContractPage from "@/pages/erp/ContractPage";
+import ErpPayments from "@/pages/erp/Payments";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ function AppRoutes() {
         <Route path="/erp/projects" component={P(ErpProjects)} />
         <Route path="/erp/projects/:id" component={P(ErpProjectDetail)} />
         <Route path="/erp/projects/:id/contract" component={P(ErpContractPage)} />
+        <Route path="/erp/payments" component={P(ErpPayments)} />
         <Route path="/erp/settings" component={P(ErpAdminSettings, true)} />
         <Route component={NotFound} />
       </Switch>

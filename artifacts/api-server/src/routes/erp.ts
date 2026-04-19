@@ -14,7 +14,10 @@ import {
   parsedQuotationsTable,
   parsedSectionsTable,
   parsedSectionDrawingsTable,
+  parsedAssemblyListsTable,
+  parsedCutOptimisationsTable,
   systemSettings,
+  paymentMilestonesTable,
   PROJECT_FILE_TYPES,
   DEPRECATED_FILE_TYPES,
   MULTI_FILE_TYPES,
@@ -22,6 +25,8 @@ import {
 import { asc } from "drizzle-orm";
 import { parseQuotationDocx } from "../lib/parsers/quotation-parser.js";
 import { parseSectionDocx } from "../lib/parsers/section-parser.js";
+import { parseAssemblyListDocx } from "../lib/parsers/assembly-list-parser.js";
+import { parseCutOptimisationDocx } from "../lib/parsers/cut-optimisation-parser.js";
 import { namesMatch } from "../lib/parsers/name-match.js";
 
 // TODO v2.5.x: when Phase 2 payments endpoint is added, payment proof uploads
@@ -50,6 +55,12 @@ const upload = multer({
       cb(new Error("Only .docx files are accepted"));
     }
   },
+});
+
+// multer for PDF/any file uploads (payment proofs)
+const uploadAny = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 // ─── Role sets ────────────────────────────────────────────────────────────────
@@ -694,6 +705,38 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
       }
     }
 
+    if (fileType === 'assembly_list') {
+      try {
+        const parsed = parseAssemblyListDocx(fileBuffer);
+        await db.delete(parsedAssemblyListsTable).where(eq(parsedAssemblyListsTable.projectId, projectId));
+        await db.insert(parsedAssemblyListsTable).values({
+          projectId,
+          sourceFileId: newFileId,
+          projectNameInFile: parsed.projectName,
+          positionCount: parsed.positionCount,
+          positions: parsed.positions,
+        });
+      } catch (err) {
+        logger.warn({ err }, '[v2.5.3] Assembly list parser failed — file saved but not parsed');
+      }
+    }
+
+    if (fileType === 'cut_optimisation') {
+      try {
+        const parsed = parseCutOptimisationDocx(fileBuffer);
+        await db.delete(parsedCutOptimisationsTable).where(eq(parsedCutOptimisationsTable.projectId, projectId));
+        await db.insert(parsedCutOptimisationsTable).values({
+          projectId,
+          sourceFileId: newFileId,
+          projectNameInFile: parsed.projectName,
+          profileCount: parsed.profileCount,
+          profiles: parsed.profiles,
+        });
+      } catch (err) {
+        logger.warn({ err }, '[v2.5.3] Cut optimisation parser failed — file saved but not parsed');
+      }
+    }
+
     res.status(201).json({
       id: row.id,
       projectId: row.projectId,
@@ -1051,6 +1094,198 @@ router.post('/erp/projects/:id/contract/mark-printed', requireRole('Admin', 'Fac
   } catch (err) {
     logger.error({ err }, 'POST /erp/projects/:id/contract/mark-printed failed');
     res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /erp/projects/:id/parsed-assembly-list
+router.get("/erp/projects/:id/parsed-assembly-list", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [row] = await db.select().from(parsedAssemblyListsTable).where(eq(parsedAssemblyListsTable.projectId, projectId));
+    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/parsed-assembly-list failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/parsed-cut-optimisation
+router.get("/erp/projects/:id/parsed-cut-optimisation", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [row] = await db.select().from(parsedCutOptimisationsTable).where(eq(parsedCutOptimisationsTable.projectId, projectId));
+    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/parsed-cut-optimisation failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── PAYMENT MILESTONES ───────────────────────────────────────────────────────
+
+// GET /erp/projects/:id/payments — list milestones, auto-mark overdue
+router.get("/erp/projects/:id/payments", async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    // Auto-mark overdue
+    await db.execute(sql`
+      UPDATE payment_milestones
+      SET status = 'overdue'
+      WHERE project_id = ${projectId}
+        AND due_date < CURRENT_DATE
+        AND status = 'pending'
+    `);
+    const rows = await db.select().from(paymentMilestonesTable)
+      .where(eq(paymentMilestonesTable.projectId, projectId))
+      .orderBy(asc(paymentMilestonesTable.id));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/payments failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/projects/:id/payments — create milestone
+router.post("/erp/projects/:id/payments", requireRole("Admin", "FactoryManager", "SalesAgent"), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [proj] = await db.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!proj) return notFound(res);
+    const { label, percentage, amount, dueDate, notes } = req.body as {
+      label?: string; percentage?: number; amount?: number; dueDate?: string; notes?: string;
+    };
+    if (!label || label.trim().length < 1) {
+      res.status(400).json({ error: "label is required" });
+      return;
+    }
+    const [row] = await db.insert(paymentMilestonesTable).values({
+      projectId,
+      label: label.trim(),
+      percentage: percentage ? Number(percentage) : null,
+      amount: amount ? Number(amount) : null,
+      dueDate: dueDate || null,
+      notes: notes || null,
+    }).returning();
+    res.status(201).json(row);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/projects/:id/payments failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/payments/:id — mark paid, optional PDF upload
+router.patch("/erp/payments/:id", requireRole("Admin", "Accountant"), uploadAny.single("file"), async (req: Request, res: Response) => {
+  try {
+    const milestoneId = Number(req.params.id);
+    if (Number.isNaN(milestoneId)) return notFound(res);
+    const [milestone] = await db.select().from(paymentMilestonesTable).where(eq(paymentMilestonesTable.id, milestoneId));
+    if (!milestone) return notFound(res);
+
+    const paidAmountRaw = req.body?.paidAmount;
+    const paidAmount = paidAmountRaw !== undefined && paidAmountRaw !== '' ? Number(paidAmountRaw) : null;
+    if (paidAmount !== null && (Number.isNaN(paidAmount) || paidAmount < 0)) {
+      res.status(400).json({ error: "paidAmount must be a non-negative number" });
+      return;
+    }
+    const notes = req.body?.notes ?? milestone.notes;
+    const sess = session(req);
+
+    let qoyodDocFileId = milestone.qoyodDocFileId;
+    if (req.file) {
+      const [insertedFile] = await db.insert(projectFilesTable).values({
+        projectId: milestone.projectId,
+        fileType: "qoyod",
+        originalFilename: req.file.originalname,
+        fileData: req.file.buffer,
+        uploadedBy: sess.userId,
+      }).returning({ id: projectFilesTable.id });
+      qoyodDocFileId = insertedFile.id;
+    }
+
+    const [updated] = await db.update(paymentMilestonesTable)
+      .set({
+        status: "paid",
+        paidAt: new Date(),
+        paidAmount: paidAmount,
+        qoyodDocFileId,
+        notes: notes || null,
+      })
+      .where(eq(paymentMilestonesTable.id, milestoneId))
+      .returning();
+
+    // Stage advancement: if project stageInternal < 5 and this is the first paid milestone
+    const paidMilestones = await db.select({ id: paymentMilestonesTable.id })
+      .from(paymentMilestonesTable)
+      .where(and(eq(paymentMilestonesTable.projectId, milestone.projectId), eq(paymentMilestonesTable.status, "paid")));
+    if (paidMilestones.length === 1) {
+      const [proj] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, milestone.projectId));
+      if (proj && (proj.stageInternal ?? 0) < 5) {
+        await db.update(projectsTable)
+          .set({ stageInternal: 5, stageDisplay: "in_production" })
+          .where(eq(projectsTable.id, milestone.projectId));
+      }
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/payments/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/payments/overdue-count — total overdue milestones across all projects
+router.get("/erp/payments/overdue-count", async (req: Request, res: Response) => {
+  try {
+    // Auto-mark overdue globally
+    await db.execute(sql`
+      UPDATE payment_milestones
+      SET status = 'overdue'
+      WHERE due_date < CURRENT_DATE
+        AND status = 'pending'
+    `);
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as count FROM payment_milestones WHERE status = 'overdue'
+    `);
+    const count = Number((result.rows[0] as any)?.count ?? 0);
+    res.json({ count });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/payments/overdue-count failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/payments/all — all milestones across all projects (with project name)
+router.get("/erp/payments/all", async (req: Request, res: Response) => {
+  try {
+    // Auto-mark overdue
+    await db.execute(sql`
+      UPDATE payment_milestones
+      SET status = 'overdue'
+      WHERE due_date < CURRENT_DATE
+        AND status = 'pending'
+    `);
+    const rows = await db.execute(sql`
+      SELECT
+        pm.*,
+        p.name AS project_name,
+        p.customer_name
+      FROM payment_milestones pm
+      JOIN projects p ON p.id = pm.project_id
+      ORDER BY
+        CASE WHEN pm.status = 'overdue' THEN 0 ELSE 1 END,
+        pm.due_date ASC NULLS LAST,
+        pm.id ASC
+    `);
+    res.json(rows.rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/payments/all failed");
+    res.status(500).json({ error: "Internal error" });
   }
 });
 

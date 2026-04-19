@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable, systemSettings } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 
@@ -208,6 +208,30 @@ async function runStartupMigrations() {
       )
     `);
 
+    // v2.5.3: assembly list + cut optimisation parsed tables
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parsed_assembly_lists (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source_file_id INTEGER NOT NULL REFERENCES project_files(id) ON DELETE CASCADE,
+        project_name_in_file TEXT,
+        position_count INTEGER NOT NULL DEFAULT 0,
+        positions JSONB NOT NULL DEFAULT '[]',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parsed_cut_optimisations (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source_file_id INTEGER NOT NULL REFERENCES project_files(id) ON DELETE CASCADE,
+        project_name_in_file TEXT,
+        profile_count INTEGER NOT NULL DEFAULT 0,
+        profiles JSONB NOT NULL DEFAULT '[]',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     // v2.5.2: system settings (contract template, etc.)
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS system_settings (
@@ -215,6 +239,23 @@ async function runStartupMigrations() {
         key TEXT NOT NULL UNIQUE,
         value TEXT NOT NULL,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // v2.6.0: payment milestones
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS payment_milestones (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        label TEXT NOT NULL,
+        percentage INTEGER,
+        amount INTEGER,
+        paid_amount INTEGER,
+        due_date DATE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        paid_at TIMESTAMPTZ,
+        qoyod_doc_file_id INTEGER REFERENCES project_files(id),
+        notes TEXT
       )
     `);
 
