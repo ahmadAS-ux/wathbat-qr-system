@@ -340,6 +340,8 @@ export const translations = {
     // Sidebar section labels
     qr_section_label: "QR System",
     erp_settings_nav: "Settings",
+    erp_view_project: "View Project →",
+    erp_view_lead: "View Lead →",
     // Email modal
     email_send_btn: "Send Email",
     email_modal_title: "Send Report by Email",
@@ -689,6 +691,8 @@ export const translations = {
     // Sidebar section labels
     qr_section_label: "نظام QR",
     erp_settings_nav: "الإعدادات",
+    erp_view_project: "← عرض المشروع",
+    erp_view_lead: "← عرض العميل",
     // Email modal
     email_send_btn: "إرسال بالبريد",
     email_modal_title: "إرسال التقرير بالبريد",

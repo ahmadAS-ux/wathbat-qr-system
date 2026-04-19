@@ -107,7 +107,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
           {/* Dashboard — always first */}
           <Link href="/admin">
@@ -258,7 +258,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen overflow-y-auto shadow-xl">
+      <aside className="hidden lg:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <SidebarContent />
       </aside>
 
@@ -279,7 +279,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               animate={{ x: 0 }}
               exit={{ x: isRtl ? '100%' : '-100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className={`fixed top-0 ${isRtl ? 'end-0' : 'start-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl lg:hidden overflow-y-auto`}
+              className={`fixed top-0 ${isRtl ? 'end-0' : 'start-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl lg:hidden [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
             >
               <SidebarContent />
             </motion.aside>

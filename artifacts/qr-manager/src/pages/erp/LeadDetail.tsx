@@ -201,13 +201,13 @@ export default function ErpLeadDetail() {
             )}
             {lead.convertedProjectId && (
               <div className="col-span-2">
-                <dt className="text-slate-400">{t('erp_from_lead')}</dt>
-                <dd className="mt-0.5">
+                <dt className="text-slate-400 mb-0.5">{t('erp_from_lead')}</dt>
+                <dd>
                   <button
                     onClick={() => navigate(`/erp/projects/${lead.convertedProjectId}`)}
-                    className="text-[#1B2A4A] font-semibold underline underline-offset-2 text-sm"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-600 hover:text-teal-800 hover:underline underline-offset-2 transition-colors"
                   >
-                    {t('erp_projects_title')} #{lead.convertedProjectId}
+                    {t('erp_view_project')}
                   </button>
                 </dd>
               </div>
