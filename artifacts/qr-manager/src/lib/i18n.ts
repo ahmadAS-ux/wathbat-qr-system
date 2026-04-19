@@ -245,6 +245,8 @@ export const translations = {
     detect_create_submit: "Create & Upload",
     detect_cancel: "Cancel",
     detect_customer_name: "Customer name",
+    glass_confirm_title: "Upload glass order",
+    glass_confirm_upload: "Upload",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -490,6 +492,8 @@ export const translations = {
     detect_create_submit: "إنشاء ورفع",
     detect_cancel: "إلغاء",
     detect_customer_name: "اسم العميل",
+    glass_confirm_title: "رفع طلبية الزجاج",
+    glass_confirm_upload: "رفع",
   }
 };
 

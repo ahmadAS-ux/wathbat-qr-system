@@ -4,6 +4,30 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.4.2] - April 2026
+
+### Changed (Frontend — ProjectDetail.tsx detect-first glass order)
+
+- Replaced the 409-based conflict dialog in `ProjectDetail.tsx` with a detect-first flow
+- When a `glass_order` file is selected, `POST /api/erp/files/detect-project` is called first to extract the Orgadata name before uploading
+- New `GlassOrderConfirmDialog` shows the orgadata name pill (same style as v2.4.1) and:
+  - If names match: single "Upload" confirm button (no conflict steps needed)
+  - If names differ: "Update system name" / "Keep current name" / "Cancel" — same resolution options as the old 409 dialog
+- Detecting spinner shown in the file row's upload button while the detect call is in-flight
+- Graceful fallback: if `detect-project` fails for any reason, upload proceeds directly (no regression)
+- Removed `ConflictData` interface and `conflictData` state; replaced by `GlassDetectResult` + `glassDetect`
+- 2 new i18n keys: `glass_confirm_title` + `glass_confirm_upload` (ar + en)
+
+### Why
+
+Issue #4 extension — detect-first UX is now consistent across all upload entry points:
+Home.tsx (v2.4.1) and ProjectDetail.tsx (v2.4.2) both show the orgadata name before committing the upload.
+
+### Gate 12 — Version Bump
+All 3 package.json files synced to 2.4.2.
+
+---
+
 ## [2.4.1] - April 2026
 
 ### Added (Frontend — Home.tsx project picker dialog)

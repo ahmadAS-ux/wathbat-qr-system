@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
 interface ProjectFile {
@@ -25,10 +25,11 @@ interface QROrder {
   reportFileId: number;
 }
 
-interface ConflictData {
+interface GlassDetectResult {
   orgadataName: string;
-  systemName: string;
+  orgadataPerson: string | null;
   pendingFile: File;
+  nameMatches: boolean;
 }
 
 interface Project {
@@ -100,7 +101,8 @@ export default function ErpProjectDetail() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFileType, setPendingFileType] = useState<string>('');
-  const [conflictData, setConflictData] = useState<ConflictData | null>(null);
+  const [detectingGlass, setDetectingGlass] = useState(false);
+  const [glassDetect, setGlassDetect] = useState<GlassDetectResult | null>(null);
   const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
 
@@ -160,15 +162,10 @@ export default function ErpProjectDetail() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('fileType', fileType);
-      const res = await fetch(
+      await fetch(
         `${API_BASE}/api/erp/projects/${id}/files${extraQuery}`,
         { method: 'POST', body: fd }
       );
-      if (res.status === 409 && fileType === 'glass_order') {
-        const data = await res.json();
-        setConflictData({ orgadataName: data.orgadataName, systemName: data.systemName, pendingFile: file });
-        return;
-      }
       if (fileType === 'glass_order') {
         await loadQrOrders();
       } else {
@@ -177,20 +174,46 @@ export default function ErpProjectDetail() {
     } finally {
       setUploadingFor(null);
       setPendingFileType('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !pendingFileType) return;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (pendingFileType === 'glass_order') {
+      setDetectingGlass(true);
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch(`${API_BASE}/api/erp/files/detect-project`, {
+          method: 'POST',
+          body: fd,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const nameMatches =
+            (data.orgadataName ?? '').toLowerCase().trim() ===
+            (project?.name ?? '').toLowerCase().trim();
+          setDetectingGlass(false);
+          setGlassDetect({ orgadataName: data.orgadataName, orgadataPerson: data.orgadataPerson, pendingFile: file, nameMatches });
+          return;
+        }
+      } catch {}
+      setDetectingGlass(false);
+      // Fallback: upload directly if detect fails
+      await uploadFile(file, 'glass_order');
+      return;
+    }
+
     await uploadFile(file, pendingFileType);
   };
 
-  const handleConflictDecision = async (updateName: boolean) => {
-    if (!conflictData) return;
-    const { pendingFile } = conflictData;
-    setConflictData(null);
+  const handleGlassConfirm = async (updateName: boolean) => {
+    if (!glassDetect) return;
+    const { pendingFile } = glassDetect;
+    setGlassDetect(null);
     await uploadFile(pendingFile, 'glass_order', `?confirm=true&updateName=${updateName}`);
     if (updateName) await loadProject();
   };
@@ -355,7 +378,7 @@ export default function ErpProjectDetail() {
         </div>
 
         {/* Files Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
           <h2 className="font-semibold text-[#1B2A4A] mb-4">{t('erp_project_files')}</h2>
           <input
             ref={fileInputRef}
@@ -367,6 +390,7 @@ export default function ErpProjectDetail() {
             {FILE_TYPES.map(ft => {
               const existing = fileFor(ft.value);
               const isUploading = uploadingFor === ft.value;
+              const isDetecting = detectingGlass && pendingFileType === ft.value;
               return (
                 <div key={ft.value} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
                   <FileText className="w-4 h-4 text-slate-400 shrink-0" />
@@ -391,12 +415,12 @@ export default function ErpProjectDetail() {
                     {canUpload && (
                       <button
                         onClick={() => triggerUpload(ft.value)}
-                        disabled={isUploading}
+                        disabled={isUploading || isDetecting}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40"
                         title={existing ? t('erp_file_replace') : t('erp_file_upload')}
                       >
-                        {isUploading ? (
-                          <span className="text-xs">...</span>
+                        {(isUploading || isDetecting) ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <Upload className="w-4 h-4" />
                         )}
@@ -448,53 +472,108 @@ export default function ErpProjectDetail() {
 
       </div>
 
-      {/* Conflict Dialog */}
-      {conflictData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setConflictData(null)}>
+      {/* Glass Order Confirmation Dialog */}
+      {glassDetect && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setGlassDetect(null)}
+        >
           <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden"
             dir={isRtl ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
+            {/* Header */}
             <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                <h3 className="font-semibold text-slate-900 text-sm">{t('qr_conflict_title')}</h3>
+                {glassDetect.nameMatches ? (
+                  <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                )}
+                <h3 className={`font-semibold text-slate-900 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {glassDetect.nameMatches ? t('glass_confirm_title') : t('qr_conflict_title')}
+                </h3>
               </div>
-              <button onClick={() => setConflictData(null)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+              <button
+                onClick={() => setGlassDetect(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Body */}
             <div className="px-6 py-5 space-y-4">
-              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-3 text-sm">
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
-                  <p className="font-semibold text-[#1B2A4A]">"{conflictData.systemName}"</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_orgadata_name')}</p>
-                  <p className="font-semibold text-slate-700" dir="ltr">"{conflictData.orgadataName}"</p>
-                </div>
+              {/* Orgadata name pill */}
+              <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <span className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {t('detect_orgadata_label')}:
+                </span>
+                <span
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#1B2A4A]/8 border border-[#1B2A4A]/12 text-[#1B2A4A] text-xs font-semibold"
+                  dir="ltr"
+                >
+                  {glassDetect.orgadataName}
+                </span>
+                {glassDetect.orgadataPerson && (
+                  <span className="text-xs text-slate-400" dir="ltr">{glassDetect.orgadataPerson}</span>
+                )}
               </div>
+
+              {/* Name comparison (only when names differ) */}
+              {!glassDetect.nameMatches && (
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-3 text-sm">
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
+                    <p className="font-semibold text-[#1B2A4A]">"{project.name}"</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_orgadata_name')}</p>
+                    <p className="font-semibold text-slate-700" dir="ltr">"{glassDetect.orgadataName}"</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
               <div className={`flex flex-wrap gap-2 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <button
-                  onClick={() => handleConflictDecision(true)}
-                  className="flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors"
-                >
-                  {t('qr_conflict_update')}
-                </button>
-                <button
-                  onClick={() => handleConflictDecision(false)}
-                  className="flex-1 px-4 py-2 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  {t('qr_conflict_keep')}
-                </button>
-                <button
-                  onClick={() => setConflictData(null)}
-                  className="px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  {t('qr_conflict_cancel')}
-                </button>
+                {glassDetect.nameMatches ? (
+                  <>
+                    <button
+                      onClick={() => handleGlassConfirm(false)}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                    >
+                      {t('glass_confirm_upload')}
+                    </button>
+                    <button
+                      onClick={() => setGlassDetect(null)}
+                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                    >
+                      {t('detect_cancel')}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleGlassConfirm(true)}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                    >
+                      {t('qr_conflict_update')}
+                    </button>
+                    <button
+                      onClick={() => handleGlassConfirm(false)}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                    >
+                      {t('qr_conflict_keep')}
+                    </button>
+                    <button
+                      onClick={() => setGlassDetect(null)}
+                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                    >
+                      {t('qr_conflict_cancel')}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
