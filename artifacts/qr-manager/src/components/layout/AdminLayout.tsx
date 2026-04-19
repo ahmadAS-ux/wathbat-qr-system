@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, Briefcase, CreditCard, List, Settings, Upload, ChevronDown,
+  Menu, Users2, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -127,20 +127,31 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               {!mfgCollapsed && (
                 <div className="space-y-0.5">
                   {isErpUser && (
-                    <Link href="/erp/leads">
-                      <div
-                        onClick={() => handleNavClick('/erp/leads', false)}
-                        className={navItem(isActive('/erp/leads', false) || isActive('/erp/projects', false))}
-                      >
-                        <Briefcase className={navIcon(isActive('/erp/leads', false) || isActive('/erp/projects', false))} />
-                        <span className="flex-1">{t('erp_leads_nav')}</span>
-                        {overdueCount > 0 && (
-                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                            {overdueCount}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
+                    <>
+                      <Link href="/erp/leads">
+                        <div
+                          onClick={() => handleNavClick('/erp/leads', false)}
+                          className={navItem(isActive('/erp/leads', false))}
+                        >
+                          <Users2 className={navIcon(isActive('/erp/leads', false))} />
+                          <span className="flex-1">{t('erp_clients_nav')}</span>
+                          {overdueCount > 0 && (
+                            <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                              {overdueCount}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                      <Link href="/erp/projects">
+                        <div
+                          onClick={() => handleNavClick('/erp/projects', false)}
+                          className={navItem(isActive('/erp/projects', false))}
+                        >
+                          <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
+                          <span className="flex-1">{t('erp_projects_nav')}</span>
+                        </div>
+                      </Link>
+                    </>
                   )}
                   {isPaymentsUser && (
                     <Link href="/erp/payments">

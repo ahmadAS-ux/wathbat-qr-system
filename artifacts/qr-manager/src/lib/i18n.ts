@@ -153,6 +153,8 @@ export const translations = {
     // ERP — Leads
     erp_section_label: "Manufacturing System",
     erp_leads_nav: "Clients & Projects",
+    erp_clients_nav: "Clients",
+    erp_projects_nav: "Projects",
     erp_vendors_nav: "Vendors",
     erp_payments_nav: "Payments",
     erp_leads_title: "Leads",
@@ -504,6 +506,8 @@ export const translations = {
     // ERP — Leads
     erp_section_label: "نظام التصنيع",
     erp_leads_nav: "العملاء والمشاريع",
+    erp_clients_nav: "العملاء",
+    erp_projects_nav: "المشاريع",
     erp_vendors_nav: "الموردين",
     erp_payments_nav: "المدفوعات",
     erp_leads_title: "العملاء المحتملون",
