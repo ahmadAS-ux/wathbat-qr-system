@@ -157,8 +157,8 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ## Version & Phase Status
 
-- **Current:** v2.4.2 — ProjectDetail detect-first glass order (Issue #4 complete)
-- **Previous:** v2.4.1 — Home.tsx project picker dialog
+- **Current:** v2.5.0 — Project Files 6-slot cleanup (5 Orgadata + 1 Qoyod multi-file)
+- **Previous:** v2.4.2 — ProjectDetail detect-first glass order (Issue #4 complete)
 - **Baseline:** v1.0 (tag `v1.0`, commit `c3ee916`) — original QR Asset Manager, safe rollback point
 
 ### ERP Phase Status

@@ -11,7 +11,15 @@ import {
   processedDocsTable,
   dropdownOptionsTable,
   usersTable,
+  PROJECT_FILE_TYPES,
+  DEPRECATED_FILE_TYPES,
+  MULTI_FILE_TYPES,
 } from "@workspace/db";
+
+// TODO v2.5.x: when Phase 2 payments endpoint is added, payment proof uploads
+// must save to fileType='qoyod' with optional metadata { milestoneId, purpose }.
+// The dedicated qoyod_deposit/qoyod_payment slots were replaced by a single
+// multi-file 'qoyod' slot in v2.5.0.
 import { requireRole } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
 import { parseAndInjectQR } from "./qr.js";
@@ -431,7 +439,10 @@ router.get("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Re
       originalFilename: projectFilesTable.originalFilename,
       uploadedAt: projectFilesTable.uploadedAt,
       uploadedBy: projectFilesTable.uploadedBy,
-    }).from(projectFilesTable).where(eq(projectFilesTable.projectId, id));
+      uploadedByName: usersTable.username,
+    }).from(projectFilesTable)
+      .leftJoin(usersTable, eq(projectFilesTable.uploadedBy, usersTable.id))
+      .where(eq(projectFilesTable.projectId, id));
     res.json({ ...project, files });
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id failed");
@@ -486,6 +497,16 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
       return;
     }
     const sess = session(req);
+
+    // ── v2.5.0: fileType validation ──────────────────────────────────────────
+    if ((DEPRECATED_FILE_TYPES as readonly string[]).includes(fileType)) {
+      res.status(400).json({ error: "This file type has been deprecated in v2.5.0. Valid types: glass_order, price_quotation, section, assembly_list, cut_optimisation, qoyod." });
+      return;
+    }
+    if (fileType !== "glass_order" && !(PROJECT_FILE_TYPES as readonly string[]).includes(fileType)) {
+      res.status(400).json({ error: "Invalid fileType" });
+      return;
+    }
 
     // ── Glass order: QR pipeline → processed_docs ──────────────────────────
     if (fileType === "glass_order") {
@@ -563,7 +584,8 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
     }
 
     // ── All other file types → project_files ────────────────────────────────
-    if (fileType !== "attachment") {
+    // Multi-file types (e.g. qoyod) accumulate; single-file types replace on re-upload
+    if (!(MULTI_FILE_TYPES as readonly string[]).includes(fileType)) {
       await db.delete(projectFilesTable).where(
         and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, fileType))
       );
@@ -607,11 +629,20 @@ router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), 
 });
 
 // DELETE /erp/projects/:id/files/:fileId — delete file
-router.delete("/erp/projects/:id/files/:fileId", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+// Admin, FactoryManager, Accountant, or the user who uploaded it
+router.delete("/erp/projects/:id/files/:fileId", async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
+    const sess = session(req);
+    const [file] = await db.select({ uploadedBy: projectFilesTable.uploadedBy }).from(projectFilesTable).where(eq(projectFilesTable.id, fileId));
+    if (!file) return notFound(res);
+    const allowed = ['Admin', 'FactoryManager', 'Accountant'].includes(sess.role) || file.uploadedBy === sess.userId;
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     await db.delete(projectFilesTable).where(eq(projectFilesTable.id, fileId));
-    res.json({ ok: true });
+    res.status(204).send();
   } catch (err) {
     logger.error({ err }, "DELETE /erp/projects/:id/files/:fileId failed");
     res.status(500).json({ error: "Internal error" });

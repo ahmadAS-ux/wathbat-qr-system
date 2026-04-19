@@ -228,7 +228,22 @@ async function runStartupMigrations() {
   }
 }
 
-runStartupMigrations().then(() => {
+runStartupMigrations().then(async () => {
+  // v2.5.0: log count of legacy fileTypes still in DB (informational)
+  try {
+    const legacyCounts = await db.execute(sql`
+      SELECT file_type, COUNT(*) as c
+      FROM project_files
+      WHERE file_type IN ('technical_doc', 'qoyod_deposit', 'qoyod_payment', 'attachment')
+      GROUP BY file_type
+    `);
+    if (legacyCounts.rows.length > 0) {
+      logger.info({ legacy: Object.fromEntries(legacyCounts.rows.map((r: any) => [r.file_type, r.c])) }, "[v2.5.0] Legacy fileTypes hidden from UI");
+    }
+  } catch (err) {
+    logger.warn({ err }, "[v2.5.0] Could not count legacy fileTypes");
+  }
+
   app.listen(port, (err) => {
     if (err) {
       logger.error({ err }, "Error listening on port");

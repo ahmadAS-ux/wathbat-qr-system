@@ -154,14 +154,14 @@ export const projects = pgTable('projects', {
 export const projectFiles = pgTable('project_files', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').notNull().references(() => projects.id),
-  fileType: text('file_type').notNull(), // 'glass_order'|'technical_doc'|'price_quotation'|'qoyod_deposit'|'qoyod_payment'|'attachment'
+  fileType: text('file_type').notNull(), // v2.5.0 valid: 'glass_order'|'price_quotation'|'section'|'assembly_list'|'cut_optimisation'|'qoyod' (multi-file). Legacy (hidden): 'technical_doc'|'qoyod_deposit'|'qoyod_payment'|'attachment'
   originalFilename: text('original_filename').notNull(),
   fileData: customType<{ data: Buffer }>({   // BYTEA
     dataType() { return 'bytea'; },
   })('file_data').notNull(),
   uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
   uploadedBy: integer('uploaded_by').notNull().references(() => users.id),
-  // One file per fileType per project (re-upload replaces old). Exception: 'attachment' allows multiple.
+  // One file per fileType per project (re-upload replaces old). Exception: 'qoyod' is multi-file (accumulates).
 });
 ```
 
@@ -501,7 +501,9 @@ new → followup → converted (→ project created)
 
 ### Stage 5: Deposit Confirmed
 
-**Actions:** Accountant uploads Qoyod deposit document → marks first payment milestone as paid → project activates
+**Actions:** Accountant uploads Qoyod document to the **Qoyod slot** (multi-file) → marks first payment milestone as paid → project activates
+
+**Note (v2.5.0):** `qoyod_deposit` and `qoyod_payment` slots were merged into a single multi-file `qoyod` slot. Optional metadata `{ milestoneId, purpose: 'deposit'|'partial'|'final' }` links uploads to a specific payment milestone (Phase 2).
 
 **Stage advance:** deposit marked paid → `stage_internal = 5`, `stage_display = 'in_production'`
 
@@ -557,7 +559,7 @@ new → followup → converted (→ project created)
 
 **Overdue logic:** `dueDate < today AND status = 'pending'` → show warning on dashboard
 
-**Accountant marks paid:** uploads Qoyod doc → milestone status = 'paid'
+**Accountant marks paid:** uploads Qoyod document to the **Qoyod slot** (multi-file) → milestone status = 'paid'. Optional metadata `{ milestoneId, purpose: 'deposit'|'partial'|'final' }` links the upload to a specific milestone (Phase 2).
 
 ---
 
@@ -575,13 +577,21 @@ new → followup → converted (→ project created)
 
 ## 7. Orgadata File Types
 
-| File | `fileType` value | Parsed? | How used |
-|---|---|---|---|
-| Glass/Panel Order | `glass_order` | ✅ Yes (existing system) | Triggers QR code generation |
-| Technical Document | `technical_doc` | ⏳ Waiting for sample | Linked to POs + manufacturing orders |
-| Price Quotation | `price_quotation` | ⏳ Waiting for sample | Source for customer quotation + contract |
+v2.5.0 — 6-slot layout (5 Orgadata + 1 Qoyod multi-file bucket)
 
-**Rule:** All 3 files are `.docx`. Re-uploading replaces. Orgadata keeps version history — we don't need to.
+| File | `fileType` value | Multi-file? | Parsed? | How used |
+|---|---|---|---|---|
+| Glass / Panel Order | `glass_order` | No | ✅ Yes (QR pipeline) | Triggers QR code generation |
+| Quotation | `price_quotation` | No | ⏳ Parser in v2.5.1 | Source for customer quotation + contract |
+| Section | `section` | No | ⏳ Parser in v2.5.1 | Technical section drawing |
+| Assembly List | `assembly_list` | No | Stored only — not parsed | Manufacturing reference |
+| Cut Optimisation | `cut_optimisation` | No | Stored only — not parsed | Manufacturing reference |
+| Qoyod | `qoyod` | **Yes** | N/A | Multi-file bucket for all payment proof documents (deposits, partial payments, final payments) |
+
+**Rules:**
+- All Orgadata files are `.docx`. Re-uploading a single-file slot replaces the old row.
+- `qoyod` is multi-file — new uploads accumulate (no replacement). Each file is individually deletable.
+- Legacy types `technical_doc`, `qoyod_deposit`, `qoyod_payment`, `attachment` are no longer accepted for new uploads (returns 400). Existing DB rows are preserved but hidden from UI.
 
 ---
 
@@ -606,7 +616,11 @@ Sidebar (existing + new):
 
 ## 9. Phased Build Plan
 
----
+## 🔄 Active Sub-Phase Work
+
+Some Phases are broken into smaller versioned releases.  
+Current active work is always documented in `CLAUDE.md` under 
+"Current Active Work" section — read that before starting any session.
 
 ### ✅ Phase 1: Leads + Projects + File Upload — COMPLETE (v2.2)
 

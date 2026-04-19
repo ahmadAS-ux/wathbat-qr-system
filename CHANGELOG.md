@@ -4,6 +4,47 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.5.0] - April 2026
+
+### Changed — Project Files Slots Cleanup (UI + backend validation)
+
+**Backend (`artifacts/api-server/`)**
+- Created `lib/db/src/constants/file-types.ts` — single source of truth for `PROJECT_FILE_TYPES`, `DEPRECATED_FILE_TYPES`, `MULTI_FILE_TYPES`, `UI_SLOT_ORDER`
+- Added `lib/db/src/constants/index.ts` and exported from `lib/db/src/index.ts`
+- `POST /api/erp/projects/:id/files`: validates `fileType` — deprecated types (`technical_doc`, `qoyod_deposit`, `qoyod_payment`, `attachment`) return 400 with deprecation message; invalid types return 400
+- Multi-file behavior: `qoyod` uploads accumulate (no deletion of prior files); all other types replace on re-upload
+- `GET /api/erp/projects/:id`: files now include `uploadedByName` (joined from users table)
+- `DELETE /api/erp/projects/:id/files/:fileId`: permissions expanded to Admin / FactoryManager / Accountant / file owner (was ADMIN_FM only); returns 204 No Content
+- Startup log: counts legacy fileType rows in DB (`technical_doc`, `qoyod_deposit`, `qoyod_payment`, `attachment`) — informational only, zero behavioral impact
+- TODO comment added in `erp.ts` for Phase 2 payment milestone upload integration
+
+**Frontend (`artifacts/qr-manager/`)**
+- Project Files card replaced: 5 slots → 6 slots in new order:
+  1. Glass / Panel Order (`glass_order`) — single-file
+  2. Quotation (`price_quotation`) — single-file, renamed from "Price Quotation"
+  3. Section (`section`) — single-file, new
+  4. Assembly List (`assembly_list`) — single-file, new
+  5. Cut Optimisation (`cut_optimisation`) — single-file, new
+  6. Qoyod (`qoyod`) — **multi-file**: shows file list with uploader name, date, download + delete per file; "Add file" button; empty state with Upload button
+- Removed `FILE_TYPES` constant; replaced with `FILE_SLOTS` (6 entries with `multiFile` flag)
+- Added `deleteFile()` handler calling `DELETE /api/erp/projects/:id/files/:fileId`
+- 16 new i18n keys added (ar + en): `project_file_*` namespace
+
+**Docs**
+- `WORKFLOW_REFERENCE_v3.md` Section 3.4: updated `fileType` comment
+- `WORKFLOW_REFERENCE_v3.md` Section 7: replaced 3-row table with 6-row table; added multi-file and parser status columns
+- `WORKFLOW_REFERENCE_v3.md` Stage 5 + Stage 11: updated to reference Qoyod slot; noted v2.5.0 merge
+
+### Deprecated (hidden from UI, still in DB)
+- `technical_doc` — replaced by `section` + `assembly_list` + `cut_optimisation`
+- `qoyod_deposit` / `qoyod_payment` — merged into multi-file `qoyod` slot
+- `attachment` — removed
+
+### Gate 12 — Version Bump
+All 3 package.json files synced to 2.5.0.
+
+---
+
 ## [2.4.2] - April 2026
 
 ### Changed (Frontend — ProjectDetail.tsx detect-first glass order)

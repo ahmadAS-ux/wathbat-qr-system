@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
 interface ProjectFile {
@@ -13,6 +13,7 @@ interface ProjectFile {
   originalFilename: string;
   uploadedAt: string;
   uploadedBy: number;
+  uploadedByName?: string | null;
 }
 
 interface QROrder {
@@ -78,12 +79,13 @@ const INTERNAL_STAGES = [
   { n: 13, labelAr: 'مكتمل',              labelEn: 'Done'              },
 ];
 
-const FILE_TYPES = [
-  { value: 'glass_order',      labelAr: 'طلب الزجاج / الألواح', labelEn: 'Glass / Panel Order'   },
-  { value: 'technical_doc',    labelAr: 'الوثيقة الفنية',        labelEn: 'Technical Document'    },
-  { value: 'price_quotation',  labelAr: 'عرض السعر',             labelEn: 'Price Quotation'       },
-  { value: 'qoyod_deposit',    labelAr: 'مستند دفعة قيود',       labelEn: 'Qoyod Deposit'         },
-  { value: 'qoyod_payment',    labelAr: 'مستند سداد قيود',       labelEn: 'Qoyod Payment'         },
+const FILE_SLOTS = [
+  { fileType: 'glass_order',      labelAr: 'طلبية زجاج / ألواح', labelEn: 'Glass / Panel Order', multiFile: false },
+  { fileType: 'price_quotation',  labelAr: 'عرض السعر',          labelEn: 'Quotation',            multiFile: false },
+  { fileType: 'section',          labelAr: 'المقاطع',            labelEn: 'Section',              multiFile: false },
+  { fileType: 'assembly_list',    labelAr: 'قائمة التجميع',      labelEn: 'Assembly List',        multiFile: false },
+  { fileType: 'cut_optimisation', labelAr: 'تحسين القص',         labelEn: 'Cut Optimisation',     multiFile: false },
+  { fileType: 'qoyod',            labelAr: 'قيود',               labelEn: 'Qoyod',                multiFile: true  },
 ];
 
 export default function ErpProjectDetail() {
@@ -105,6 +107,7 @@ export default function ErpProjectDetail() {
   const [glassDetect, setGlassDetect] = useState<GlassDetectResult | null>(null);
   const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
@@ -223,6 +226,17 @@ export default function ErpProjectDetail() {
     a.href = `${API_BASE}/api/erp/projects/${id}/files/${fileId}`;
     a.download = filename;
     a.click();
+  };
+
+  const deleteFile = async (fileId: number) => {
+    if (!window.confirm(t('project_file_delete_confirm'))) return;
+    setDeletingFileId(fileId);
+    try {
+      await fetch(`${API_BASE}/api/erp/projects/${id}/files/${fileId}`, { method: 'DELETE' });
+      await loadProject();
+    } finally {
+      setDeletingFileId(null);
+    }
   };
 
   const fileFor = (fileType: string) =>
@@ -387,19 +401,100 @@ export default function ErpProjectDetail() {
             onChange={handleFileChange}
           />
           <div className="space-y-3">
-            {FILE_TYPES.map(ft => {
-              const existing = fileFor(ft.value);
-              const isUploading = uploadingFor === ft.value;
-              const isDetecting = detectingGlass && pendingFileType === ft.value;
+            {FILE_SLOTS.map(slot => {
+              const isUploading = uploadingFor === slot.fileType;
+              const isDetecting = detectingGlass && pendingFileType === slot.fileType;
+              const label = isRtl ? slot.labelAr : slot.labelEn;
+
+              if (slot.multiFile) {
+                // ── Qoyod multi-file slot ─────────────────────────────────────
+                const slotFiles = project?.files.filter(f => f.fileType === slot.fileType) ?? [];
+                return (
+                  <div key={slot.fileType} className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 p-3">
+                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                      <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
+                      {slotFiles.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#1B2A4A]/8 text-[#1B2A4A]">
+                          {slotFiles.length} {t('project_file_files_count').replace('{count}', String(slotFiles.length))}
+                        </span>
+                      )}
+                      {canUpload && (
+                        <button
+                          onClick={() => triggerUpload(slot.fileType)}
+                          disabled={isUploading}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#1B2A4A] hover:bg-white border border-slate-200 transition-colors disabled:opacity-40 shrink-0"
+                        >
+                          {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          {t('project_file_add_file')}
+                        </button>
+                      )}
+                    </div>
+                    {/* File list */}
+                    {slotFiles.length > 0 ? (
+                      <div className="border-t border-slate-100 divide-y divide-slate-100">
+                        {slotFiles.map(f => (
+                          <div key={f.id} className="flex items-center gap-3 px-3 py-2.5 bg-white">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-slate-700 truncate" dir="ltr">{f.originalFilename}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {f.uploadedByName && <span>{isRtl ? t('project_file_uploaded_by') : 'By'} <span dir="ltr">{f.uploadedByName}</span> · </span>}
+                                <span dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</span>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => downloadFile(f.id, f.originalFilename)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors"
+                                title={t('erp_file_download')}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                              {(canUpload || true) && (
+                                <button
+                                  onClick={() => deleteFile(f.id)}
+                                  disabled={deletingFileId === f.id}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                  title={t('project_file_delete')}
+                                >
+                                  {deletingFileId === f.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 px-3 py-4 text-center bg-white">
+                        <p className="text-xs text-slate-300 mb-2">{t('project_file_no_files')}</p>
+                        {canUpload && (
+                          <button
+                            onClick={() => triggerUpload(slot.fileType)}
+                            disabled={isUploading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] transition-colors disabled:opacity-40"
+                          >
+                            {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                            {t('erp_file_upload')}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Single-file slot ──────────────────────────────────────────
+              const existing = fileFor(slot.fileType);
               return (
-                <div key={ft.value} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                <div key={slot.fileType} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
                   <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700">{isRtl ? ft.labelAr : ft.labelEn}</p>
+                    <p className="text-sm font-medium text-slate-700">{label}</p>
                     {existing ? (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">{existing.originalFilename}</p>
+                      <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
                     ) : (
-                      <p className="text-xs text-slate-300 mt-0.5">{t('erp_file_none')}</p>
+                      <p className="text-xs text-slate-300 mt-0.5">{t('project_file_no_upload')}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -414,7 +509,7 @@ export default function ErpProjectDetail() {
                     )}
                     {canUpload && (
                       <button
-                        onClick={() => triggerUpload(ft.value)}
+                        onClick={() => triggerUpload(slot.fileType)}
                         disabled={isUploading || isDetecting}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40"
                         title={existing ? t('erp_file_replace') : t('erp_file_upload')}
