@@ -768,7 +768,7 @@ router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), 
 
 // DELETE /erp/projects/:id/files/:fileId — delete file
 // Admin, FactoryManager, Accountant, or the user who uploaded it
-router.delete("/erp/projects/:id/files/:fileId", async (req: Request, res: Response) => {
+router.delete("/erp/projects/:id/files/:fileId", requireRole("Admin", "FactoryManager"), async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
     const sess = session(req);
@@ -1128,7 +1128,7 @@ router.get("/erp/projects/:id/parsed-cut-optimisation", requireRole(...NO_SALES_
 // ─── PAYMENT MILESTONES ───────────────────────────────────────────────────────
 
 // GET /erp/projects/:id/payments — list milestones, auto-mark overdue
-router.get("/erp/projects/:id/payments", async (req: Request, res: Response) => {
+router.get("/erp/projects/:id/payments", requireRole("Admin", "FactoryManager", "Employee", "Accountant"), async (req: Request, res: Response) => {
   try {
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
@@ -1240,7 +1240,7 @@ router.patch("/erp/payments/:id", requireRole("Admin", "Accountant"), uploadAny.
 });
 
 // GET /erp/payments/overdue-count — total overdue milestones across all projects
-router.get("/erp/payments/overdue-count", async (req: Request, res: Response) => {
+router.get("/erp/payments/overdue-count", requireRole("Admin", "Accountant"), async (req: Request, res: Response) => {
   try {
     // Auto-mark overdue globally
     await db.execute(sql`
@@ -1261,7 +1261,7 @@ router.get("/erp/payments/overdue-count", async (req: Request, res: Response) =>
 });
 
 // GET /erp/payments/all — all milestones across all projects (with project name)
-router.get("/erp/payments/all", async (req: Request, res: Response) => {
+router.get("/erp/payments/all", requireRole("Admin", "Accountant"), async (req: Request, res: Response) => {
   try {
     // Auto-mark overdue
     await db.execute(sql`
