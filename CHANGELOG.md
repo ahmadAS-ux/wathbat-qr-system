@@ -4,6 +4,36 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.5.1] - April 2026
+
+### Added — Quotation + Section Parsers with 409 name-mismatch detection
+
+**Backend (`artifacts/api-server/`)**
+- New DB tables: `parsed_quotations`, `parsed_sections`, `parsed_section_drawings` (created on startup, idempotent)
+- `quotation-parser.ts`: extracts project name, quotation number (collapses digit-spaces), date (DD/MM/YYYY), position rows (code, qty, unit price, line total, description), grand totals. Fingerprint-deduplicates screen+print copies
+- `section-parser.ts`: extracts metadata (project name, system), walks `<a:blip>` in document order, dedupes consecutive duplicates, returns drawings with `orderIndex` preserved. `positionCode` is null — deferred to v2.5.2
+- `name-match.ts`: `normalizeProjectName` + `namesMatch` helpers (strips punctuation, lowercases, collapses spaces)
+- Upload handler `POST /api/erp/projects/:id/files`: after saving file, dispatches to parser based on `fileType`. **Parser failure does NOT roll back the file upload**
+- Quotation 409 flow: if project name in file ≠ system name, deletes the just-inserted file row and returns `{ error: 'PROJECT_NAME_MISMATCH', nameInFile, nameInSystem }`. Pass `?confirmNameMismatch=true` to bypass; add `?updateProjectName=true` to rename the project
+- Section name mismatch: warning-only (logs, does not block)
+- New GET endpoints: `GET /api/erp/projects/:id/parsed-quotation`, `GET /api/erp/projects/:id/parsed-section` (metadata + drawing list, no blobs), `GET /api/erp/drawings/:id` (streams image with `Cache-Control: public, max-age=3600`)
+- Parser unit tests in `src/lib/parsers/__tests__/` using `node:test` + fixture files from `test-fixtures/` (skipped gracefully if fixtures absent)
+
+**Frontend (`artifacts/qr-manager/`)**
+- `NameMismatchModal.tsx`: shows both names in styled boxes; three choices: Proceed & update project name (amber) / Proceed (bordered) / Cancel upload (gray). RTL-safe, both names LTR-wrapped
+- `ProjectDetail.tsx`: `uploadFile` now checks for 409 on `price_quotation` and sets `nameMismatch` state → modal shown → retry with `?confirmNameMismatch=true[&updateProjectName=true]`
+- 8 new i18n keys: `name_mismatch_*` + `parser_warning_toast` (ar + en)
+
+**Docs**
+- `WORKFLOW_REFERENCE_v3.md` Section 3: added `parsed_quotations`, `parsed_sections`, `parsed_section_drawings` schema definitions
+- `WORKFLOW_REFERENCE_v3.md` Section 7: Quotation + Section updated from "⏳ Parser in v2.5.1" → "✅ Parsed"
+- `WORKFLOW_REFERENCE_v3.md` Stage 2–3: updated to describe parser behavior and 409 flow
+
+### Gate 12 — Version Bump
+All 3 package.json files synced to 2.5.1.
+
+---
+
 ## [2.5.0] - April 2026
 
 ### Changed — Project Files Slots Cleanup (UI + backend validation)

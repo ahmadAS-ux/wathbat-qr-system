@@ -5,6 +5,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
+import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 
 interface ProjectFile {
   id: number;
@@ -31,6 +32,12 @@ interface GlassDetectResult {
   orgadataPerson: string | null;
   pendingFile: File;
   nameMatches: boolean;
+}
+
+interface NameMismatchData {
+  nameInFile: string;
+  nameInSystem: string;
+  pendingFile: File;
 }
 
 interface Project {
@@ -108,6 +115,7 @@ export default function ErpProjectDetail() {
   const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+  const [nameMismatch, setNameMismatch] = useState<NameMismatchData | null>(null);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
@@ -165,10 +173,15 @@ export default function ErpProjectDetail() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('fileType', fileType);
-      await fetch(
+      const res = await fetch(
         `${API_BASE}/api/erp/projects/${id}/files${extraQuery}`,
         { method: 'POST', body: fd }
       );
+      if (res.status === 409 && fileType === 'price_quotation') {
+        const conflict = await res.json();
+        setNameMismatch({ nameInFile: conflict.nameInFile, nameInSystem: conflict.nameInSystem, pendingFile: file });
+        return;
+      }
       if (fileType === 'glass_order') {
         await loadQrOrders();
       } else {
@@ -178,6 +191,17 @@ export default function ErpProjectDetail() {
       setUploadingFor(null);
       setPendingFileType('');
     }
+  };
+
+  const handleNameMismatchChoice = async (choice: NameMismatchChoice) => {
+    if (!nameMismatch) return;
+    const { pendingFile } = nameMismatch;
+    setNameMismatch(null);
+    if (choice === 'cancel') return;
+    const params = choice === 'proceedAndUpdate'
+      ? '?confirmNameMismatch=true&updateProjectName=true'
+      : '?confirmNameMismatch=true';
+    await uploadFile(pendingFile, 'price_quotation', params);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -566,6 +590,15 @@ export default function ErpProjectDetail() {
         </div>
 
       </div>
+
+      {/* Quotation Name Mismatch Modal */}
+      {nameMismatch && (
+        <NameMismatchModal
+          nameInFile={nameMismatch.nameInFile}
+          nameInSystem={nameMismatch.nameInSystem}
+          onChoice={handleNameMismatchChoice}
+        />
+      )}
 
       {/* Glass Order Confirmation Dialog */}
       {glassDetect && (

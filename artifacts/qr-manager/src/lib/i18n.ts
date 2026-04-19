@@ -262,6 +262,14 @@ export const translations = {
     project_file_deprecated_error: "This file type is no longer supported",
     project_file_uploaded_by: "Uploaded by",
     project_file_uploaded_on: "Uploaded on",
+    name_mismatch_title: "Project name mismatch",
+    name_mismatch_body: "The project name in the file does not match the name in the system",
+    name_mismatch_in_file: "In file",
+    name_mismatch_in_system: "In system",
+    name_mismatch_cancel: "Cancel upload",
+    name_mismatch_proceed: "Proceed",
+    name_mismatch_proceed_update: "Proceed & update project name",
+    parser_warning_toast: "File uploaded, but could not be parsed",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -524,6 +532,14 @@ export const translations = {
     project_file_deprecated_error: "نوع الملف غير مدعوم في هذه النسخة",
     project_file_uploaded_by: "رفع بواسطة",
     project_file_uploaded_on: "رفع في",
+    name_mismatch_title: "اسم المشروع في الملف مختلف",
+    name_mismatch_body: "اسم المشروع في الملف لا يطابق النظام",
+    name_mismatch_in_file: "في الملف",
+    name_mismatch_in_system: "في النظام",
+    name_mismatch_cancel: "إلغاء الرفع",
+    name_mismatch_proceed: "متابعة",
+    name_mismatch_proceed_update: "متابعة وتحديث اسم المشروع",
+    parser_warning_toast: "تم رفع الملف، لكن تعذّر تحليله",
   }
 };
 

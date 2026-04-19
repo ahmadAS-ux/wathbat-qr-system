@@ -162,6 +162,52 @@ async function runStartupMigrations() {
       )
     `);
 
+    // v2.5.1: parsed quotation + section tables
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parsed_quotations (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source_file_id INTEGER NOT NULL REFERENCES project_files(id) ON DELETE CASCADE,
+        project_name_in_file TEXT,
+        quotation_number TEXT,
+        quotation_date TEXT,
+        currency TEXT NOT NULL DEFAULT 'SAR',
+        positions JSONB NOT NULL DEFAULT '[]',
+        subtotal_net TEXT,
+        tax_rate TEXT,
+        tax_amount TEXT,
+        grand_total TEXT,
+        raw_position_count INTEGER NOT NULL DEFAULT 0,
+        deduped_position_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parsed_sections (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source_file_id INTEGER NOT NULL REFERENCES project_files(id) ON DELETE CASCADE,
+        project_name_in_file TEXT,
+        system TEXT,
+        drawing_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parsed_section_drawings (
+        id SERIAL PRIMARY KEY,
+        parsed_section_id INTEGER NOT NULL REFERENCES parsed_sections(id) ON DELETE CASCADE,
+        order_index INTEGER NOT NULL,
+        position_code TEXT,
+        media_filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL DEFAULT 'image/png',
+        image_data BYTEA NOT NULL,
+        width_px INTEGER,
+        height_px INTEGER,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
     await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);
 

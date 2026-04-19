@@ -165,7 +165,58 @@ export const projectFiles = pgTable('project_files', {
 });
 ```
 
-### 3.5 `vendors` table
+### 3.5 `parsed_quotations` table (v2.5.1)
+
+```typescript
+// lib/db/src/schema/parsed_quotations.ts
+export const parsedQuotationsTable = pgTable('parsed_quotations', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projectsTable.id, { onDelete: 'cascade' }),
+  sourceFileId: integer('source_file_id').notNull().references(() => projectFilesTable.id, { onDelete: 'cascade' }),
+  projectNameInFile: text('project_name_in_file'),   // "ROSE VILLA - A111"
+  quotationNumber: text('quotation_number'),          // "6162" (digits only)
+  quotationDate: text('quotation_date'),              // "18/04/2026" (DD/MM/YYYY)
+  currency: text('currency').notNull().default('SAR'),
+  positions: jsonb('positions').notNull(),            // Array<{ position, quantity, description, unitPrice, lineTotal }>
+  subtotalNet: text('subtotal_net'),                  // "361,496.0"
+  taxRate: text('tax_rate'),                          // "15.00"
+  taxAmount: text('tax_amount'),                      // "54,224.4"
+  grandTotal: text('grand_total'),                    // "415,720.4"
+  rawPositionCount: integer('raw_position_count').notNull(),
+  dedupedPositionCount: integer('deduped_position_count').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+### 3.6 `parsed_sections` + `parsed_section_drawings` tables (v2.5.1)
+
+```typescript
+// lib/db/src/schema/parsed_sections.ts
+export const parsedSectionsTable = pgTable('parsed_sections', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projectsTable.id, { onDelete: 'cascade' }),
+  sourceFileId: integer('source_file_id').notNull().references(() => projectFilesTable.id, { onDelete: 'cascade' }),
+  projectNameInFile: text('project_name_in_file'),   // "ROSE VILLA A111"
+  system: text('system'),                             // "PRESTIGE ALINCO Italian Series (BETA)"
+  drawingCount: integer('drawing_count').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const parsedSectionDrawingsTable = pgTable('parsed_section_drawings', {
+  id: serial('id').primaryKey(),
+  parsedSectionId: integer('parsed_section_id').notNull().references(() => parsedSectionsTable.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').notNull(),       // preserves document order
+  positionCode: text('position_code'),                // null in v2.5.1 — matched in v2.5.2
+  mediaFilename: text('media_filename').notNull(),
+  mimeType: text('mime_type').notNull().default('image/png'),
+  imageData: bytea('image_data').notNull(),
+  widthPx: integer('width_px'),
+  heightPx: integer('height_px'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+### 3.7 `vendors` table
 
 ```typescript
 // lib/db/src/schema/vendors.ts
@@ -476,12 +527,13 @@ new → followup → converted (→ project created)
 
 ### Stage 2–3: Technical Study + Quotation
 
-**Actions:** upload Orgadata Technical Document + Price Quotation `.docx` files
+**Actions:** upload Orgadata Section + Price Quotation `.docx` files (v2.5.0+ slots)
 
 **File upload rules:**
-- Re-uploading same `fileType` deletes old file from DB and stores new one
+- Re-uploading same `fileType` deletes old file from DB and stores new one (single-file slots)
 - Glass/Panel Order (`glass_order`) triggers **existing QR generation pipeline** automatically
-- Technical Document and Price Quotation are stored but NOT parsed until sample files are received from Ahmad
+- **Quotation upload (`price_quotation`)** triggers parser → extracts positions/prices/totals into `parsed_quotations`. Returns **409 Conflict** if project name in file doesn't match system name — frontend shows `NameMismatchModal` (Proceed / Proceed & update name / Cancel)
+- **Section upload (`section`)** triggers parser → extracts all embedded drawings into `parsed_section_drawings` (261 drawings typical). Name mismatch is warning-only (non-blocking)
 
 **Stage advance:** after quotation sent to customer → `stage_internal = 3`, `stage_display = 'in_study'`
 
@@ -582,8 +634,8 @@ v2.5.0 — 6-slot layout (5 Orgadata + 1 Qoyod multi-file bucket)
 | File | `fileType` value | Multi-file? | Parsed? | How used |
 |---|---|---|---|---|
 | Glass / Panel Order | `glass_order` | No | ✅ Yes (QR pipeline) | Triggers QR code generation |
-| Quotation | `price_quotation` | No | ⏳ Parser in v2.5.1 | Source for customer quotation + contract |
-| Section | `section` | No | ⏳ Parser in v2.5.1 | Technical section drawing |
+| Quotation | `price_quotation` | No | ✅ Parsed (v2.5.1) | Extracts positions, prices, totals → `parsed_quotations`. 409 on project name mismatch. |
+| Section | `section` | No | ✅ Parsed (v2.5.1) | Extracts all embedded drawings in document order → `parsed_section_drawings`. |
 | Assembly List | `assembly_list` | No | Stored only — not parsed | Manufacturing reference |
 | Cut Optimisation | `cut_optimisation` | No | Stored only — not parsed | Manufacturing reference |
 | Qoyod | `qoyod` | **Yes** | N/A | Multi-file bucket for all payment proof documents (deposits, partial payments, final payments) |

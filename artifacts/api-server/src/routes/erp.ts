@@ -11,10 +11,17 @@ import {
   processedDocsTable,
   dropdownOptionsTable,
   usersTable,
+  parsedQuotationsTable,
+  parsedSectionsTable,
+  parsedSectionDrawingsTable,
   PROJECT_FILE_TYPES,
   DEPRECATED_FILE_TYPES,
   MULTI_FILE_TYPES,
 } from "@workspace/db";
+import { asc } from "drizzle-orm";
+import { parseQuotationDocx } from "../lib/parsers/quotation-parser.js";
+import { parseSectionDocx } from "../lib/parsers/section-parser.js";
+import { namesMatch } from "../lib/parsers/name-match.js";
 
 // TODO v2.5.x: when Phase 2 payments endpoint is added, payment proof uploads
 // must save to fileType='qoyod' with optional metadata { milestoneId, purpose }.
@@ -599,6 +606,93 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
       uploadedBy: sess.userId,
     }).returning();
 
+    const newFileId = row.id;
+    const fileBuffer = req.file.buffer;
+
+    // ── Post-save parsers (failure does NOT roll back the file upload) ────────
+    if (fileType === 'price_quotation') {
+      try {
+        const parsed = parseQuotationDocx(fileBuffer);
+
+        // 409 Conflict: project name in file vs system name
+        const [project] = await db.select({ name: projectsTable.name }).from(projectsTable).where(eq(projectsTable.id, projectId));
+        if (parsed.projectName && project?.name && !namesMatch(parsed.projectName, project.name)) {
+          const confirmed = req.query.confirmNameMismatch === 'true';
+          if (!confirmed) {
+            await db.delete(projectFilesTable).where(eq(projectFilesTable.id, newFileId));
+            res.status(409).json({
+              error: 'PROJECT_NAME_MISMATCH',
+              message: 'Project name in file does not match project in system',
+              nameInFile: parsed.projectName,
+              nameInSystem: project.name,
+              hint: 'Re-submit with ?confirmNameMismatch=true to proceed, or cancel the upload',
+            });
+            return;
+          }
+          if (req.query.updateProjectName === 'true') {
+            await db.update(projectsTable).set({ name: parsed.projectName }).where(eq(projectsTable.id, projectId));
+          }
+        }
+
+        await db.delete(parsedQuotationsTable).where(eq(parsedQuotationsTable.projectId, projectId));
+        await db.insert(parsedQuotationsTable).values({
+          projectId,
+          sourceFileId: newFileId,
+          projectNameInFile: parsed.projectName,
+          quotationNumber: parsed.quotationNumber,
+          quotationDate: parsed.quotationDate,
+          positions: parsed.positions,
+          subtotalNet: parsed.subtotalNet,
+          taxRate: parsed.taxRate,
+          taxAmount: parsed.taxAmount,
+          grandTotal: parsed.grandTotal,
+          rawPositionCount: parsed.rawPositionCount,
+          dedupedPositionCount: parsed.dedupedPositionCount,
+        });
+      } catch (err) {
+        logger.warn({ err }, '[v2.5.1] Quotation parser failed — file saved but not parsed');
+      }
+    }
+
+    if (fileType === 'section') {
+      try {
+        const parsed = parseSectionDocx(fileBuffer);
+
+        const [project] = await db.select({ name: projectsTable.name }).from(projectsTable).where(eq(projectsTable.id, projectId));
+        const nameMatchesSection = parsed.projectName && project?.name
+          ? namesMatch(parsed.projectName, project.name)
+          : true;
+        if (!nameMatchesSection) {
+          logger.warn(`[v2.5.1] Section file project name mismatch: "${parsed.projectName}" vs "${project?.name}" — stored anyway`);
+        }
+
+        await db.delete(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
+
+        const [sectionRow] = await db.insert(parsedSectionsTable).values({
+          projectId,
+          sourceFileId: newFileId,
+          projectNameInFile: parsed.projectName,
+          system: parsed.system,
+          drawingCount: parsed.drawings.length,
+        }).returning();
+
+        const CHUNK = 50;
+        for (let i = 0; i < parsed.drawings.length; i += CHUNK) {
+          const chunk = parsed.drawings.slice(i, i + CHUNK).map(d => ({
+            parsedSectionId: sectionRow.id,
+            orderIndex: d.orderIndex,
+            positionCode: d.positionCode,
+            mediaFilename: d.mediaFilename,
+            mimeType: d.mimeType,
+            imageData: d.imageData,
+          }));
+          await db.insert(parsedSectionDrawingsTable).values(chunk);
+        }
+      } catch (err) {
+        logger.warn({ err }, '[v2.5.1] Section parser failed — file saved but not parsed');
+      }
+    }
+
     res.status(201).json({
       id: row.id,
       projectId: row.projectId,
@@ -781,5 +875,58 @@ router.post(
     }
   }
 );
+
+// GET /erp/projects/:id/parsed-quotation — returns latest parsed quotation for the project
+router.get("/erp/projects/:id/parsed-quotation", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [row] = await db.select().from(parsedQuotationsTable).where(eq(parsedQuotationsTable.projectId, projectId));
+    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/parsed-quotation failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/parsed-section — returns parsed section metadata + drawing list (no blobs)
+router.get("/erp/projects/:id/parsed-section", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [row] = await db.select().from(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
+    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    const drawings = await db.select({
+      id: parsedSectionDrawingsTable.id,
+      orderIndex: parsedSectionDrawingsTable.orderIndex,
+      positionCode: parsedSectionDrawingsTable.positionCode,
+      mediaFilename: parsedSectionDrawingsTable.mediaFilename,
+      mimeType: parsedSectionDrawingsTable.mimeType,
+    }).from(parsedSectionDrawingsTable)
+      .where(eq(parsedSectionDrawingsTable.parsedSectionId, row.id))
+      .orderBy(asc(parsedSectionDrawingsTable.orderIndex));
+    res.json({ ...row, drawings });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/parsed-section failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/drawings/:id — streams a single section drawing image
+router.get("/erp/drawings/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [row] = await db.select().from(parsedSectionDrawingsTable).where(eq(parsedSectionDrawingsTable.id, id));
+    if (!row) return notFound(res);
+    res.setHeader('Content-Type', row.mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(row.imageData);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/drawings/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
 
 export default router;
