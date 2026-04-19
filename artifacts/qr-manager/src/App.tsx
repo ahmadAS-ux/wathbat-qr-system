@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/hooks/use-language";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Header } from "@/components/layout/Header";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -57,13 +58,15 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
   return <Component />;
 }
 
+const QrUpload = () => <AdminLayout><Home /></AdminLayout>;
+
 function AppRoutes() {
   const [location] = useLocation();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const isScanPage = location === '/scan';
   const isLoginPage = location === '/login';
-  const isAdminPage = location.startsWith('/admin') || location.startsWith('/erp');
+  const isAdminPage = location.startsWith('/admin') || location.startsWith('/erp') || location.startsWith('/qr');
 
   // Redirect already-logged-in users away from /login
   useEffect(() => {
@@ -78,7 +81,8 @@ function AppRoutes() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/scan" component={Scan} />
-        <Route path="/" component={P(Home)} />
+        <Route path="/" component={P(Admin)} />
+        <Route path="/qr/upload" component={P(QrUpload)} />
         <Route path="/admin" component={P(Admin)} />
         <Route path="/admin/history" component={P(AdminHistory)} />
         <Route path="/admin/requests" component={P(AdminRequests)} />

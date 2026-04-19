@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, QrCode, Briefcase, Truck, CreditCard, List, Settings,
+  Menu, QrCode, Briefcase, Truck, CreditCard, List, Settings, Upload,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -46,6 +46,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/history', label: t('archive_title'), icon: Archive, exact: false },
     { href: '/admin/requests', label: t('requests_title'), icon: Wrench, exact: false },
     ...(isAdmin ? [
+      { href: '/qr/upload',       label: t('qr_upload_nav'),         icon: Upload, exact: true },
       { href: '/admin/users',     label: t('users_nav'),             icon: Users, exact: false },
       { href: '/admin/dropdowns', label: t('dropdown_editor_title'), icon: List,  exact: false },
     ] : []),
