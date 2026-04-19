@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable } from "@workspace/db";
-import { sql, eq } from "drizzle-orm";
+import { db, usersTable, dropdownOptionsTable, systemSettings } from "@workspace/db";
+import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 
 const rawPort = process.env["PORT"];
@@ -208,6 +208,16 @@ async function runStartupMigrations() {
       )
     `);
 
+    // v2.5.2: system settings (contract template, etc.)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        id SERIAL PRIMARY KEY,
+        key TEXT NOT NULL UNIQUE,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
     await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);
 
@@ -275,6 +285,82 @@ async function runStartupMigrations() {
 }
 
 runStartupMigrations().then(async () => {
+  // v2.5.2: seed default contract template sections
+  try {
+    const templateKeys = [
+      'contract_cover_intro_ar',
+      'contract_cover_intro_en',
+      'contract_terms_ar',
+      'contract_terms_en',
+      'contract_signature_block_ar',
+      'contract_signature_block_en',
+    ];
+    const existing = await db.select().from(systemSettings)
+      .where(inArray(systemSettings.key, templateKeys));
+    const existingKeys = new Set(existing.map(r => r.key));
+
+    const defaults: Record<string, string> = {
+      contract_cover_intro_ar: `بسم الله الرحمن الرحيم
+
+يتم الاتفاق بين شركة {{companyName}} والعميل الكريم {{customerName}} على تنفيذ أعمال مشروع {{projectName}} وفق المواصفات والشروط المذكورة في هذا العقد.
+
+رقم عرض السعر: {{quotationNumber}}
+تاريخ عرض السعر: {{quotationDate}}
+تاريخ العقد: {{today}}`,
+
+      contract_cover_intro_en: `In the name of Allah, the Most Gracious, the Most Merciful
+
+This contract is made between {{companyName}} and the valued customer {{customerName}} for the execution of the {{projectName}} project according to the specifications and terms stated in this contract.
+
+Quotation No.: {{quotationNumber}}
+Quotation Date: {{quotationDate}}
+Contract Date: {{today}}`,
+
+      contract_terms_ar: `الشروط والأحكام:
+
+1. تعتبر هذه الأسعار سارية لمدة 30 يوماً من تاريخ العقد.
+2. يلتزم الطرف الثاني بدفع دفعة مقدمة بنسبة 30% عند توقيع العقد.
+3. يتم التوريد والتركيب خلال المدة المتفق عليها بعد استلام الدفعة المقدمة.
+4. جميع الأعمال مضمونة لمدة 12 شهراً من تاريخ التسليم النهائي.
+5. أي تعديلات على المواصفات بعد توقيع العقد قد تؤدي إلى تغيير السعر والجدول الزمني.
+6. تخضع هذه الاتفاقية لأحكام نظام العمل السعودي.`,
+
+      contract_terms_en: `Terms and Conditions:
+
+1. These prices are valid for 30 days from the contract date.
+2. The second party shall pay a 30% advance payment upon signing this contract.
+3. Supply and installation shall be completed within the agreed timeframe after the advance payment is received.
+4. All works are warranted for 12 months from the final delivery date.
+5. Any modifications to specifications after signing may result in price and timeline changes.
+6. This agreement is subject to the regulations of Saudi Arabian labor law.`,
+
+      contract_signature_block_ar: `الطرف الأول / {{companyName}}                الطرف الثاني / {{customerName}}
+
+الاسم: _______________________                الاسم: _______________________
+
+التوقيع: ______________________                التوقيع: ______________________
+
+التاريخ: ______________________                التاريخ: ______________________`,
+
+      contract_signature_block_en: `First Party / {{companyName}}                Second Party / {{customerName}}
+
+Name: _______________________                Name: _______________________
+
+Signature: ___________________                Signature: ___________________
+
+Date: _______________________                Date: _______________________`,
+    };
+
+    for (const key of templateKeys) {
+      if (!existingKeys.has(key)) {
+        await db.insert(systemSettings).values({ key, value: defaults[key] });
+      }
+    }
+    logger.info('[v2.5.2] Contract template seed check complete');
+  } catch (err) {
+    logger.warn({ err }, '[v2.5.2] Contract template seed failed');
+  }
+
   // v2.5.0: log count of legacy fileTypes still in DB (informational)
   try {
     const legacyCounts = await db.execute(sql`

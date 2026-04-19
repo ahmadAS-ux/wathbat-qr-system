@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import AdmZip from "adm-zip";
-import { eq, and, lt, sql, ne, isNull, or, desc } from "drizzle-orm";
+import { eq, and, lt, sql, ne, isNull, or, desc, inArray } from "drizzle-orm";
 import {
   db,
   leadsTable,
@@ -14,6 +14,7 @@ import {
   parsedQuotationsTable,
   parsedSectionsTable,
   parsedSectionDrawingsTable,
+  systemSettings,
   PROJECT_FILE_TYPES,
   DEPRECATED_FILE_TYPES,
   MULTI_FILE_TYPES,
@@ -926,6 +927,130 @@ router.get("/erp/drawings/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Re
   } catch (err) {
     logger.error({ err }, "GET /erp/drawings/:id failed");
     res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── SETTINGS — CONTRACT TEMPLATE ────────────────────────────────────────────
+
+const CONTRACT_TEMPLATE_KEYS = [
+  'contract_cover_intro_ar',
+  'contract_cover_intro_en',
+  'contract_terms_ar',
+  'contract_terms_en',
+  'contract_signature_block_ar',
+  'contract_signature_block_en',
+] as const;
+
+// GET /erp/settings/contract-template — Admin only
+router.get('/erp/settings/contract-template', requireRole(...ADMIN_ONLY), async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(systemSettings)
+      .where(inArray(systemSettings.key, [...CONTRACT_TEMPLATE_KEYS]));
+    const obj = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    res.json(obj);
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/settings/contract-template failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /erp/settings/contract-template — Admin only
+router.put('/erp/settings/contract-template', requireRole(...ADMIN_ONLY), async (req: Request, res: Response) => {
+  try {
+    const updates = req.body as Record<string, unknown>;
+    for (const key of Object.keys(updates)) {
+      if (!(CONTRACT_TEMPLATE_KEYS as readonly string[]).includes(key)) continue;
+      const val = updates[key];
+      if (typeof val !== 'string') continue;
+      if (val.length > 10000) { res.status(400).json({ error: 'Value too long (max 10000 chars)' }); return; }
+      await db.insert(systemSettings)
+        .values({ key, value: val })
+        .onConflictDoUpdate({ target: systemSettings.key, set: { value: val, updatedAt: new Date() } });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'PUT /erp/settings/contract-template failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ─── CONTRACT ─────────────────────────────────────────────────────────────────
+
+// GET /erp/projects/:id/contract — returns all data needed to render contract page
+router.get('/erp/projects/:id/contract', requireRole('Admin', 'FactoryManager', 'SalesAgent'), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!project) return notFound(res);
+
+    const [quotation] = await db.select().from(parsedQuotationsTable)
+      .where(eq(parsedQuotationsTable.projectId, projectId));
+
+    const [section] = await db.select({
+      id: parsedSectionsTable.id,
+      projectId: parsedSectionsTable.projectId,
+      sourceFileId: parsedSectionsTable.sourceFileId,
+      projectNameInFile: parsedSectionsTable.projectNameInFile,
+      system: parsedSectionsTable.system,
+      drawingCount: parsedSectionsTable.drawingCount,
+      createdAt: parsedSectionsTable.createdAt,
+    }).from(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
+
+    let drawings: Array<{ id: number; orderIndex: number; positionCode: string | null; mimeType: string }> = [];
+    if (section) {
+      drawings = await db.select({
+        id: parsedSectionDrawingsTable.id,
+        orderIndex: parsedSectionDrawingsTable.orderIndex,
+        positionCode: parsedSectionDrawingsTable.positionCode,
+        mimeType: parsedSectionDrawingsTable.mimeType,
+      }).from(parsedSectionDrawingsTable)
+        .where(eq(parsedSectionDrawingsTable.parsedSectionId, section.id))
+        .orderBy(asc(parsedSectionDrawingsTable.orderIndex));
+    }
+
+    const templateRows = await db.select().from(systemSettings)
+      .where(inArray(systemSettings.key, [...CONTRACT_TEMPLATE_KEYS]));
+    const template = Object.fromEntries(templateRows.map(r => [r.key, r.value]));
+
+    res.json({ project, quotation: quotation ?? null, section: section ?? null, drawings, template });
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/projects/:id/contract failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /erp/projects/:id/contract/override-log — logs when user overrides integrity errors
+router.post('/erp/projects/:id/contract/override-log', requireRole('Admin', 'FactoryManager', 'SalesAgent'), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    const { issueCodes } = req.body as { issueCodes?: string[] };
+    const sess = session(req);
+    logger.warn(`[v2.5.2] Contract print override — project ${projectId}, user ${sess.userId}, issues: ${(issueCodes || []).join(',')}`);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'POST /erp/projects/:id/contract/override-log failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /erp/projects/:id/contract/mark-printed — advances stageInternal to 4 when contract is printed
+router.post('/erp/projects/:id/contract/mark-printed', requireRole('Admin', 'FactoryManager', 'SalesAgent'), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [proj] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!proj) return notFound(res);
+    if ((proj.stageInternal ?? 0) < 4) {
+      await db.update(projectsTable)
+        .set({ stageInternal: 4, stageDisplay: 'in_study' })
+        .where(eq(projectsTable.id, projectId));
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'POST /erp/projects/:id/contract/mark-printed failed');
+    res.status(500).json({ error: 'Internal error' });
   }
 });
 

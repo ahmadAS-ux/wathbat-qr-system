@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, QrCode, Briefcase, Truck, CreditCard, List,
+  Menu, QrCode, Briefcase, Truck, CreditCard, List, Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -125,6 +125,32 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-3 mb-2">
                 {isRtl ? t('erp_section_label') : t('erp_section_label')}
               </p>
+
+              {/* الإعدادات — Admin only */}
+              {isAdmin && (
+                <Link href="/erp/settings">
+                  <div
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group ${
+                      isActive('/erp/settings', false)
+                        ? 'bg-white/[0.12] text-white'
+                        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07]'
+                    }`}
+                  >
+                    <Settings
+                      className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                        isActive('/erp/settings', false)
+                          ? 'text-[#C89B3C]'
+                          : 'text-white/40 group-hover:text-white/70'
+                      }`}
+                    />
+                    <span className="flex-1">{isRtl ? 'الإعدادات' : 'Settings'}</span>
+                    {isActive('/erp/settings', false) && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0 ms-auto" />
+                    )}
+                  </div>
+                </Link>
+              )}
 
               {/* العملاء والمشاريع */}
               <Link href="/erp/leads">

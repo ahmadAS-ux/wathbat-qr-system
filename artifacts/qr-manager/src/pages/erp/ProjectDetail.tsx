@@ -552,6 +552,32 @@ export default function ErpProjectDetail() {
           </div>
         </div>
 
+        {/* Generate Contract — Stage 4 — visible to Admin, FactoryManager, SalesAgent */}
+        {(user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent') && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+            <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div>
+                <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {isRtl ? 'العقد — المرحلة 4' : 'Contract — Stage 4'}
+                </h2>
+                {!project?.files?.some(f => f.fileType === 'price_quotation') && (
+                  <p className={`text-xs text-slate-400 mt-0.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    {t('contract_generate_disabled_tooltip')}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => navigate(`/erp/projects/${id}/contract`)}
+                disabled={!project?.files?.some(f => f.fileType === 'price_quotation')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#243860] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+              >
+                <FileText className="w-4 h-4" />
+                {t('contract_generate_button')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* QR Orders Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
           <div className="flex items-center gap-2 mb-4">

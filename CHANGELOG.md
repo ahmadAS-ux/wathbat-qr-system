@@ -4,6 +4,28 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.5.2] - April 2026
+
+### Added — Contract Generator (A4 printable HTML + Settings template + Integrity Check)
+
+- **`system_settings` DB table** — key-value store for admin-editable settings; seeded with 6 contract template keys on startup
+- **`GET/PUT /api/erp/settings/contract-template`** — Admin-only endpoint to read/upsert contract template sections
+- **`GET /api/erp/projects/:id/contract`** — Returns project + quotation + section + drawing metadata + template for contract rendering
+- **`POST /api/erp/projects/:id/contract/mark-printed`** — Advances stageInternal to 4 when contract is printed
+- **`POST /api/erp/projects/:id/contract/override-log`** — Logs integrity override events
+- **Contract page** at `/erp/projects/:id/contract` — cover page → positions table → drawings (1 per A4 page) → terms + signature
+- **Print CSS** using `@page size: A4` + `page-break-after: always` — no PDF library, browser native
+- **Drawings** loaded lazily via `<img src="/api/erp/drawings/:id">` — no base64 blobs
+- **`{{placeholder}}` rendering** — `renderPlaceholders()` + `findUnresolved()` for template substitution
+- **Contract Integrity Check** (`contract-integrity.ts`) — runs on page load, returns green/amber/red + issue list; blocks print on errors
+- **Override flow** — confirmation modal → logs to backend → enables one print session
+- **Admin Settings page** at `/erp/settings` (Admin only) — Contract Template editor with 6 textareas, placeholder reference card, RTL-aware (Tajawal/DM Sans)
+- **"Generate / Print Contract" button** on ProjectDetail — visible to Admin/FactoryManager/SalesAgent; disabled if no quotation uploaded
+- **38 new i18n keys** (`contract_*`) in both Arabic and English
+- Updated `WORKFLOW_REFERENCE_v3.md`: Stage 4, Section 3.7 (system_settings), Section 8 (navigation)
+
+---
+
 ## [2.5.1] - April 2026
 
 ### Added — Quotation + Section Parsers with 409 name-mismatch detection

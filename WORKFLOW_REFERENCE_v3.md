@@ -216,7 +216,25 @@ export const parsedSectionDrawingsTable = pgTable('parsed_section_drawings', {
 });
 ```
 
-### 3.7 `vendors` table
+### 3.7 `system_settings` table (v2.5.2)
+
+Key-value store for admin-editable settings (contract template, future: warranty default, etc.).
+
+```typescript
+// lib/db/src/schema/system_settings.ts
+export const systemSettings = pgTable('system_settings', {
+  id: serial('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+```
+
+Seeded on startup (idempotent): 6 contract template keys — `contract_cover_intro_ar/en`, `contract_terms_ar/en`, `contract_signature_block_ar/en`.
+
+---
+
+### 3.8 `vendors` table
 
 ```typescript
 // lib/db/src/schema/vendors.ts
@@ -541,13 +559,24 @@ new → followup → converted (→ project created)
 
 ### Stage 4: Contract
 
-**Actions:** system generates branded contract PDF from project data + terms template
+**Actions:** system renders branded contract as a printable HTML page. User prints or saves as PDF via browser.
 
-**Contract fields pulled from project:** customerName, projectName, deliveryDeadline, paymentMilestones, productInterest
+**Contract fields pulled from project:** customerName, projectName, deliveryDeadline, productInterest + parsed_quotations data
 
-**Terms template:** stored in `system_settings` table (key: `contract_terms_ar`, `contract_terms_en`)
+**Template sections:** stored in `system_settings` table — 6 keys:
+- `contract_cover_intro_ar`, `contract_cover_intro_en` — cover page intro text
+- `contract_terms_ar`, `contract_terms_en` — terms and conditions
+- `contract_signature_block_ar`, `contract_signature_block_en` — signature lines
+- All support `{{placeholder}}` syntax (customerName, projectName, quotationNumber, quotationDate, deliveryDeadline, grandTotal, subtotalNet, taxRate, taxAmount, today, companyName)
 
-**PDF generation:** use `pdfkit` or `puppeteer` — TBD based on Ahmad's contract format sample
+**Contract page:** `/erp/projects/:id/contract` — cover → positions table → drawings (1 per page) → terms + signature
+**Print CSS:** `@page size: A4` + `page-break-after: always` — no PDF library
+**Drawings:** loaded via `<img src="/api/erp/drawings/:id">` — lazy, no base64 blobs
+**Integrity check:** runs on page load, blocks print if errors (name mismatch, missing files, unresolved placeholders, totals mismatch)
+**Override:** user can override with confirmation + backend log
+**Stage advance:** `POST /contract/mark-printed` advances stageInternal → 4 on print
+**Permissions:** Admin, FactoryManager, SalesAgent
+**Template editor:** Admin Settings page at `/erp/settings`
 
 ---
 
@@ -659,7 +688,7 @@ Sidebar (existing + new):
 ├── 👥 المشاريع والعملاء  — NEW: Leads tab + Projects tab
 ├── 🏭 الموردين            — NEW: Vendors + POs
 ├── 💰 المدفوعات          — NEW: Payment milestones + warnings
-└── ⚙️ الإعدادات          — existing Settings + new: dropdown editor, contract terms, warranty default
+└── ⚙️ الإعدادات          — Admin only: dropdown editor, contract template editor (v2.5.2) at `/erp/settings`
 ```
 
 **Project page is the heart of the system.** Timeline view shows internal stages 0–13 scrolling down. Next action always at top.
