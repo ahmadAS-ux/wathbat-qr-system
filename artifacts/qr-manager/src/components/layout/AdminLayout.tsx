@@ -3,9 +3,9 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown,
+  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
@@ -21,8 +21,43 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
   const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
+  const [searchQ, setSearchQ] = useState('');
+  const [searchResults, setSearchResults] = useState<{ type: string; id: number; name: string; subtitle: string; url: string }[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const [mfgCollapsed, setMfgCollapsed] = useState(() => localStorage.getItem('sidebar_mfg_collapsed') === 'true');
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
+
+  const canSearch = user?.role !== 'Accountant';
+
+  useEffect(() => {
+    if (!canSearch || searchQ.trim().length < 2) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/erp/search?q=${encodeURIComponent(searchQ.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+          setSearchOpen(true);
+        }
+      } catch { /* ignore */ }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQ, canSearch]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const isAdmin = user?.role === 'Admin';
   const isErpUser = user?.role !== 'Accountant';
@@ -108,6 +143,52 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           </Link>
         </div>
+
+        {/* Search */}
+        {canSearch && (
+          <div ref={searchRef} className="px-3 pt-3 pb-2 relative">
+            <div className="relative">
+              <Search className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-white/30 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQ}
+                onChange={e => { setSearchQ(e.target.value); if (e.target.value.trim().length >= 2) setSearchOpen(true); }}
+                onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); } }}
+                placeholder={t('sidebar_search_placeholder')}
+                className="w-full bg-white/[0.07] border border-white/10 rounded-xl ps-8 pe-3 py-2 text-xs text-white/80 placeholder:text-white/30 focus:outline-none focus:bg-white/[0.10] focus:border-white/20 transition-all"
+              />
+            </div>
+            {searchOpen && (
+              <div className="absolute start-3 end-3 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-50">
+                {searchResults.length === 0 ? (
+                  <p className={`px-4 py-3 text-xs text-slate-400 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('search_no_results')}</p>
+                ) : (
+                  <ul>
+                    {searchResults.map(r => (
+                      <li key={`${r.type}-${r.id}`}>
+                        <button
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 transition-colors text-start ${isRtl ? 'flex-row-reverse' : ''}`}
+                          onClick={() => { navigate(r.url); setSearchOpen(false); setSearchQ(''); setMobileOpen(false); }}
+                        >
+                          <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                            {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-slate-500" /> : <FolderOpen className="w-3.5 h-3.5 text-slate-500" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold text-slate-800 truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.name}</p>
+                            <p className={`text-[10px] text-slate-400 truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.subtitle}</p>
+                          </div>
+                          <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-blue-50 text-blue-600' : 'bg-teal-50 text-teal-600'}`}>
+                            {r.type === 'lead' ? t('search_type_lead') : t('search_type_project')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">

@@ -284,6 +284,46 @@ router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee
   }
 });
 
+// GET /erp/search — global search across leads + projects (min 2 chars)
+router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
+  try {
+    const q = ((req.query.q as string) ?? "").trim();
+    if (!q || q.length < 2) { res.json([]); return; }
+    const sess = session(req);
+    const pattern = `%${q}%`;
+    const results: { type: string; id: number; name: string; subtitle: string; url: string }[] = [];
+
+    // Search leads (not for Accountant)
+    if (sess.role !== "Accountant") {
+      const leadRows = await db.execute(
+        sql`SELECT id, customer_name, phone, status FROM leads
+            WHERE customer_name ILIKE ${pattern} OR phone ILIKE ${pattern}
+            ORDER BY created_at DESC LIMIT 5`
+      );
+      for (const r of leadRows.rows as any[]) {
+        results.push({ type: "lead", id: r.id, name: r.customer_name, subtitle: r.phone ?? "", url: `/erp/leads/${r.id}` });
+      }
+    }
+
+    // Search projects (not for SalesAgent or Accountant)
+    if (sess.role !== "SalesAgent" && sess.role !== "Accountant") {
+      const projRows = await db.execute(
+        sql`SELECT id, name, customer_name FROM projects
+            WHERE name ILIKE ${pattern} OR customer_name ILIKE ${pattern}
+            ORDER BY created_at DESC LIMIT 5`
+      );
+      for (const r of projRows.rows as any[]) {
+        results.push({ type: "project", id: r.id, name: r.name, subtitle: r.customer_name ?? "", url: `/erp/projects/${r.id}` });
+      }
+    }
+
+    res.json(results.slice(0, 8));
+  } catch (err) {
+    logger.error({ err }, "GET /erp/search failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // GET /erp/leads/:id — detail + logs
 router.get("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
@@ -320,15 +360,38 @@ router.patch("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee"
   }
 });
 
-// DELETE /erp/leads/:id — Admin/FactoryManager only
+// DELETE /erp/leads/:id — Admin/FactoryManager only (cascades linked projects)
 router.delete("/erp/leads/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    // Cascade delete any converted projects linked to this lead
+    const linkedProjects = await db.select({ id: projectsTable.id })
+      .from(projectsTable)
+      .where(eq(projectsTable.fromLeadId, id));
+    for (const proj of linkedProjects) {
+      await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, proj.id));
+      await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, proj.id));
+      await db.delete(projectsTable).where(eq(projectsTable.id, proj.id));
+    }
     await db.delete(leadLogsTable).where(eq(leadLogsTable.leadId, id));
     await db.delete(leadsTable).where(eq(leadsTable.id, id));
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "DELETE /erp/leads/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/leads/:id/linked-projects — returns projects converted from this lead
+router.get("/erp/leads/:id/linked-projects", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const projects = await db.select({ id: projectsTable.id, name: projectsTable.name })
+      .from(projectsTable)
+      .where(eq(projectsTable.fromLeadId, id));
+    res.json(projects);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/leads/:id/linked-projects failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -555,7 +618,10 @@ router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: 
 router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    // payment_milestones has no onDelete cascade — must delete explicitly
+    await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
     await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, id));
+    // parsed_* tables have onDelete:'cascade' on projectId — deleted automatically
     await db.delete(projectsTable).where(eq(projectsTable.id, id));
     res.json({ ok: true });
   } catch (err) {

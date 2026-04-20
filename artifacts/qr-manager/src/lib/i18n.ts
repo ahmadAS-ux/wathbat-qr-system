@@ -396,6 +396,20 @@ export const translations = {
     toast_error: "An error occurred",
     toast_created: "Created successfully",
     toast_deleted: "Deleted",
+    // Delete confirmations
+    del_project_title: "Are you sure you want to delete this project?",
+    del_project_warning: "All linked files and payments will be deleted",
+    del_lead_title: "Delete this client?",
+    del_lead_linked: "This client has {count} linked projects that will also be deleted:",
+    del_all_btn: "Delete All",
+    del_btn: "Delete",
+    del_file_title: "Delete this file?",
+    del_deleting: "Deleting...",
+    // Global search
+    sidebar_search_placeholder: "Search...",
+    search_no_results: "No results",
+    search_type_lead: "Client",
+    search_type_project: "Project",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -792,6 +806,20 @@ export const translations = {
     toast_error: "حدث خطأ",
     toast_created: "تم الإنشاء بنجاح",
     toast_deleted: "تم الحذف",
+    // Delete confirmations
+    del_project_title: "هل أنت متأكد من حذف هذا المشروع؟",
+    del_project_warning: "سيتم حذف جميع الملفات والدفعات المرتبطة",
+    del_lead_title: "هل تريد حذف هذا العميل؟",
+    del_lead_linked: "هذا العميل مرتبط بـ {count} مشاريع — سيتم حذف المشاريع التالية أيضاً:",
+    del_all_btn: "حذف الكل",
+    del_btn: "حذف",
+    del_file_title: "حذف هذا الملف؟",
+    del_deleting: "جاري الحذف...",
+    // Global search
+    sidebar_search_placeholder: "بحث...",
+    search_no_results: "لا نتائج",
+    search_type_lead: "عميل",
+    search_type_project: "مشروع",
   }
 };
 

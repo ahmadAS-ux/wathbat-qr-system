@@ -179,8 +179,12 @@ export default function ErpProjectDetail() {
   const [payForm, setPayForm] = useState({ paidAmount: '', notes: '', file: null as File | null });
   const [markingPaid, setMarkingPaid] = useState(false);
   const payFileInputRef = useRef<HTMLInputElement>(null);
+  const [showDeleteProject, setShowDeleteProject] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
+  const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<number | null>(null);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
+  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
 
   const canUpload = user?.role !== 'SalesAgent' && user?.role !== 'Accountant';
   const canManagePayments = user?.role === 'Admin' || user?.role === 'Accountant';
@@ -397,13 +401,23 @@ export default function ErpProjectDetail() {
   };
 
   const deleteFile = async (fileId: number) => {
-    if (!window.confirm(t('project_file_delete_confirm'))) return;
+    setConfirmDeleteFileId(null);
     setDeletingFileId(fileId);
     try {
       await fetch(`${API_BASE}/api/erp/projects/${id}/files/${fileId}`, { method: 'DELETE' });
       await loadProject();
     } finally {
       setDeletingFileId(null);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    setDeletingProject(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}`, { method: 'DELETE' });
+      if (res.ok) navigate('/erp/projects');
+    } finally {
+      setDeletingProject(false);
     }
   };
 
@@ -447,10 +461,21 @@ export default function ErpProjectDetail() {
               <p className="text-slate-500 text-sm mt-0.5">{project.customerName}</p>
               {project.phone && <p className="text-slate-400 text-xs mt-0.5" dir="ltr">{project.phone}</p>}
             </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${stageStyle.bg} ${stageStyle.text} ${stageStyle.border}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
-              {stageDisplayLabel[project.stageDisplay] ?? project.stageDisplay}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${stageStyle.bg} ${stageStyle.text} ${stageStyle.border}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                {stageDisplayLabel[project.stageDisplay] ?? project.stageDisplay}
+              </span>
+              {canDelete && (
+                <button
+                  onClick={() => setShowDeleteProject(true)}
+                  className="p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  title={t('del_btn')}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -619,9 +644,9 @@ export default function ErpProjectDetail() {
                               >
                                 <Download className="w-3.5 h-3.5" />
                               </button>
-                              {(canUpload || true) && (
+                              {canDelete && (
                                 <button
-                                  onClick={() => deleteFile(f.id)}
+                                  onClick={() => setConfirmDeleteFileId(f.id)}
                                   disabled={deletingFileId === f.id}
                                   className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                                   title={t('project_file_delete')}
@@ -1166,6 +1191,64 @@ export default function ErpProjectDetail() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Project Modal */}
+      {showDeleteProject && project && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-red-600" />
+              </div>
+              <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_project_title')}</h2>
+            </div>
+            <div className="mb-1 ms-12">
+              <p className={`font-semibold text-slate-800 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>{project.name}</p>
+              <p className={`text-slate-500 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>{project.customerName}</p>
+            </div>
+            <p className={`text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mt-3 mb-4 ms-0 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              {t('del_project_warning')}
+            </p>
+            <div className={`flex gap-3 justify-end ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button onClick={() => setShowDeleteProject(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('erp_cancel')}
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={deletingProject}
+                className={`px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              >
+                {deletingProject ? t('del_deleting') : t('del_btn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete File Modal */}
+      {confirmDeleteFileId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-red-600" />
+              </div>
+              <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_file_title')}</h2>
+            </div>
+            <div className={`flex gap-3 justify-end ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button onClick={() => setConfirmDeleteFileId(null)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('erp_cancel')}
+              </button>
+              <button
+                onClick={() => deleteFile(confirmDeleteFileId)}
+                className={`px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              >
+                {t('del_btn')}
+              </button>
             </div>
           </div>
         </div>

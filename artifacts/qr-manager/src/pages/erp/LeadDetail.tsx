@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
 interface LeadLog {
@@ -57,10 +57,15 @@ export default function ErpLeadDetail() {
   const [loseReason, setLoseReason] = useState('');
   const [converting, setConverting] = useState(false);
   const [losing, setLosing] = useState(false);
+  const [showDeleteLead, setShowDeleteLead] = useState(false);
+  const [linkedProjects, setLinkedProjects] = useState<{ id: number; name: string }[]>([]);
+  const [loadingLinked, setLoadingLinked] = useState(false);
+  const [deletingLead, setDeletingLead] = useState(false);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
   const canConvert = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
+  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
 
   const loadLead = async () => {
     setLoading(true);
@@ -119,6 +124,27 @@ export default function ErpLeadDetail() {
     }
   };
 
+  const openDeleteModal = async () => {
+    setShowDeleteLead(true);
+    setLoadingLinked(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/leads/${id}/linked-projects`);
+      if (res.ok) setLinkedProjects(await res.json());
+    } finally {
+      setLoadingLinked(false);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    setDeletingLead(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/leads/${id}`, { method: 'DELETE' });
+      if (res.ok) navigate('/erp/leads');
+    } finally {
+      setDeletingLead(false);
+    }
+  };
+
   const statusLabel: Record<string, string> = {
     new: t('erp_lead_status_new'),
     followup: t('erp_lead_status_followup'),
@@ -155,9 +181,20 @@ export default function ErpLeadDetail() {
               <h1 className="text-xl font-bold text-[#1B2A4A]">{lead.customerName}</h1>
               <p className="text-slate-500 text-sm mt-0.5" dir="ltr">{lead.phone}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
-              {statusLabel[lead.status] ?? lead.status}
-            </span>
+            <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                {statusLabel[lead.status] ?? lead.status}
+              </span>
+              {canDelete && (
+                <button
+                  onClick={openDeleteModal}
+                  className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  title={t('del_btn')}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -328,6 +365,47 @@ export default function ErpLeadDetail() {
                 className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 {losing ? '...' : t('erp_lose_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Lead Modal */}
+      {showDeleteLead && lead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-red-600" />
+              </div>
+              <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_lead_title')}</h2>
+            </div>
+            <p className={`text-slate-700 font-semibold text-sm ms-12 mb-3 ${isRtl ? 'font-[Tajawal]' : ''}`}>{lead.customerName}</p>
+            {loadingLinked ? (
+              <p className="text-sm text-slate-400 mb-3">{t('processing')}</p>
+            ) : linkedProjects.length > 0 && (
+              <div className="mb-3">
+                <p className={`text-sm text-red-600 mb-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {t('del_lead_linked').replace('{count}', String(linkedProjects.length))}
+                </p>
+                <ul className="space-y-1">
+                  {linkedProjects.map(p => (
+                    <li key={p.id} className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-1.5 border border-slate-100">{p.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className={`flex gap-3 justify-end mt-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <button onClick={() => setShowDeleteLead(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('erp_cancel')}
+              </button>
+              <button
+                onClick={handleDeleteLead}
+                disabled={deletingLead || loadingLinked}
+                className={`px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              >
+                {deletingLead ? t('del_deleting') : linkedProjects.length > 0 ? t('del_all_btn') : t('del_btn')}
               </button>
             </div>
           </div>
