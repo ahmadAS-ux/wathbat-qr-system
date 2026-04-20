@@ -256,6 +256,48 @@ This is the EXACT flow that must work for any dropdown in the system:
    — On success: redirect to /erp/projects/:projectId
 ```
 
+### How Glass Order Data Flows (cross-system)
+
+The Glass/Panel Order is the primary cross-system handoff point between Layer 1 (QR) and Layer 2 (ERP). It can originate from two different upload paths and lands in two different tables. Both paths must remain visible in Project Detail.
+
+```
+PATH A — QR Upload (Home.tsx → processed_docs table):
+  1. User uploads a .docx on the QR Upload page (Home.tsx)
+  2. POST /api/qr/process → parseAndInjectQR() → saves to processed_docs
+     — Columns used: originalFilename, reportFilename, projectName, projectId (nullable),
+       positionCount, reportFile (HTML blob), originalFile (docx blob)
+  3. If the user selected a project before uploading: projectId is set in processed_docs
+  4. ERP Project Detail fetches:
+     GET /api/erp/projects/:id/qr-orders → returns rows from processed_docs WHERE project_id = :id
+  5. "Glass/Panel Order" file slot in ProjectDetail.tsx:
+     — Checks project_files first (fileFor('glass_order'))
+     — If no project_files entry: falls back to qrOrders[0] (most recent)
+     — Shows filename + "QR" badge; download opens GET /api/qr/download/:reportFileId
+     — GET /api/qr/download/:id is PUBLIC (no JWT) — added to app.ts skip list in v2.6.2
+
+PATH B — ERP Upload (ProjectDetail.tsx → project_files table):
+  1. User clicks Upload on the Glass/Panel Order slot in Project Detail
+  2. POST /api/erp/projects/:id/files with fileType='glass_order'
+  3. Backend saves to project_files: projectId, fileType, fileData (bytea), originalFilename
+  4. "Glass/Panel Order" slot shows the project_files entry (fileFor('glass_order') is non-null)
+  5. Download: GET /api/erp/projects/:id/files/:fileId (JWT-protected, uses global fetch patch)
+
+PRECEDENCE: project_files entry takes priority over qrOrders fallback.
+If both exist, the project_files entry is shown (the QR section at the bottom still lists all QR orders).
+
+KEY CONSTRAINT — Download link auth:
+  - project_files downloads go through the ERP endpoint (JWT added by global fetch patch in main.tsx)
+  - processed_docs downloads open /api/qr/download/:id in a new tab — MUST be a public endpoint
+    because <a target="_blank"> and window.open() do NOT send the JWT from localStorage
+  - NEVER add a target="_blank" link pointing to a JWT-protected endpoint
+```
+
+**Tables involved:**
+| Table | Layer | Populated by | Read by |
+|-------|-------|-------------|---------|
+| `processed_docs` | QR (Layer 1) | `POST /api/qr/process` | `GET /api/erp/projects/:id/qr-orders` |
+| `project_files` | ERP (Layer 2) | `POST /api/erp/projects/:id/files` | `GET /api/erp/projects/:id` (nested in `.files[]`) |
+
 ### How Role Permissions Work (end-to-end)
 
 ```

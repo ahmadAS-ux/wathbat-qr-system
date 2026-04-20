@@ -230,6 +230,28 @@ Every commit that adds a feature, fixes a bug, or changes behavior must:
 
 ---
 
+### Gate 13: Cross-System Integration ✅
+
+The QR system (Layer 1) and ERP system (Layer 2) share data. Every commit must verify data flows correctly between them.
+
+**QR → ERP visibility:**
+- [ ] Glass Orders uploaded via QR Upload page (Home.tsx → `POST /api/qr/process`) appear in the Project Detail "Glass/Panel Order" file slot — stored in `processed_docs`, linked by `project_id`, displayed via `GET /api/erp/projects/:id/qr-orders`
+- [ ] QR report download links work when opened from Project Detail — endpoint `GET /api/qr/download/:id` must be in the public skip list in `app.ts` (no JWT required)
+- [ ] QR Order count and position counts shown on Project Detail match the actual rows in `processed_docs` for this project
+
+**ERP → QR visibility:**
+- [ ] `project_id` foreign key in `processed_docs` is set when a QR file is uploaded with a linked project (via `?project_id=` query param or the ERP upload flow)
+- [ ] Files uploaded in Project Detail via the glass_order slot appear in the QR Orders section at the bottom of the same page
+
+**Auth consistency:**
+- [ ] Links that open in new browser tabs (report links, download links) either include the JWT token in the request or use a public endpoint — no `<a href="..." target="_blank">` to protected routes
+- [ ] No "Unauthorized" (401) error when clicking any button or link in the normal authenticated user flow
+- [ ] Public endpoints (`GET /api/qr/download/:id`, `GET /api/erp/options/:category`, `POST /api/admin/requests`) return 200 without a token
+
+**FAIL if:** Data uploaded in one system is invisible or inaccessible from the other system, or any link in the normal authenticated flow returns "Unauthorized".
+
+---
+
 ## Commit Message Convention
 
 ```
@@ -266,4 +288,5 @@ Before committing, verify all gates in QUALITY_GATES.md pass:
 10. Existing QR system features still work
 11. Every new data record has a parent entity link (no unbound records without design intent)
 12. Version bumped in all 3 package.json files + CHANGELOG updated + git tag created
+13. QR data visible in ERP views, ERP data triggers QR generation, no "Unauthorized" on any link
 ```
