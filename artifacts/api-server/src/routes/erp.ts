@@ -618,10 +618,13 @@ router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: 
 router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    // processed_docs.project_id has no ON DELETE CASCADE — NULL it out to preserve QR history
+    await db.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${id}`);
     // payment_milestones has no onDelete cascade — must delete explicitly
     await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
+    // project_files delete cascades: parsed_quotations, parsed_sections, parsed_section_drawings,
+    // parsed_assembly_lists, parsed_cut_optimisations (all have ON DELETE CASCADE on source_file_id)
     await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, id));
-    // parsed_* tables have onDelete:'cascade' on projectId — deleted automatically
     await db.delete(projectsTable).where(eq(projectsTable.id, id));
     res.json({ ok: true });
   } catch (err) {
@@ -1229,8 +1232,7 @@ router.get("/erp/projects/:id/parsed-assembly-list", requireRole(...NO_SALES_NO_
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
     const [row] = await db.select().from(parsedAssemblyListsTable).where(eq(parsedAssemblyListsTable.projectId, projectId));
-    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    res.json(row);
+    res.json(row ?? null);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/parsed-assembly-list failed");
     res.status(500).json({ error: "Internal error" });
@@ -1243,8 +1245,7 @@ router.get("/erp/projects/:id/parsed-cut-optimisation", requireRole(...NO_SALES_
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
     const [row] = await db.select().from(parsedCutOptimisationsTable).where(eq(parsedCutOptimisationsTable.projectId, projectId));
-    if (!row) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    res.json(row);
+    res.json(row ?? null);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/parsed-cut-optimisation failed");
     res.status(500).json({ error: "Internal error" });

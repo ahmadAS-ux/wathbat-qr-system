@@ -4,6 +4,15 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.6.3] - April 2026
+
+### Fixed
+
+- **DELETE project returns 500** (`erp.ts`): `processed_docs.project_id` FK has no `ON DELETE CASCADE`, so deleting a project with linked QR orders caused a FK constraint violation. Fixed by NULLing out `processed_docs.project_id` before deleting child records — QR order history is preserved, just unlinked from the deleted project. Full explicit delete order: NULL processed_docs → delete payment_milestones → delete project_files (cascades parsed_* tables) → delete project.
+- **parsed-assembly-list / parsed-cut-optimisation return 404 when empty** (`erp.ts`): These endpoints returned 404 when no parsed data existed for a project, producing red console errors on every project page load. Changed to return `200 null` — the frontend (`ProjectDetail.tsx`) already handles null correctly by showing nothing.
+
+---
+
 ## [2.6.2] - April 2026
 
 ### Fixed
