@@ -2,8 +2,8 @@ import { Link, useLocation } from 'wouter';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  LayoutDashboard, Archive, Wrench, Users, LogOut, Globe,
-  Menu, Users2, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown,
+  LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
+  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -77,12 +77,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navItem = (active: boolean) =>
     `flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group border-s-[3px] ${
       active
-        ? 'bg-white/[0.12] text-white border-[#C89B3C]'
-        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.07] border-transparent'
+        ? 'text-white border-[#B8860B]'
+        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.05] border-transparent'
     }`;
 
+  const navItemStyle = (active: boolean): React.CSSProperties =>
+    active ? { backgroundColor: 'rgba(184,134,11,0.10)' } : {};
+
   const navIcon = (active: boolean) =>
-    `w-5 h-5 shrink-0 transition-colors ${active ? 'text-[#C89B3C]' : 'text-white/40 group-hover:text-white/70'}`;
+    `w-5 h-5 shrink-0 transition-colors ${active ? 'text-[#B8860B]' : 'text-white/40 group-hover:text-white/70'}`;
 
   const sectionBtn = 'w-full flex items-center gap-1 px-3 mt-4 mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors cursor-pointer';
 
@@ -111,7 +114,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Dashboard — always first */}
           <Link href="/admin">
-            <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))}>
+            <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))} style={navItemStyle(isActive('/admin', true))}>
               <LayoutDashboard className={navIcon(isActive('/admin', true))} />
               <span className="flex-1">{t('admin_nav')}</span>
             </div>
@@ -132,8 +135,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         <div
                           onClick={() => handleNavClick('/erp/leads', false)}
                           className={navItem(isActive('/erp/leads', false))}
+                          style={navItemStyle(isActive('/erp/leads', false))}
                         >
-                          <Users2 className={navIcon(isActive('/erp/leads', false))} />
+                          <Users className={navIcon(isActive('/erp/leads', false))} />
                           <span className="flex-1">{t('erp_clients_nav')}</span>
                           {overdueCount > 0 && (
                             <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
@@ -146,6 +150,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         <div
                           onClick={() => handleNavClick('/erp/projects', false)}
                           className={navItem(isActive('/erp/projects', false))}
+                          style={navItemStyle(isActive('/erp/projects', false))}
                         >
                           <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
                           <span className="flex-1">{t('erp_projects_nav')}</span>
@@ -158,6 +163,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       <div
                         onClick={() => handleNavClick('/erp/payments', false)}
                         className={navItem(isActive('/erp/payments', false))}
+                        style={navItemStyle(isActive('/erp/payments', false))}
                       >
                         <CreditCard className={navIcon(isActive('/erp/payments', false))} />
                         <span className="flex-1">{t('erp_payments_nav')}</span>
@@ -174,6 +180,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       <div
                         onClick={() => handleNavClick('/erp/settings', false)}
                         className={navItem(isActive('/erp/settings', false))}
+                        style={navItemStyle(isActive('/erp/settings', false))}
                       >
                         <Settings className={navIcon(isActive('/erp/settings', false))} />
                         <span className="flex-1">{t('erp_settings_nav')}</span>
@@ -195,27 +202,27 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <div className="space-y-0.5">
                 {isAdmin && (
                   <Link href="/qr/upload">
-                    <div onClick={() => handleNavClick('/qr/upload', true)} className={navItem(isActive('/qr/upload', true))}>
+                    <div onClick={() => handleNavClick('/qr/upload', true)} className={navItem(isActive('/qr/upload', true))} style={navItemStyle(isActive('/qr/upload', true))}>
                       <Upload className={navIcon(isActive('/qr/upload', true))} />
                       <span className="flex-1">{t('qr_upload_nav')}</span>
                     </div>
                   </Link>
                 )}
                 <Link href="/admin/history">
-                  <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))}>
+                  <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
                     <Archive className={navIcon(isActive('/admin/history', false))} />
                     <span className="flex-1">{t('archive_title')}</span>
                   </div>
                 </Link>
                 <Link href="/admin/requests">
-                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))}>
-                    <Wrench className={navIcon(isActive('/admin/requests', false))} />
+                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
+                    <FileText className={navIcon(isActive('/admin/requests', false))} />
                     <span className="flex-1">{t('requests_title')}</span>
                   </div>
                 </Link>
                 {isAdmin && (
                   <Link href="/admin/users">
-                    <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))}>
+                    <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))} style={navItemStyle(isActive('/admin/users', false))}>
                       <Users className={navIcon(isActive('/admin/users', false))} />
                       <span className="flex-1">{t('users_nav')}</span>
                     </div>
@@ -223,7 +230,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 )}
                 {isAdmin && (
                   <Link href="/admin/dropdowns">
-                    <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))}>
+                    <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))} style={navItemStyle(isActive('/admin/dropdowns', false))}>
                       <List className={navIcon(isActive('/admin/dropdowns', false))} />
                       <span className="flex-1">{t('dropdown_editor_title')}</span>
                     </div>
@@ -246,21 +253,33 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           <div className="border-t border-white/[0.08] my-1" />
 
-          {user && (
-            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
-              <div className="w-7 h-7 rounded-full bg-[#C89B3C]/20 border border-[#C89B3C]/30 flex items-center justify-center text-[#C89B3C] text-xs font-bold shrink-0">
-                {user.username.charAt(0).toUpperCase()}
+          {user && (() => {
+            const roleLabels: Record<string, string> = {
+              Admin: t('role_admin'),
+              FactoryManager: t('role_factory_manager'),
+              Employee: t('role_employee'),
+              SalesAgent: t('role_sales_agent'),
+              Accountant: t('role_accountant'),
+            };
+            return (
+              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-[#B8860B]/20 border border-[#B8860B]/30 flex items-center justify-center text-[#B8860B] text-xs font-bold shrink-0">
+                  {user.username.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white/80 text-sm font-medium truncate">{user.username}</p>
+                  <p className="text-white/35 text-[10px] truncate">{roleLabels[user.role] ?? user.role}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-white/30 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-white/[0.07] shrink-0"
+                  title="Sign out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <span className="text-white/70 text-sm font-medium flex-1 truncate min-w-0">{user.username}</span>
-              <button
-                onClick={handleLogout}
-                className="text-white/30 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-white/[0.07] shrink-0"
-                title="Sign out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
     );

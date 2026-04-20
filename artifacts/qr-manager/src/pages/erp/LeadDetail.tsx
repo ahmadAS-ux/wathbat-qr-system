@@ -313,6 +313,7 @@ export default function ErpLeadDetail() {
               <textarea
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
                 rows={3}
+                placeholder={t('ph_lose_reason')}
                 value={loseReason}
                 onChange={e => setLoseReason(e.target.value)}
               />

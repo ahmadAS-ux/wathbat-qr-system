@@ -373,6 +373,29 @@ export const translations = {
     erp_duplicate_select_existing: "Select Existing",
     erp_phone_duplicate: "This phone number belongs to:",
     erp_lead_already_converted: "Already converted to a project",
+    // Placeholders
+    ph_customer_name: "Customer name",
+    ph_phone: "05XXXXXXXX",
+    ph_location: "e.g. Al-Narjis, Riyadh",
+    ph_notes: "Add notes...",
+    ph_estimated_value: "Amount in SAR",
+    ph_search: "Search...",
+    ph_project_name: "Project name",
+    ph_username: "Enter username",
+    ph_password: "Enter password",
+    ph_lose_reason: "Enter reason for loss...",
+    ph_note_log: "Enter your contact note...",
+    // Role labels
+    role_admin: "Admin",
+    role_factory_manager: "Factory Manager",
+    role_employee: "Employee",
+    role_sales_agent: "Sales Agent",
+    role_accountant: "Accountant",
+    // Toast
+    toast_saved: "Saved successfully",
+    toast_error: "An error occurred",
+    toast_created: "Created successfully",
+    toast_deleted: "Deleted",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -746,6 +769,29 @@ export const translations = {
     erp_duplicate_select_existing: "اختر موجود",
     erp_phone_duplicate: "رقم الجوال مسجل للعميل:",
     erp_lead_already_converted: "تم تحويله إلى مشروع مسبقاً",
+    // Placeholders
+    ph_customer_name: "اسم العميل",
+    ph_phone: "05XXXXXXXX",
+    ph_location: "مثال: حي النرجس، الرياض",
+    ph_notes: "أضف ملاحظات...",
+    ph_estimated_value: "القيمة بالريال",
+    ph_search: "بحث...",
+    ph_project_name: "اسم المشروع",
+    ph_username: "أدخل اسم المستخدم",
+    ph_password: "أدخل كلمة المرور",
+    ph_lose_reason: "أدخل سبب الخسارة...",
+    ph_note_log: "أدخل ملاحظة التواصل...",
+    // Role labels
+    role_admin: "المدير العام",
+    role_factory_manager: "مدير المصنع",
+    role_employee: "الموظف",
+    role_sales_agent: "مندوب المبيعات",
+    role_accountant: "المحاسب",
+    // Toast
+    toast_saved: "تم الحفظ بنجاح",
+    toast_error: "حدث خطأ",
+    toast_created: "تم الإنشاء بنجاح",
+    toast_deleted: "تم الحذف",
   }
 };
 

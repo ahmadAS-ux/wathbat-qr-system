@@ -197,6 +197,7 @@ export default function AdminUsers() {
                   type="text"
                   value={form.username}
                   onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  placeholder={t('ph_username')}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50"
                 />
               </div>
@@ -206,6 +207,7 @@ export default function AdminUsers() {
                   type="password"
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder={t('ph_password')}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50"
                 />
               </div>

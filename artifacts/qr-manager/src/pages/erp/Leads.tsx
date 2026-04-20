@@ -187,6 +187,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_customer')} *</label>
               <input
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                placeholder={t('ph_customer_name')}
                 value={form.customerName}
                 onChange={e => handleNameChange(e.target.value)}
                 onBlur={() => setTimeout(() => setShowNameSuggestions(false), 150)}
@@ -279,6 +280,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_location')}</label>
               <input
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                placeholder={t('ph_location')}
                 value={form.location}
                 onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
               />
@@ -300,6 +302,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 <input
                   type="number"
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                  placeholder={t('ph_estimated_value')}
                   dir="ltr"
                   value={form.estimatedValue}
                   onChange={e => setForm(f => ({ ...f, estimatedValue: e.target.value }))}
