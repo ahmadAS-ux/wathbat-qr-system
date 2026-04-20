@@ -259,6 +259,17 @@ Track every issue found during reviews. Carry forward to the next phase.
 - Step 6: Existing processed_docs records with project_id = NULL remain as-is (no data loss)
 **Status:** Open — planned for implementation before Phase 2
 **Preventable by:** QUALITY_GATES.md Gate 11 (newly added) + PROJECT_HEALTH_REVIEW.md Part A Section A1 (newly added row)
+
+### Issue #5: Cross-system data visibility (processed_docs vs project_files)
+**Found in:** Phase 1 audit, confirmed in Phase 2 production
+**Severity:** Major
+**Category:** Architecture gap
+**Description:** Glass Orders uploaded via QR page store in `processed_docs` but ProjectDetail file slots read from `project_files`. QR report download returns "Unauthorized" when opened in a new tab because `GET /api/qr/download/:id` was JWT-protected and `<a target="_blank">` does not send the token from localStorage.
+**Impact:** Factory manager uploads a file via QR Upload, navigates to the project page, and sees "No file uploaded" in the Glass/Panel Order slot — thinks the upload failed and uploads again, creating duplicates.
+**Root cause:** Two systems built at different times with separate tables and no cross-table query on display. The `project_files` slot only read its own table; `processed_docs` was invisible to it. The download link auth issue arose because new-tab navigation bypasses the global fetch patch in `main.tsx`.
+**Fix:** (1) ProjectDetail now checks both tables for the glass_order slot — falls back to `qrOrders[0]` (most recent, already loaded in state) with a "QR" badge when no `project_files` entry exists. (2) `GET /api/qr/download/:id` added to the public skip list in `app.ts` — HTML reports contain only QR codes and dimensions, no sensitive data.
+**Status:** Fixed in v2.6.2 (commit fa06389)
+**Preventable by:** QUALITY_GATES.md Gate 13 (Cross-System Integration) — added retroactively
 ```
 
 ---
