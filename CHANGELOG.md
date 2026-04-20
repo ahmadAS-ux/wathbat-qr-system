@@ -4,6 +4,15 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.6.2] - April 2026
+
+### Fixed
+
+- **QR report "Unauthorized" in new tab** (`app.ts`): Added `GET /api/qr/download/:id` to the public route skip list. QR HTML reports contain no sensitive data (QR codes + dimensions only), so no auth is required to view them. Previously, opening "View Report" in a new browser tab returned 401 because the JWT is only in localStorage and is not sent with plain `<a>` navigation.
+- **Glass/Panel Order slot shows "No file uploaded" despite QR uploads** (`ProjectDetail.tsx`): The file slot read only from `project_files` table, but QR uploads go to `processed_docs`. The slot now falls back to the most recent QR order (already loaded in `qrOrders` state) when no `project_files` entry for `glass_order` exists, displaying the filename with a "QR" badge. The download button opens the HTML report via the now-public `/api/qr/download/:id` endpoint.
+
+---
+
 ## [2.6.1] - April 2026
 
 ### Fixed — Audit Issues (payment roles, phone validation, RTL, i18n)

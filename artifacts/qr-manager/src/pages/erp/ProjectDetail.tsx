@@ -679,6 +679,10 @@ export default function ErpProjectDetail() {
 
               // ── Single-file slot ──────────────────────────────────────────
               const existing = fileFor(slot.fileType);
+              // For glass_order: fall back to the most recent QR upload if no project_files entry exists
+              const qrFallback = (slot.fileType === 'glass_order' && !existing && qrOrders.length > 0)
+                ? qrOrders[0]
+                : null;
 
               // Badge for parsed data count
               const parsedBadge = slot.fileType === 'assembly_list' && parsedAssemblyList
@@ -700,14 +704,22 @@ export default function ErpProjectDetail() {
                     </div>
                     {existing ? (
                       <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
+                    ) : qrFallback ? (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-xs text-slate-400 truncate" dir="ltr">{qrFallback.originalFilename}</p>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100 shrink-0">QR</span>
+                      </div>
                     ) : (
                       <p className="text-xs text-slate-300 mt-0.5">{t('project_file_no_upload')}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {existing && (
+                    {(existing || qrFallback) && (
                       <button
-                        onClick={() => downloadFile(existing.id, existing.originalFilename)}
+                        onClick={() => existing
+                          ? downloadFile(existing.id, existing.originalFilename)
+                          : window.open(`${API_BASE}/api/qr/download/${qrFallback!.reportFileId}`, '_blank')
+                        }
                         className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors"
                         title={t('erp_file_download')}
                       >
