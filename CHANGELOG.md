@@ -4,6 +4,47 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [2.6.1] - April 2026
+
+### Fixed — Audit Issues (payment roles, phone validation, RTL, i18n)
+
+- **CRITICAL — Payment role permissions** (`erp.ts`): `POST /erp/projects/:id/payments` (create milestone) was incorrectly gating on `Admin, FactoryManager, SalesAgent`. Changed to `Admin, Accountant` to match WORKFLOW_REFERENCE_v3 Section 4 permissions matrix.
+- **Phone validation** (`Projects.tsx`): Added `type="tel"`, `maxLength={10}`, and `/^05\d{8}$/` regex validation to the phone field in `CreateProjectModal`. Shows Arabic error via `erp_phone_error` i18n key. Field border turns red on invalid input; clears on edit.
+- **RTL violation** (`ContractPage.tsx`): Changed `.contract-page[dir="rtl"] { text-align: right }` to `text-align: end` to comply with CSS logical properties rule.
+- **Hardcoded bilingual strings** — Moved 13 `isRtl ? 'ar' : 'en'` inline strings to `i18n.ts` across 6 files:
+  - `AdminSettings.tsx`: `settings_load_error`, `settings_save_error`, `loading_text`, `saving_text`
+  - `ContractPage.tsx`: `contract_load_error`, `contract_loading`, `error_unexpected`, `contract_no_quotation`, `erp_cancel` (reused)
+  - `Payments.tsx`: `erp_payment_proof`, `choose_file`
+  - `ProjectDetail.tsx`: `cut_opt_more_profiles`, `contract_stage_label`, `erp_payment_label_placeholder`, `choose_file`
+  - `Projects.tsx`: `admin_filter_all` (reused existing key)
+
+### Changed — UI/UX (sidebar, navigation, cross-references)
+
+- **Sidebar sections** (`AdminLayout.tsx`): Collapsible MANUFACTURING SYSTEM + QR SYSTEM sections with `localStorage` persistence, 44px touch targets, border-inline-start accent, no scrollbar.
+- **Split Clients & Projects** into two separate sidebar nav items: Clients (`/erp/leads`, Users2 icon, overdue badge) + Projects (`/erp/projects`, FolderOpen icon).
+- **Same-page nav refresh**: Clicking the active sidebar link forces `window.location.href` for a full page reload.
+- **Email button** (`ResultsView.tsx`): Added Send Email action (opens `mailto:` with pre-filled subject + bilingual body).
+- **Cross-reference links**: Lead→Project and Project→Lead cross-reference buttons styled with teal colour + hover underline.
+
+---
+
+## [2.5.3] - April 2026
+
+### Added — Assembly List + Cut Optimisation Parsers
+
+- **`parsed_assembly_lists` DB table** — stores parsed positions (positionCode, quantity, system, dimensions, glass items) from Orgadata Assembly List DOCX files
+- **`parsed_cut_optimisations` DB table** — stores parsed profile summary (number, description, colour, qty, length, wastage) from Orgadata Cut Optimisation DOCX files
+- **`assembly-list-parser.ts`** — extracts project name + walks Position/Quantity/System/Size/Glass segments; parses glass rows in groups of 6 after header skip
+- **`cut-optimisation-parser.ts`** — extracts project name + finds Summary marker, skips 11 headers, parses profile rows in groups of 7
+- **Auto-parse on upload** — uploading `assembly_list` or `cut_optimisation` file type triggers non-blocking parse; file is always saved even if parse fails
+- **`GET /api/erp/projects/:id/parsed-assembly-list`** — returns parsed assembly list row (Admin/FactoryManager/Employee)
+- **`GET /api/erp/projects/:id/parsed-cut-optimisation`** — returns parsed cut optimisation row
+- **ProjectDetail data panels** — position count badge on Assembly List file card + expandable list (positionCode, qty, dimensions, first glass description); profile count badge on Cut Optimisation card + compact table (top 10: Profile No, Description, Qty, Wastage%)
+- **7 new i18n keys** (`assembly_list_parsed_positions`, `assembly_list_pcs`, `cut_opt_*`) in both Arabic and English
+- Removed "Orgadata Technical Document sample" from CLAUDE.md pending list — replaced by shared real document samples
+
+---
+
 ## [2.5.2] - April 2026
 
 ### Added — Contract Generator (A4 printable HTML + Settings template + Integrity Check)

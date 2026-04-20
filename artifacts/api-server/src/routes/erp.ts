@@ -1151,7 +1151,7 @@ router.get("/erp/projects/:id/payments", requireRole("Admin", "FactoryManager", 
 });
 
 // POST /erp/projects/:id/payments — create milestone
-router.post("/erp/projects/:id/payments", requireRole("Admin", "FactoryManager", "SalesAgent"), async (req: Request, res: Response) => {
+router.post("/erp/projects/:id/payments", requireRole("Admin", "Accountant"), async (req: Request, res: Response) => {
   try {
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);

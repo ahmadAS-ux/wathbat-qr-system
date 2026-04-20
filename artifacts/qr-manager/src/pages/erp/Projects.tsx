@@ -46,6 +46,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [buildings, setBuildings] = useState<{ value: string; labelAr: string; labelEn: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const label = (item: { labelAr: string; labelEn: string }) => isRtl ? item.labelAr : item.labelEn;
 
@@ -59,6 +60,8 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.customerName) { setError(t('erp_required_fields')); return; }
+    if (form.phone && !/^05\d{8}$/.test(form.phone)) { setPhoneError(t('erp_phone_error')); return; }
+    setPhoneError('');
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/api/erp/projects`, {
@@ -95,7 +98,8 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_phone')}</label>
-              <input className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30" dir="ltr" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              <input type="tel" maxLength={10} className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30 ${phoneError ? 'border-red-400' : 'border-slate-200'}`} dir="ltr" value={form.phone} onChange={e => { setForm(f => ({ ...f, phone: e.target.value })); setPhoneError(''); }} />
+              {phoneError && <p className="text-red-600 text-xs mt-1">{phoneError}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_value')}</label>
@@ -156,7 +160,7 @@ export default function ErpProjects() {
   useEffect(() => { loadProjects(); }, [filter]);
 
   const stageLabel: Record<string, string> = {
-    all:           isRtl ? 'الكل' : 'All',
+    all:           t('admin_filter_all'),
     new:           t('erp_project_stage_new'),
     in_study:      t('erp_project_stage_study'),
     in_production: t('erp_project_stage_production'),

@@ -753,7 +753,7 @@ export default function ErpProjectDetail() {
                           </tbody>
                         </table>
                         {parsedCutOptimisation.profileCount > 10 && (
-                          <p className="text-xs text-slate-400 mt-1">+{parsedCutOptimisation.profileCount - 10} {isRtl ? 'مقطع إضافي' : 'more profiles'}</p>
+                          <p className="text-xs text-slate-400 mt-1">+{parsedCutOptimisation.profileCount - 10} {t('cut_opt_more_profiles')}</p>
                         )}
                       </div>
                     </div>
@@ -770,7 +770,7 @@ export default function ErpProjectDetail() {
             <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div>
                 <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                  {isRtl ? 'العقد — المرحلة 4' : 'Contract — Stage 4'}
+                  {t('contract_stage_label')}
                 </h2>
                 {!project?.files?.some(f => f.fileType === 'price_quotation') && (
                   <p className={`text-xs text-slate-400 mt-0.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
@@ -815,7 +815,7 @@ export default function ErpProjectDetail() {
                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
                     value={milestoneForm.label}
                     onChange={e => setMilestoneForm(f => ({ ...f, label: e.target.value }))}
-                    placeholder={isRtl ? 'مثال: دفعة أولى 30%' : 'e.g. Deposit 30%'}
+                    placeholder={t('erp_payment_label_placeholder')}
                   />
                 </div>
                 <div>
@@ -980,7 +980,7 @@ export default function ErpProjectDetail() {
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#1B2A4A] transition-colors"
                             >
                               <Upload className="w-3 h-3" />
-                              {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : isRtl ? 'اختر ملفاً' : 'Choose file'}
+                              {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : t('choose_file')}
                             </button>
                           </div>
                           <div className="flex gap-2">

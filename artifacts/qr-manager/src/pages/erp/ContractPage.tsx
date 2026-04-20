@@ -45,7 +45,7 @@ const PRINT_STYLE = `
   color: #1a1a1a;
   line-height: 1.55;
 }
-.contract-page[dir="rtl"] { text-align: right; }
+.contract-page[dir="rtl"] { text-align: end; }
 .positions-table {
   width: 100%;
   border-collapse: collapse;
@@ -172,7 +172,7 @@ export default function ContractPage() {
         setReport(rep);
       })
       .catch(() => {
-        setLoadError(isRtl ? 'تعذر تحميل بيانات العقد' : 'Failed to load contract data');
+        setLoadError(t('contract_load_error'));
         setLoading(false);
       });
   }, [id]);
@@ -232,7 +232,7 @@ export default function ContractPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-slate-400 text-sm">
-        {isRtl ? 'جاري تحميل العقد...' : 'Loading contract...'}
+        {t('contract_loading')}
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function ContractPage() {
   if (loadError || !data) {
     return (
       <div className="flex items-center justify-center min-h-screen text-red-500 text-sm">
-        {loadError || (isRtl ? 'خطأ غير متوقع' : 'Unexpected error')}
+        {loadError || t('error_unexpected')}
       </div>
     );
   }
@@ -367,7 +367,7 @@ export default function ContractPage() {
                 onClick={() => setShowOverrideModal(false)}
                 className={`flex-1 px-4 py-2.5 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
               >
-                {isRtl ? 'إلغاء' : 'Cancel'}
+                {t('erp_cancel')}
               </button>
             </div>
           </div>
@@ -478,7 +478,7 @@ export default function ContractPage() {
             </table>
           ) : (
             <p style={{ color: '#999', fontSize: '10pt', fontFamily: 'Tajawal, sans-serif' }}>
-              {isRtl ? 'لا توجد بيانات عرض سعر' : 'No quotation data available'}
+              {t('contract_no_quotation')}
             </p>
           )}
         </div>

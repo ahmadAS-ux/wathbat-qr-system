@@ -44,7 +44,7 @@ export default function AdminSettings() {
         setLoading(false);
       })
       .catch(() => {
-        setError(isRtl ? 'تعذر تحميل الإعدادات' : 'Failed to load settings');
+        setError(t('settings_load_error'));
         setLoading(false);
       });
   }, []);
@@ -63,7 +63,7 @@ export default function AdminSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      setError(isRtl ? 'تعذر الحفظ' : 'Save failed');
+      setError(t('settings_save_error'));
     } finally {
       setSaving(false);
     }
@@ -113,7 +113,7 @@ export default function AdminSettings() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
-            {isRtl ? 'جاري التحميل...' : 'Loading...'}
+            {t('loading_text')}
           </div>
         ) : (
           <div className="space-y-5">
@@ -146,7 +146,7 @@ export default function AdminSettings() {
                 className={`flex items-center gap-2 px-5 py-2.5 bg-[#1B2A4A] text-white text-sm font-semibold rounded-xl hover:bg-[#243860] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
               >
                 <Save className="w-4 h-4" />
-                {saving ? (isRtl ? 'جاري الحفظ...' : 'Saving...') : t('contract_settings_save')}
+                {saving ? t('saving_text') : t('contract_settings_save')}
               </button>
               {saved && (
                 <span className={`text-sm text-green-600 font-medium ${isRtl ? 'font-[Tajawal]' : ''}`}>
