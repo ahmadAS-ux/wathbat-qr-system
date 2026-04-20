@@ -194,6 +194,18 @@ For every NEW feature or Phase that creates or consumes data:
 
 **FAIL if:** Any record can be created without a parent entity when one is required, OR if two data sources can conflict without the user being notified.
 
+**Cascade Delete Check:**
+- [ ] Before adding any DELETE endpoint, list ALL tables that reference the target table via foreign key
+- [ ] Delete order must be: grandchildren → children → parent (reverse dependency order)
+- [ ] Every DELETE handler must delete from ALL referencing tables — not just the obvious ones
+- [ ] Test: delete a record that has child records in every related table — must succeed without 500
+- [ ] If a new table is added with a foreign key to an existing table, update the existing DELETE handler to cascade through the new table
+
+**Parser/Feature Stub Check:**
+- [ ] If a schema file is imported in `index.ts`, the corresponding table must exist or be created on startup
+- [ ] If a route references a parser or module, that module must exist — even as a stub that returns empty results
+- [ ] Never import a file that doesn't exist — this breaks the production build
+
 ---
 
 ### Gate 12: Version Bump on Every Release ✅
