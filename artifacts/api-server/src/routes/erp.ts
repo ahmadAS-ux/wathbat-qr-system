@@ -253,6 +253,37 @@ router.post("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "Sa
   }
 });
 
+// GET /erp/leads/search?q=:query — fuzzy customer search (must be before /:id)
+router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee"), async (req: Request, res: Response) => {
+  try {
+    const q = ((req.query.q as string) ?? "").trim();
+    if (!q || q.length < 3) {
+      res.json([]);
+      return;
+    }
+    const pattern = `%${q}%`;
+    const rows = await db.execute(
+      sql`SELECT id, customer_name, phone, status, building_type, converted_project_id
+          FROM leads
+          WHERE customer_name ILIKE ${pattern} OR phone = ${q}
+          ORDER BY created_at DESC
+          LIMIT 5`
+    );
+    const results = rows.rows.map((r: any) => ({
+      id: r.id,
+      customerName: r.customer_name,
+      phone: r.phone,
+      status: r.status,
+      buildingType: r.building_type,
+      convertedProjectId: r.converted_project_id,
+    }));
+    res.json(results);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/leads/search failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // GET /erp/leads/:id — detail + logs
 router.get("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
@@ -417,27 +448,56 @@ router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reques
   }
 });
 
-// POST /erp/projects — create directly (no lead)
+// POST /erp/projects — create directly or linked to existing lead via fromLeadId
 router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
-    const { name, customerName, phone, location, buildingType, productInterest, estimatedValue, assignedTo } = req.body;
+    const { name, phone, location, buildingType, productInterest, estimatedValue, assignedTo, fromLeadId } = req.body;
+    let { customerName } = req.body;
     if (!name || !customerName) {
       res.status(400).json({ error: "name and customerName are required" });
       return;
     }
     const sess = session(req);
+
+    let resolvedFromLeadId: number | null = fromLeadId ? Number(fromLeadId) : null;
+    let resolvedPhone: string | null = phone ?? null;
+    let resolvedLocation: string | null = location ?? null;
+    let resolvedBuildingType: string | null = buildingType ?? null;
+    let resolvedProductInterest: string | null = productInterest ?? null;
+    let resolvedEstimatedValue: number | null = estimatedValue ? Number(estimatedValue) : null;
+
+    if (resolvedFromLeadId) {
+      const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, resolvedFromLeadId));
+      if (lead) {
+        if (!customerName) customerName = lead.customerName;
+        if (!resolvedPhone) resolvedPhone = lead.phone;
+        if (!resolvedLocation) resolvedLocation = lead.location;
+        if (!resolvedBuildingType) resolvedBuildingType = lead.buildingType;
+        if (!resolvedProductInterest) resolvedProductInterest = lead.productInterest;
+        if (resolvedEstimatedValue === null) resolvedEstimatedValue = lead.estimatedValue;
+      }
+    }
+
     const [row] = await db.insert(projectsTable).values({
       name, customerName,
-      phone: phone ?? null,
-      location: location ?? null,
-      buildingType: buildingType ?? null,
-      productInterest: productInterest ?? null,
-      estimatedValue: estimatedValue ? Number(estimatedValue) : null,
+      phone: resolvedPhone,
+      location: resolvedLocation,
+      buildingType: resolvedBuildingType,
+      productInterest: resolvedProductInterest,
+      estimatedValue: resolvedEstimatedValue,
       assignedTo: assignedTo ? Number(assignedTo) : sess.userId,
       stageDisplay: "new",
       stageInternal: 1,
+      fromLeadId: resolvedFromLeadId,
       createdBy: sess.userId,
     }).returning();
+
+    if (resolvedFromLeadId) {
+      await db.update(leadsTable)
+        .set({ status: "converted", convertedProjectId: row.id })
+        .where(and(eq(leadsTable.id, resolvedFromLeadId), inArray(leadsTable.status, ["new", "followup"])));
+    }
+
     res.status(201).json(row);
   } catch (err) {
     logger.error({ err }, "POST /erp/projects failed");

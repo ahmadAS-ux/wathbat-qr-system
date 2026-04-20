@@ -234,7 +234,41 @@ Seeded on startup (idempotent): 6 contract template keys — `contract_cover_int
 
 ---
 
-### 3.8 `vendors` table
+### 3.8 `parsed_assembly_lists` table (v2.5.3)
+
+Parsed output from Orgadata Assembly List DOCX. Replaced on every re-upload (one row per project).
+
+```typescript
+// lib/db/src/schema/parsed_assembly_lists.ts
+export const parsedAssemblyListsTable = pgTable('parsed_assembly_lists', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projectsTable.id, { onDelete: 'cascade' }),
+  sourceFileId: integer('source_file_id').notNull().references(() => projectFilesTable.id, { onDelete: 'cascade' }),
+  projectNameInFile: text('project_name_in_file'),
+  positionCount: integer('position_count').notNull().default(0),
+  positions: jsonb('positions').notNull().$type<AssemblyPosition[]>(), // [{ positionCode, quantity, system, widthMm, heightMm, glassItems }]
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+### 3.9 `parsed_cut_optimisations` table (v2.5.3)
+
+Parsed output from Orgadata Cut Optimisation DOCX. Replaced on every re-upload (one row per project).
+
+```typescript
+// lib/db/src/schema/parsed_cut_optimisations.ts
+export const parsedCutOptimisationsTable = pgTable('parsed_cut_optimisations', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projectsTable.id, { onDelete: 'cascade' }),
+  sourceFileId: integer('source_file_id').notNull().references(() => projectFilesTable.id, { onDelete: 'cascade' }),
+  projectNameInFile: text('project_name_in_file'),
+  profileCount: integer('profile_count').notNull().default(0),
+  profiles: jsonb('profiles').notNull().$type<CutProfile[]>(), // [{ number, description, colour, quantity, lengthMm, wastageMm, wastagePercent }]
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+### 3.10 `vendors` table
 
 ```typescript
 // lib/db/src/schema/vendors.ts
@@ -248,7 +282,7 @@ export const vendors = pgTable('vendors', {
 });
 ```
 
-### 3.6 `purchase_orders` table
+### 3.11 `purchase_orders` table
 
 ```typescript
 // lib/db/src/schema/purchase_orders.ts
@@ -265,7 +299,7 @@ export const purchaseOrders = pgTable('purchase_orders', {
 });
 ```
 
-### 3.7 `po_items` table
+### 3.12 `po_items` table
 
 ```typescript
 // lib/db/src/schema/po_items.ts
@@ -282,7 +316,7 @@ export const poItems = pgTable('po_items', {
 });
 ```
 
-### 3.8 `manufacturing_orders` table
+### 3.13 `manufacturing_orders` table
 
 ```typescript
 // lib/db/src/schema/manufacturing_orders.ts
@@ -300,7 +334,7 @@ export const manufacturingOrders = pgTable('manufacturing_orders', {
 });
 ```
 
-### 3.9 `payment_milestones` table
+### 3.14 `payment_milestones` table
 
 ```typescript
 // lib/db/src/schema/payment_milestones.ts
@@ -318,7 +352,7 @@ export const paymentMilestones = pgTable('payment_milestones', {
 });
 ```
 
-### 3.10 `delivery_phases` table
+### 3.15 `delivery_phases` table
 
 ```typescript
 // lib/db/src/schema/delivery_phases.ts
@@ -335,7 +369,7 @@ export const deliveryPhases = pgTable('delivery_phases', {
 });
 ```
 
-### 3.11 `dropdown_options` table
+### 3.16 `dropdown_options` table
 
 ```typescript
 // lib/db/src/schema/dropdown_options.ts
@@ -665,8 +699,8 @@ v2.5.0 — 6-slot layout (5 Orgadata + 1 Qoyod multi-file bucket)
 | Glass / Panel Order | `glass_order` | No | ✅ Yes (QR pipeline) | Triggers QR code generation |
 | Quotation | `price_quotation` | No | ✅ Parsed (v2.5.1) | Extracts positions, prices, totals → `parsed_quotations`. 409 on project name mismatch. |
 | Section | `section` | No | ✅ Parsed (v2.5.1) | Extracts all embedded drawings in document order → `parsed_section_drawings`. |
-| Assembly List | `assembly_list` | No | Stored only — not parsed | Manufacturing reference |
-| Cut Optimisation | `cut_optimisation` | No | Stored only — not parsed | Manufacturing reference |
+| Assembly List | `assembly_list` | No | ✅ Parsed (v2.5.3) | Extracts positions (positionCode, qty, system, dimensions, glass items) → `parsed_assembly_lists`. Badge + panel in ProjectDetail. |
+| Cut Optimisation | `cut_optimisation` | No | ✅ Parsed (v2.5.3) | Extracts profile summary (number, description, colour, qty, length, wastage) from Summary section → `parsed_cut_optimisations`. Badge + compact table in ProjectDetail. |
 | Qoyod | `qoyod` | **Yes** | N/A | Multi-file bucket for all payment proof documents (deposits, partial payments, final payments) |
 
 **Rules:**
@@ -779,53 +813,60 @@ Push to GitHub.
 
 ---
 
-### 🟡 Phase 2: Contracts + Payments
+### 🟡 Phase 2: Contracts + Payments — Partially Complete
 
 **Goal:** Generate branded contracts. Track payment milestones. Accountant role.
 
-**Scope:**
-- New tables: `payment_milestones`
-- `system_settings` table (key-value, for contract terms + warranty default)
-- Contract PDF generation (format TBD — waiting for Ahmad's sample)
-- Payment milestone CRUD + Qoyod document upload
-- Late payment badge on sidebar
-- Accountant role fully activated
+**What's done (v2.5.2):**
+- ✅ `system_settings` table — seeded with 6 contract template keys
+- ✅ Contract page at `/erp/projects/:id/contract` — printable A4 HTML (no PDF library; browser print/Save as PDF)
+- ✅ `GET/PUT /api/erp/settings/contract-template` — Admin-only template editor
+- ✅ Admin Settings page at `/erp/settings` — 6 textarea fields (Arabic + English), placeholder reference
+- ✅ Contract Integrity Check — green/amber/red, blocks print on errors, override flow with backend log
+- ✅ `POST /contract/mark-printed` — advances stageInternal → 4
 
-**Blocked by:** Contract template sample from Ahmad. Qoyod document format sample.
+**What remains (next):**
+- ⏳ `payment_milestones` table + CRUD endpoints
+- ⏳ Payment milestones section in ProjectDetail (Accountant marks paid, uploads Qoyod doc)
+- ⏳ `/erp/payments` page — all milestones across projects, overdue in red
+- ⏳ Sidebar badge for overdue payment count
+- ⏳ Accountant role fully activated for payment flows
 
-#### 🤖 Claude Code Prompt — Phase 2
+**Blocked by:** Qoyod document format sample (Ahmad). Payment milestone defaults confirmation (30/40/30?).
+
+#### 🤖 Claude Code Prompt — Phase 2 (remaining: Payments only)
 
 ```
-Implement Phase 2 of the Wathbah ERP: Contracts and Payments.
+Implement the remaining Phase 2 work for the Wathbah ERP: Payment Milestones.
 
-Read CLAUDE.md and WORKFLOW_REFERENCE_v3.md Section 6 (Stage 4–5, Stage 11) and Section 5.5 (Payments API).
+Prerequisite: v2.5.2 is deployed. system_settings and contract page are already built.
+Read CLAUDE.md, WORKFLOW_REFERENCE_v3.md Section 6 (Stage 5 + Stage 11), Section 5.5 (Payments API), and Section 3.14 (payment_milestones schema).
 
 --- DB ---
-Add payment_milestones table (WORKFLOW_REFERENCE_v3.md Section 3.9).
-Add system_settings table: id, key TEXT UNIQUE, value TEXT, updatedAt TIMESTAMP.
-Seed system_settings: { key: 'contract_terms_ar', value: '...' }, { key: 'contract_terms_en', value: '...' }, { key: 'warranty_months_default', value: '12' }.
+Add payment_milestones table (WORKFLOW_REFERENCE_v3.md Section 3.14).
+Export from lib/db/src/schema/index.ts.
+Create startup migration: CREATE TABLE IF NOT EXISTS payment_milestones (...).
 
 --- API ---
 Add to erp.ts:
-- POST /api/erp/projects/:id/payments — create milestone
-- GET /api/erp/projects/:id/payments — list milestones
-- PATCH /api/erp/payments/:id — mark paid + store Qoyod doc
-- GET /api/erp/settings — get system settings (Admin only)
-- PATCH /api/erp/settings — update settings (Admin only)
-
-Overdue logic: on GET /api/erp/projects/:id/payments, auto-update any milestone where dueDate < today AND status = 'pending' → status = 'overdue'.
+- GET  /api/erp/projects/:id/payments — list milestones. Auto-update overdue: dueDate < today AND status = 'pending' → status = 'overdue'.
+- POST /api/erp/projects/:id/payments — create milestone (Admin/FactoryManager/SalesAgent)
+- PATCH /api/erp/payments/:id — mark paid + optional Qoyod doc upload (Accountant/Admin)
 
 --- FRONTEND ---
-Add "المدفوعات" page (/erp/payments): list all milestones across all projects. Group by project. Show overdue in red. Accountant can mark paid and upload Qoyod doc.
-
 Add payment milestones section inside ProjectDetail.tsx (below file upload section).
+- List milestones: label, percentage, amount (SAR), due date, status badge (pending/paid/overdue)
+- Accountant/Admin: "Mark Paid" button → opens modal: upload Qoyod doc (optional) + confirm
+- Overdue milestones shown in red
 
-Add contract terms editor to Settings page (Admin only): textarea for Arabic terms, textarea for English terms.
+Add "المدفوعات / Payments" page (/erp/payments): all milestones across all projects grouped by project. Accountant can mark paid from here too.
 
-Add sidebar badge for overdue payment count.
+Add sidebar badge for overdue payment count (red dot with count).
+
+Add i18n keys for all new strings (ar + en).
 
 Run pnpm run typecheck. Fix all errors.
-Commit: "feat: Phase 2 — Contracts and Payments"
+Commit: "feat: Phase 2 — Payment milestones"
 Push to GitHub.
 ```
 

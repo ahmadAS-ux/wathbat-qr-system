@@ -299,6 +299,18 @@ Base path: `/api`
 
 ---
 
+### ERP — Contract (v2.5.2)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/erp/settings/contract-template` | ✅ Admin only | Returns all 6 contract template keys as `{ key: value }` |
+| `PUT` | `/api/erp/settings/contract-template` | ✅ Admin only | Upserts one or more contract template keys (body: `{ key: value, ... }`) |
+| `GET` | `/api/erp/projects/:id/contract` | ✅ Admin / FactoryManager / SalesAgent | Returns project + parsed quotation + section metadata + drawing refs + template for contract rendering |
+| `POST` | `/api/erp/projects/:id/contract/mark-printed` | ✅ Admin / FactoryManager / SalesAgent | Advances `stageInternal` to 4 when contract is printed |
+| `POST` | `/api/erp/projects/:id/contract/override-log` | ✅ Admin / FactoryManager / SalesAgent | Logs integrity override events (issue codes in body) |
+
+---
+
 ## 5. Database Schema / مخطط قاعدة البيانات
 
 Database: **PostgreSQL**. Tables are auto-created on server startup via Drizzle ORM migrations.
@@ -346,6 +358,21 @@ Database: **PostgreSQL**. Tables are auto-created on server startup via Drizzle 
 | `message` | `text` | nullable | Customer's free-text notes |
 | `status` | `text` | NOT NULL, DEFAULT `'New'` | `'New'` \| `'In Progress'` \| `'Done'` |
 | `created_at` | `timestamp` | NOT NULL, DEFAULT NOW() | Submission time |
+
+---
+
+### Table: `system_settings` (v2.5.2)
+
+Key-value store for admin-editable system settings. Seeded with contract template defaults on startup.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `serial` | PRIMARY KEY | Auto-increment ID |
+| `key` | `text` | NOT NULL, UNIQUE | Setting key (e.g. `contract_cover_intro_ar`) |
+| `value` | `text` | NOT NULL | Setting value (up to 10,000 chars) |
+| `updated_at` | `timestamp` | NOT NULL, DEFAULT NOW() | Last update time |
+
+**Seeded keys:** `contract_cover_intro_ar`, `contract_cover_intro_en`, `contract_terms_ar`, `contract_terms_en`, `contract_signature_block_ar`, `contract_signature_block_en`
 
 ---
 

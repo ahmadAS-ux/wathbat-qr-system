@@ -366,6 +366,13 @@ export const translations = {
     contract_loading: "Loading contract...",
     error_unexpected: "Unexpected error",
     contract_no_quotation: "No quotation data available",
+    erp_similar_customers: "Similar customers:",
+    erp_duplicate_confirm_title: "Similar customer exists",
+    erp_duplicate_confirm_msg: "A customer with a similar name was found. Create a new one anyway?",
+    erp_duplicate_create_new: "Create New",
+    erp_duplicate_select_existing: "Select Existing",
+    erp_phone_duplicate: "This phone number belongs to:",
+    erp_lead_already_converted: "Already converted to a project",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -732,6 +739,13 @@ export const translations = {
     contract_loading: "جاري تحميل العقد...",
     error_unexpected: "خطأ غير متوقع",
     contract_no_quotation: "لا توجد بيانات عرض سعر",
+    erp_similar_customers: "عملاء مشابهين:",
+    erp_duplicate_confirm_title: "عميل مشابه موجود",
+    erp_duplicate_confirm_msg: "تم العثور على عميل بنفس الاسم. هل تريد إنشاء عميل جديد على أي حال؟",
+    erp_duplicate_create_new: "إنشاء جديد",
+    erp_duplicate_select_existing: "اختر موجود",
+    erp_phone_duplicate: "رقم الجوال مسجل للعميل:",
+    erp_lead_already_converted: "تم تحويله إلى مشروع مسبقاً",
   }
 };
 

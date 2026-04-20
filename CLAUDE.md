@@ -157,8 +157,8 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ## Version & Phase Status
 
-- **Current:** v2.5.2 — Contract Generator (A4 printable HTML + Settings template + Integrity Check)
-- **Previous:** v2.5.1 — Quotation + Section parsers with 409 name-mismatch detection
+- **Current:** v2.5.3 — Assembly List + Cut Optimisation parsers with position/profile data panels
+- **Previous:** v2.5.2 — Contract Generator (A4 printable HTML + Settings template + Integrity Check)
 - **Baseline:** v1.0 (tag `v1.0`, commit `c3ee916`) — original QR Asset Manager, safe rollback point
 
 ### ERP Phase Status
@@ -170,7 +170,6 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 | Phase 4 | 🔜 Future | Delivery + Installation + Warranty |
 
 ### Pending from Ahmad (blockers for Phase 2+)
-- Orgadata Technical Document sample (.docx)
 - Orgadata Price Quotation sample (.docx)
 - Contract template example
 - Qoyod document format sample
