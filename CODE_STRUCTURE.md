@@ -25,17 +25,18 @@ This file eliminates all 4 problems by defining exact contracts.
 
 ```
 artifacts/api-server/src/
-├── index.ts              # Entry: DB migrations, seed admin + dropdown_options, start server
-├── app.ts                # Express app: CORS, JSON, auth guard, route mounting
+├── index.ts              # Entry: DB migrations, seed admin + dropdown_options, start server; warranty expiry setInterval
+├── app.ts                # Express app: CORS, JSON, auth guard, route mounting; public skip list
 ├── routes/
 │   ├── index.ts          # Route aggregator — imports and mounts all routers
 │   ├── auth.ts           # POST /api/auth/login, GET /api/auth/me
 │   ├── admin.ts          # /api/admin/* — metrics, requests, history, users
 │   ├── qr.ts             # /api/qr/* — DOCX upload, QR generation, download
-│   └── erp.ts            # /api/erp/* — ALL ERP routes (leads, projects, options, vendors, etc.)
+│   └── erp.ts            # /api/erp/* — ALL 65+ ERP routes (leads, projects, vendors, phases, payments, etc.)
 └── lib/
     ├── auth.ts           # JWT sign/verify, requireAuth, requireRole, hashPassword
     ├── logger.ts         # Pino logger instance
+    ├── file-detector.ts  # Auto-detects Orgadata file type from filename (Phase 3+)
     └── stats.ts          # In-memory counters (legacy — unreliable after restart)
 ```
 
@@ -50,13 +51,14 @@ artifacts/api-server/src/
 ```
 artifacts/qr-manager/src/
 ├── main.tsx              # Entry: API base URL, global fetch JWT patch
-├── App.tsx               # Router: all routes, auth/language providers
+├── App.tsx               # Router: all routes (incl. public /confirm/:phaseId), auth/language providers
 ├── pages/
 │   ├── Home.tsx          # DOCX upload page
 │   ├── Admin.tsx         # Admin dashboard — metrics, archive preview, requests preview
 │   ├── AdminHistory.tsx  # Full document archive
 │   ├── AdminRequests.tsx # Full service requests table
-│   ├── AdminUsers.tsx    # User management + dropdown editor (Admin only)
+│   ├── AdminUsers.tsx    # User management (Admin only)
+│   ├── AdminDropdowns.tsx # Dropdown editor (Admin only)
 │   ├── Login.tsx         # Login form
 │   ├── Scan.tsx          # Public customer QR scan form
 │   ├── not-found.tsx     # 404 page
@@ -64,20 +66,28 @@ artifacts/qr-manager/src/
 │       ├── Leads.tsx         # Lead list — tabs, table, create modal
 │       ├── LeadDetail.tsx    # Lead detail — info + contact log timeline
 │       ├── Projects.tsx      # Project list — card grid with stage filters
-│       └── ProjectDetail.tsx # Project detail — stage timeline, file upload
+│       ├── ProjectDetail.tsx # Project detail — stage timeline, file upload, phases, warranty
+│       ├── ContractPage.tsx  # Printable A4 contract (Phase 2)
+│       ├── Payments.tsx      # All payment milestones across projects (Phase 2)
+│       ├── Vendors.tsx       # Vendor list + PO history (Phase 3)
+│       ├── AdminSettings.tsx # Contract template editor + system settings (Admin only)
+│       └── PhaseConfirm.tsx  # PUBLIC — customer QR confirmation page at /confirm/:phaseId (Phase 4)
 ├── components/
 │   ├── layout/
 │   │   ├── AdminLayout.tsx   # Sidebar nav layout — add new items here
-│   │   └── Header.tsx        # Top nav bar
+│   │   └── Header.tsx        # Top nav bar (hidden on /scan, /confirm/*, /login)
+│   ├── erp/
+│   │   └── NameMismatchModal.tsx  # Modal for Orgadata project name conflict (Phase 2)
 │   ├── FileUpload.tsx        # Drag-and-drop DOCX uploader
 │   ├── ResultsView.tsx       # QR results table
+│   ├── Toast.tsx             # Toast notification context
 │   └── ui/                   # shadcn/ui components (DO NOT modify)
 ├── hooks/
 │   ├── use-language.tsx      # Language/RTL context + localStorage
 │   └── use-auth.tsx          # Auth context: login, logout, JWT
 └── lib/
     ├── api-base.ts           # Resolves API base URL from VITE_API_URL
-    ├── i18n.ts               # ALL translation strings — Arabic + English
+    ├── i18n.ts               # ALL translation strings — Arabic + English (506 keys)
     └── utils.ts              # cn(), formatBytes() helpers
 ```
 
@@ -100,13 +110,19 @@ lib/db/src/schema/
 ├── lead_logs.ts          # lead_logs table (Phase 1)
 ├── projects.ts           # projects table (Phase 1)
 ├── project_files.ts      # project_files table (Phase 1)
-├── dropdown_options.ts   # dropdown_options table (Phase 1)
-├── vendors.ts            # vendors table (Phase 3 — future)
-├── purchase_orders.ts    # purchase_orders table (Phase 3 — future)
-├── po_items.ts           # po_items table (Phase 3 — future)
-├── manufacturing_orders.ts # manufacturing_orders table (Phase 3 — future)
-├── payment_milestones.ts # payment_milestones table (Phase 2 — future)
-└── delivery_phases.ts    # delivery_phases table (Phase 4 — future)
+├── dropdown_options.ts       # dropdown_options table (Phase 1) — has active, sort_order
+├── system_settings.ts        # system_settings table (Phase 2) — key-value for contract template
+├── payment_milestones.ts     # payment_milestones table (Phase 2) — has linked_event, linked_phase_id, paid_amount
+├── parsed_quotations.ts      # parsed Orgadata quotation data (Phase 2)
+├── parsed_sections.ts        # parsed section drawings parent row (Phase 2)
+├── parsed_section_drawings.ts # individual drawing images from section DOCX (Phase 2)
+├── parsed_assembly_lists.ts  # parsed assembly list positions (Phase 2+)
+├── parsed_cut_optimisations.ts # parsed cut optimisation profiles (Phase 2+)
+├── vendors.ts                # vendors table (Phase 3)
+├── purchase_orders.ts        # purchase_orders table (Phase 3)
+├── po_items.ts               # po_items table (Phase 3)
+├── manufacturing_orders.ts   # manufacturing_orders table (Phase 3)
+└── project_phases.ts         # project_phases table (Phase 3 + v3.2: customer_confirmed columns)
 ```
 
 **Rules:**
@@ -376,12 +392,13 @@ const STAGE_COLORS: Record<StageDisplay, { bg: string; text: string; labelAr: st
   complete:       { bg: '#E1F5EE', text: '#0F6E56', labelAr: 'مكتمل',       labelEn: 'Complete' },
 };
 
-// Internal stage → display stage mapping
+// Internal stage → display stage mapping (15 stages: 0–14)
+// 0–1: new | 2–4: in_study | 5–8: in_production | 9–14: complete
 function getDisplayStage(internal: number): StageDisplay {
   if (internal <= 1) return 'new';
-  if (internal <= 5) return 'in_study';
+  if (internal <= 4) return 'in_study';
   if (internal <= 8) return 'in_production';
-  return 'complete';
+  return 'complete'; // 9–14
 }
 ```
 

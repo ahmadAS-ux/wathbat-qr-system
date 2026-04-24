@@ -36,6 +36,7 @@ Qoyod is a Saudi accounting SaaS with a REST API covering **19 resource types**:
 
 ### Authentication
 - Header: `API-KEY: your_api_key`
+- Base URL: `https://api.qoyod.com/2.0/`
 - Generate from: Qoyod Dashboard → General Settings
 - All requests return JSON
 
@@ -139,7 +140,7 @@ Qoyod is a Saudi accounting SaaS with a REST API covering **19 resource types**:
 ### New Environment Variables
 ```
 QOYOD_API_KEY=your_api_key_here
-QOYOD_BASE_URL=https://www.qoyod.com/api
+QOYOD_BASE_URL=https://api.qoyod.com/2.0
 ```
 
 ### New Backend File

@@ -287,18 +287,18 @@ Types:
 Add this to every Claude Code prompt:
 
 ```
-Before committing, verify all gates in QUALITY_GATES.md pass:
+Before committing, verify all 13 gates in QUALITY_GATES.md pass:
 1. pnpm run typecheck — zero errors
-2. pnpm run build — succeeds
+2. pnpm run build — succeeds (PORT=3001 BASE_PATH=/ pnpm run build)
 3. Server starts and /api/healthz responds
 4. New endpoints return correct responses (not 500, not empty)
-5. Arabic text renders correctly (not boxes)
+5. Arabic text renders correctly (not boxes) — all strings in i18n.ts AR+EN
 6. RTL layout correct (sidebar right, text-align: start/end)
 7. Forms validate required fields with Arabic error messages
-8. Role permissions match WORKFLOW_REFERENCE_v3.md
+8. Role permissions match WORKFLOW_REFERENCE_v3.md Section 4
 9. Seed data doesn't duplicate on restart
 10. Existing QR system features still work
-11. Every new data record has a parent entity link (no unbound records without design intent)
+11. Every new data record has a parent entity link; cascade DELETE covers new tables (vendors→POs→items, projects→phases)
 12. Version bumped in all 3 package.json files + CHANGELOG updated + git tag created
-13. QR data visible in ERP views, ERP data triggers QR generation, no "Unauthorized" on any link
+13. QR data visible in ERP views, no "Unauthorized" on any link; public endpoints in app.ts skip list
 ```

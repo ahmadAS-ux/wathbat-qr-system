@@ -298,10 +298,10 @@ Before starting the next phase, ALL of these must be true:
 
 | Phase | Date | Reviewer | Result | Issues Found | Issues Fixed |
 |-------|------|----------|--------|-------------|-------------|
-| Phase 1 (v2.1) | April 2026 | Ahmad | Partial — bugs found before full review | 2 (dropdown labels, phone validation) | 1 fixed, 1 open |
-| Phase 2 | — | — | — | — | — |
-| Phase 3 | — | — | — | — | — |
-| Phase 4 | — | — | — | — | — |
+| Phase 1 (v2.2) | April 2026 | Ahmad | Partial — bugs found before full review | 3 (dropdown labels, phone validation, API base URL) | 3 fixed in v2.2 |
+| Phase 2 (v2.6.0) | April 2026 | Claude Code | Part B passed — build, typecheck, auth, i18n all green | 1 (Issue #5: cross-system QR visibility) | Fixed in v2.6.2 |
+| Phase 3 (v3.1.0) | April 2026 | Claude Code | Part B passed — 13 gates all green | 0 new issues | — |
+| Phase 4 (v3.2.0) | April 2026 | Claude Code | Part B passed — 1 finding (uploadMulti no fileFilter) | 1 (Issue: .docx not validated on multi-file path) | Fixed in same session (fix commit) |
 
 ---
 

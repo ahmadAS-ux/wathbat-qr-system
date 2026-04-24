@@ -1,11 +1,11 @@
 # Wathbah Manufacturing System — Workflow Reference v3.0
 # نظام وثبة لإدارة المصنع — مرجع سير العمل
 
-> **Version:** 3.0 — April 2026
-> **Status:** Phase 1 Complete — v2.2 deployed on Render.com (3 production bugs fixed)
+> **Version:** 3.2.0 — April 2026
+> **Status:** ALL 4 phases complete — v3.2.0 deployed on Render.com
 > **Built on top of:** QR Asset Manager v1.1.0 (Render.com)
 > **Tech stack:** TypeScript · React 19 · Express · PostgreSQL · Drizzle ORM · pnpm monorepo
-> **Primary change from v2.2:** Restructured for Claude Code — added DB schemas, API contracts, component specs, and ready-to-use prompts per phase
+> **v3.2.0:** Phase 4 complete — Delivery phases, customer QR confirmation, warranty auto-check every 6h
 
 ---
 
@@ -13,9 +13,10 @@
 
 Before starting any session, Claude Code must read:
 1. `CLAUDE.md` — commands, monorepo structure, RTL rules
-2. This file — business logic, DB schema, API design, permissions
-3. `CODE_STRUCTURE.md` — exact file paths, data flows, API_BASE rule (⚠️ critical)
-4. `lib/db/src/schema/` — existing tables (users, requests, processed_docs)
+2. `SYSTEM_DESIGN_v3.md` — architecture decisions and data flow diagrams
+3. This file — business logic, DB schema, API design, permissions
+4. `CODE_STRUCTURE.md` — exact file paths, data flows, API_BASE rule (⚠️ critical)
+5. `lib/db/src/schema/` — existing tables
 
 **Golden rule for every prompt:** Claude Code runs fully autonomously — no confirmation steps, commits and pushes all changes automatically.
 
@@ -385,9 +386,9 @@ export const paymentMilestonesTable = pgTable('payment_milestones', {
 | قبل التسليم (Before Delivery) | 40% | `delivery` |
 | بعد التركيب (After Sign-off) | 10% | `final` |
 
-### 3.15 `project_phases` table (v3.0 — new)
+### 3.15 `project_phases` table (v3.0 + v3.2 columns)
 
-Tracks delivery/installation phases per project. Each phase can be signed off to trigger linked payment milestones.
+Tracks delivery/installation phases per project. Each phase steps through `pending → delivered → installed → signed_off`. Sign-off triggers linked payment milestones and (when ALL phases are signed off) starts the warranty.
 
 ```typescript
 // lib/db/src/schema/project_phases.ts
@@ -396,36 +397,26 @@ export const projectPhasesTable = pgTable('project_phases', {
   projectId: integer('project_id').notNull().references(() => projectsTable.id),
   phaseNumber: integer('phase_number').notNull(),  // 1, 2, 3 ...
   label: text('label'),                            // optional custom label
-  status: text('status').notNull().default('pending'), // 'pending'|'delivered'|'installed'|'signed_off'
-  deliveredAt: timestamp('delivered_at'),
-  installedAt: timestamp('installed_at'),
-  signedOffAt: timestamp('signed_off_at'),
+  status: text('status').notNull().default('pending'), // 'pending'|'manufacturing'|'delivered'|'installed'|'signed_off'
+  deliveredAt: timestamp('delivered_at'),          // set by PATCH /deliver
+  installedAt: timestamp('installed_at'),          // set by PATCH /install
+  signedOffAt: timestamp('signed_off_at'),         // set by PATCH /signoff
+  customerConfirmed: boolean('customer_confirmed').notNull().default(false), // v3.2
+  customerConfirmedAt: timestamp('customer_confirmed_at'),                   // v3.2
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 ```
 
-**Sign-off flow (`PATCH /api/erp/phases/:id/signoff`):**
-1. Sets `signedOffAt = now()`, `status = 'signed_off'`
-2. Finds all `payment_milestones` where `linkedPhaseId = phase.id` AND `status = 'pending'`
-3. Updates those milestones to `status = 'due'`
+**Phase flow (v3.2):**
 
-### 3.16 `delivery_phases` table (planned — Phase 4)
-
-```typescript
-// lib/db/src/schema/delivery_phases.ts (future — not yet built)
-export const deliveryPhases = pgTable('delivery_phases', {
-  id: serial('id').primaryKey(),
-  projectId: integer('project_id').notNull().references(() => projects.id),
-  phaseNumber: integer('phase_number').notNull(),   // 1, 2, 3 ...
-  deliveryDate: date('delivery_date'),
-  installerStatus: text('installer_status').default('pending'), // 'pending'|'in_progress'|'done'
-  customerConfirmed: boolean('customer_confirmed').default(false),
-  customerConfirmedAt: timestamp('customer_confirmed_at'),
-  notes: text('notes'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-```
+| Endpoint | What it does |
+|----------|-------------|
+| `PATCH /phases/:id/deliver` | Sets `status='delivered'`, `deliveredAt=now()`, advances project to stage 9 |
+| `PATCH /phases/:id/install` | Sets `status='installed'`, `installedAt=now()`, advances project to stage 10 |
+| `PATCH /phases/:id/signoff` | Sets `status='signed_off'`, `signedOffAt=now()`. Triggers linked payment milestones → `'due'`. If ALL project phases are now signed off → sets `warrantyStartDate`, `warrantyEndDate` (from `warrantyMonths`, default 12), advances project to stage 13. |
+| `GET /phases/:id` (public) | Returns phase info + `projectName` + `customerName` — used by customer confirm page |
+| `POST /phases/:id/confirm` (public) | Sets `customerConfirmed=true`, `customerConfirmedAt=now()` |
 
 ### 3.16 `dropdown_options` table
 
@@ -549,65 +540,84 @@ PATCH  /api/erp/leads/:id/lose            — mark as lost (body: { reason })
 ### 5.2 Projects
 
 ```
-GET    /api/erp/projects                       — list all projects (with filter: stage_display)
-POST   /api/erp/projects                       — create project (direct, no lead)
-GET    /api/erp/projects/:id                   — full project detail + files (isActive=true) + phases
-PATCH  /api/erp/projects/:id                   — update project fields or stage
-DELETE /api/erp/projects/:id                   — Admin/FactoryManager only
+GET    /api/erp/projects                         — list all projects (with filter: stage_display)
+POST   /api/erp/projects                         — create project (direct, no lead)
+GET    /api/erp/projects/:id                     — full project detail + files (isActive=true) + phases
+PATCH  /api/erp/projects/:id                     — update project fields or stage
+DELETE /api/erp/projects/:id                     — Admin/FactoryManager only
 
-POST   /api/erp/projects/:id/files             — upload file(s); supports field 'file' (single) or 'files' (batch)
-GET    /api/erp/projects/:id/files             — list files; ?includeInactive=true shows all versions
-GET    /api/erp/projects/:id/files/expected    — 9-slot status array (one entry per KNOWN_FILE_TYPE)
-POST   /api/erp/projects/:id/files/detect      — auto-detect file types from filenames (no DB write)
-DELETE /api/erp/projects/:id/files/:fileId     — soft-delete (sets isActive=false)
-GET    /api/erp/projects/:id/files/:fileId     — download file
+POST   /api/erp/projects/:id/files               — upload file(s); supports field 'file' (single) or 'files' (batch)
+GET    /api/erp/projects/:id/files               — list files; ?includeInactive=true shows all versions
+GET    /api/erp/projects/:id/files/expected      — 9-slot status array (one entry per KNOWN_FILE_TYPE)
+POST   /api/erp/projects/:id/files/detect        — auto-detect file types from filenames (no DB write)
+DELETE /api/erp/projects/:id/files/:fileId       — soft-delete (sets isActive=false)
+GET    /api/erp/projects/:id/files/:fileId       — download file
 
-GET    /api/erp/projects/:id/phases            — list delivery phases
-POST   /api/erp/projects/:id/phases            — create delivery phase
-PATCH  /api/erp/phases/:id                     — update phase (deliveredAt, installedAt, notes, status)
-DELETE /api/erp/phases/:id                     — Admin/FactoryManager only
-PATCH  /api/erp/phases/:id/signoff             — sign off phase + trigger linked payment milestones → 'due'
+GET    /api/erp/projects/:id/phases              — list delivery phases
+POST   /api/erp/projects/:id/phases              — create delivery phase
+PATCH  /api/erp/phases/:id                       — update phase notes/label
+DELETE /api/erp/phases/:id                       — Admin/FactoryManager only
+PATCH  /api/erp/phases/:id/deliver               — mark phase delivered + advance project to stage 9
+PATCH  /api/erp/phases/:id/install               — mark phase installed + advance project to stage 10
+PATCH  /api/erp/phases/:id/signoff               — sign off + trigger payment milestones → 'due'; if ALL signed off → start warranty + stage 13
+GET    /api/erp/phases/:id                       — PUBLIC: phase info for customer confirm page
+POST   /api/erp/phases/:id/confirm               — PUBLIC: customer confirms receipt (no auth required)
+
+GET    /api/erp/projects/:id/contract            — render printable HTML contract (Admin/FM/SalesAgent)
+POST   /api/erp/projects/:id/contract/mark-printed — advance stageInternal → 5
+POST   /api/erp/projects/:id/contract/override-log — log print override (integrity check bypass)
+
+GET    /api/erp/projects/:id/qr-orders           — list QR orders (processed_docs) linked to project
+GET    /api/erp/projects/:id/parsed-quotation    — parsed quotation data
+GET    /api/erp/projects/:id/parsed-section      — parsed section drawings
+GET    /api/erp/projects/:id/parsed-assembly-list — parsed assembly list positions
+GET    /api/erp/projects/:id/parsed-cut-optimisation — parsed cut optimisation profiles
 ```
 
 ### 5.3 Vendors & Purchase Orders
 
 ```
-GET    /api/erp/vendors                   — list all vendors
-POST   /api/erp/vendors                   — create vendor
-PATCH  /api/erp/vendors/:id              — update vendor
-DELETE /api/erp/vendors/:id              — Admin/FactoryManager only
+GET    /api/erp/vendors                            — list all vendors
+POST   /api/erp/vendors                            — create vendor
+PATCH  /api/erp/vendors/:id                        — update vendor
+DELETE /api/erp/vendors/:id                        — Admin/FactoryManager only
+GET    /api/erp/vendors/:id/purchase-orders        — list all POs for a specific vendor
 
-GET    /api/erp/projects/:id/pos          — list POs for project
-POST   /api/erp/projects/:id/pos          — create PO
-PATCH  /api/erp/pos/:id                  — update PO status or amount paid
-DELETE /api/erp/pos/:id                  — Admin/FactoryManager only
+GET    /api/erp/projects/:id/purchase-orders       — list POs for project
+POST   /api/erp/projects/:id/purchase-orders       — create PO (select vendor + notes)
+GET    /api/erp/purchase-orders/:id                — get PO detail + items
+PATCH  /api/erp/purchase-orders/:id                — update PO status or amount paid
+DELETE /api/erp/purchase-orders/:id                — Admin/FactoryManager only
 
-PATCH  /api/erp/pos/:id/items/:itemId    — update item received quantity
+POST   /api/erp/purchase-orders/:id/items          — add item to PO
+PATCH  /api/erp/po-items/:id                       — update item received quantity (auto-computes PO status rollup)
+DELETE /api/erp/po-items/:id                       — Admin/FactoryManager only
 ```
 
 ### 5.4 Manufacturing
 
 ```
-GET    /api/erp/projects/:id/manufacturing  — get manufacturing order for project
-POST   /api/erp/projects/:id/manufacturing  — create manufacturing order
-PATCH  /api/erp/manufacturing/:id          — update status (pending→in_progress→ready) + notes
+GET    /api/erp/projects/:id/manufacturing   — get manufacturing order for project
+POST   /api/erp/projects/:id/manufacturing   — create manufacturing order (Admin/FactoryManager only)
+PATCH  /api/erp/manufacturing/:id            — update status (pending→in_progress→ready) + notes
+                                               status='ready' → advances project to stageInternal=8
 ```
 
 ### 5.5 Payments
 
 ```
-GET    /api/erp/projects/:id/payments      — list payment milestones
-POST   /api/erp/projects/:id/payments      — create milestone
-PATCH  /api/erp/payments/:id              — mark as paid + upload Qoyod doc
+GET    /api/erp/projects/:id/payments        — list payment milestones for project
+POST   /api/erp/projects/:id/payments        — create milestone (Admin/Accountant)
+PATCH  /api/erp/payments/:id                 — mark as paid + optional Qoyod doc upload (Admin/Accountant)
+GET    /api/erp/payments/all                 — all milestones across all projects (Accountant/Admin)
+GET    /api/erp/payments/overdue-count       — count of overdue milestones (for sidebar badge)
 ```
 
-### 5.6 Delivery
+### 5.6 Settings
 
 ```
-GET    /api/erp/projects/:id/delivery      — list delivery phases
-POST   /api/erp/projects/:id/delivery      — create delivery phase
-PATCH  /api/erp/delivery/:id              — update installer status
-POST   /api/erp/delivery/:id/confirm      — customer confirms phase (public — no auth required)
+GET    /api/erp/settings/contract-template   — get contract template (Admin only)
+PUT    /api/erp/settings/contract-template   — update contract template (Admin only)
 ```
 
 ### 5.7 Dropdown Options
@@ -689,8 +699,9 @@ new → followup → converted (→ project created, stageInternal = 1)
 
 **3-status flow:** Pending → In Progress → Ready
 
-**Manufacturing order shows:** link to Technical Document, delivery deadline, free-text notes field
-**Stage advance:** status set to `ready` → `stageInternal = 7`
+**Manufacturing order shows:** delivery deadline, free-text notes field
+**Create:** Admin or FactoryManager only (`POST /api/erp/projects/:id/manufacturing`)
+**Stage advance:** MO created → `stageInternal = 7`; status set to `ready` → `stageInternal = 8`
 
 ---
 
@@ -713,14 +724,12 @@ new → followup → converted (→ project created, stageInternal = 1)
 
 **Phase status flow:** `pending` → `delivered` → `installed` → `signed_off`
 
-**Phase sign-off (`PATCH /api/erp/phases/:id/signoff`):**
-1. Sets `signedOffAt = now()`, `status = 'signed_off'`
-2. Updates any `payment_milestones` linked to this phase (`linkedPhaseId = phase.id`) from `pending` → `due`
+**Phase actions (v3.2):**
+- `PATCH /phases/:id/deliver` → sets `deliveredAt = now()`, `status = 'delivered'`. First delivery → project `stageInternal = 9`.
+- `PATCH /phases/:id/install` → sets `installedAt = now()`, `status = 'installed'`. First install → `stageInternal = 10`.
+- `PATCH /phases/:id/signoff` → sets `signedOffAt = now()`, `status = 'signed_off'`. Updates linked payment milestones → `'due'`. If ALL phases signed off → starts warranty (see Stage 13) + `stageInternal = 11 → 13`.
 
-**Stage advance:**
-- First phase delivered → `stageInternal = 9`
-- First phase installed → `stageInternal = 10`
-- All phases signed off → `stageInternal = 11`
+**Customer QR confirmation:** each phase has a public link `/confirm/:phaseId`. Customer opens QR code, taps confirm → `POST /api/erp/phases/:id/confirm` sets `customerConfirmed = true`. Page then opens WhatsApp with pre-filled confirmation message.
 
 ---
 
@@ -742,17 +751,20 @@ new → followup → converted (→ project created, stageInternal = 1)
 
 ### Stage 13: Warranty (`display: complete`)
 
-**Warranty starts:** after final payment milestone marked paid (or after customer confirms final installation phase — TBD)
+**Warranty starts automatically (v3.2):** when ALL project phases are signed off, the sign-off endpoint sets:
+- `warrantyStartDate = today`
+- `warrantyEndDate = today + warrantyMonths` (default: 12 months from `projects.warrantyMonths`)
+- `stageInternal = 13`
 
-**Warranty duration:** set in `system_settings` (default: 12 months — confirm with Ahmad)
+**Warranty expiry check:** runs on server startup and every 6 hours via `setInterval`. Any project with `warrantyEndDate < today AND stageInternal < 14` → automatically advances to stage 14.
 
-**`warrantyEndDate`** = `warrantyStartDate + warrantyMonths`
+**WarrantySection** in ProjectDetail shows: start date, end date, months remaining, active/expired badge.
 
 ---
 
 ### Stage 14: Done (`display: complete`)
 
-**Project closes:** `warrantyEndDate < today` → `stageInternal = 14`, project moves to archive view
+**Project closes automatically:** warranty expiry check advances `stageInternal = 14` when `warrantyEndDate < today`. Project moves to archive view.
 
 ---
 
@@ -820,7 +832,7 @@ Some Phases are broken into smaller versioned releases.
 Current active work is always documented in `CLAUDE.md` under 
 "Current Active Work" section — read that before starting any session.
 
-### ✅ Phase 1: Leads + Projects + File Upload — COMPLETE (v2.2)
+### ✅ Phase 1: Leads + Projects + File Upload — COMPLETE (v2.2, April 2026)
 
 **Goal:** Team can register leads, track follow-ups, convert to projects, upload Orgadata files.
 
@@ -896,26 +908,23 @@ Push to GitHub.
 
 ---
 
-### 🟡 Phase 2: Contracts + Payments — Partially Complete
+### ✅ Phase 2: Contracts + Payments — COMPLETE (v2.6.0, April 2026)
 
 **Goal:** Generate branded contracts. Track payment milestones. Accountant role.
 
-**What's done (v2.5.2):**
+**Complete:**
 - ✅ `system_settings` table — seeded with 6 contract template keys
 - ✅ Contract page at `/erp/projects/:id/contract` — printable A4 HTML (no PDF library; browser print/Save as PDF)
 - ✅ `GET/PUT /api/erp/settings/contract-template` — Admin-only template editor
 - ✅ Admin Settings page at `/erp/settings` — 6 textarea fields (Arabic + English), placeholder reference
 - ✅ Contract Integrity Check — green/amber/red, blocks print on errors, override flow with backend log
-- ✅ `POST /contract/mark-printed` — advances stageInternal → 4
-
-**What remains (next):**
-- ⏳ `payment_milestones` table + CRUD endpoints
-- ⏳ Payment milestones section in ProjectDetail (Accountant marks paid, uploads Qoyod doc)
-- ⏳ `/erp/payments` page — all milestones across projects, overdue in red
-- ⏳ Sidebar badge for overdue payment count
-- ⏳ Accountant role fully activated for payment flows
-
-**Blocked by:** Qoyod document format sample (Ahmad). Payment milestone defaults confirmation (30/40/30?).
+- ✅ `POST /contract/mark-printed` — advances stageInternal → 5
+- ✅ `payment_milestones` table + CRUD endpoints
+- ✅ Payment milestones section in ProjectDetail (Accountant marks paid, uploads Qoyod doc)
+- ✅ `/erp/payments` page — all milestones across projects, overdue in red
+- ✅ Sidebar badge for overdue payment count
+- ✅ Accountant role fully activated for payment flows
+- ✅ File versioning: `is_active` on `project_files` — re-upload preserves history
 
 #### 🤖 Claude Code Prompt — Phase 2 (remaining: Payments only)
 
@@ -955,15 +964,18 @@ Push to GitHub.
 
 ---
 
-### 🟠 Phase 3: Procurement + Manufacturing
+### ✅ Phase 3: Procurement + Manufacturing — COMPLETE (v3.1.0, April 2026)
 
 **Goal:** Vendors, purchase orders, receiving items, manufacturing orders.
 
-**Scope:**
-- New tables: `vendors`, `purchase_orders`, `po_items`, `manufacturing_orders`
-- New API routes: Section 5.3 + 5.4
-- New pages: Vendors list, PO detail, Manufacturing order view
-- Factory Manager role: can send manufacturing orders
+**Complete:**
+- ✅ `vendors`, `purchase_orders`, `po_items`, `manufacturing_orders` tables
+- ✅ Full CRUD for vendors and POs — see Section 5.3 + 5.4
+- ✅ Vendors page at `/erp/vendors` — card list, search, category filter, PO history, create/edit/delete
+- ✅ Procurement section in ProjectDetail — create PO, add/receive items, auto PO status rollup
+- ✅ Manufacturing section in ProjectDetail — send to manufacturing (FM/Admin), start/complete controls
+- ✅ `lib/file-detector.ts` — auto-detects Orgadata file types from filenames
+- ✅ Sidebar: Vendors nav item (Admin, FM, Employee)
 
 #### 🤖 Claude Code Prompt — Phase 3
 
@@ -997,16 +1009,20 @@ Push to GitHub.
 
 ---
 
-### 🟢 Phase 4: Delivery + Installation + Warranty
+### ✅ Phase 4: Delivery + Installation + Warranty — COMPLETE (v3.2.0, April 2026)
 
 **Goal:** Delivery phases, customer QR confirmation, warranty tracking, project close.
 
-**Scope:**
-- New table: `delivery_phases`
-- New public page: `/confirm/:deliveryPhaseId`
-- WhatsApp deep link for customer confirmation
-- Warranty auto-start after customer confirms
-- Project auto-close when warranty expires
+**Complete:**
+- ✅ `customer_confirmed` / `customer_confirmed_at` columns on `project_phases` (v3.2 addition)
+- ✅ `PATCH /phases/:id/deliver` + `/install` — phase status progression, auto-advance project stages
+- ✅ Enhanced `PATCH /phases/:id/signoff` — triggers warranty when ALL phases signed off
+- ✅ `GET /phases/:id` + `POST /phases/:id/confirm` — public endpoints for customer QR page
+- ✅ Warranty expiry background check — runs on startup + every 6h; auto-advances to stage 14
+- ✅ `PhaseConfirm.tsx` — public mobile page at `/confirm/:phaseId`, WhatsApp confirmation flow
+- ✅ `PhasesSection` in ProjectDetail — full phase management UI
+- ✅ `WarrantySection` in ProjectDetail — warranty dates, months remaining, active/expired badge
+- ✅ `.docx` validation on Orgadata file uploads (audit fix: multi-file path now validates extension)
 
 #### 🤖 Claude Code Prompt — Phase 4
 
@@ -1077,21 +1093,20 @@ The new ERP is **additive only** — no existing code is modified.
 
 ---
 
-## 12. Open Items (Blockers)
+## 12. Future Enhancements
 
-| Item | Blocks | Action needed |
+All 4 phases are complete as of v3.2.0. The following are candidate next steps — not yet scoped or started:
+
+| Enhancement | Description | Reference |
 |---|---|---|
-| Orgadata Technical Document sample `.docx` | Price quotation parsing, Contract generation | Ahmad uploads file |
-| Orgadata Price Quotation sample `.docx` | Price quotation parsing | Ahmad uploads file |
-| Contract template / example | Phase 2 PDF generation | Ahmad shares current paper contract |
-| Qoyod document format | Phase 2 payment upload | Ahmad shares sample Word file |
-| Wathbah logo (high-res) | Contract PDF, delivery notes | Ahmad uploads PNG/SVG |
-| Employee sees prices? | Permissions table | Ahmad confirms yes/no |
-| Warranty default duration | Phase 4 warranty auto-start | Ahmad confirms (typical: 12 months?) |
-| Payment milestone defaults | Phase 2 contract generation | Ahmad confirms (typical: 30/40/30?) |
+| **Qoyod API integration** | Replace manual Word doc uploads with live API: pull payment status, push invoices/customers | `QOYOD_INTEGRATION_PLAN.md` — start with Phase A (read-only) |
+| **Employee price visibility** | Currently hidden for Employee role — decision deferred | Add toggle in Admin Settings; default: hidden |
+| **Mobile-first UI redesign** | Factory floor usage needs larger touch targets, simplified navigation | Assess after 3 months of real usage |
+| **Contract PDF export** | True PDF generation (browser print works but formatting varies) | Requires Arabic-capable PDF library (Puppeteer or similar) |
+| **Overdue warranty notifications** | Proactive alerts when warranty is about to expire (60/30/7 day warnings) | Add to warranty expiry background job |
+| **OpenAPI spec completion** | Only 3 of 65+ routes documented in `openapi.yaml` | Complete before enabling codegen |
 
 ---
 
-*Last updated: April 2026 — v3.0 (restructured for Claude Code execution)*
-*Changes from v2.2: Added full DB schema, API contracts, component specs, and ready-to-paste Claude Code prompts per phase*
+*Last updated: April 2026 — v3.2.0 (all 4 phases complete)*
 *Wathbat Aluminum — wathbat.sa*

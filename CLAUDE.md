@@ -7,10 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Read in this order:**
 1. `CLAUDE.md` (this file) — commands, architecture, roles, RTL rules
 2. `WORKFLOW_REFERENCE_v3.md` — business logic, DB schemas, API contracts, phase plan
-3. `CODE_STRUCTURE.md` — exact file paths, data flows, form specs, validation rules
-4. `QUALITY_GATES.md` — verify all 12 gates before every commit
-5. `UI_UX_CHECKLIST.md` — read before modifying any frontend component
-6. `SECURITY_BASELINE.md` — read before modifying any backend route
+3. `SYSTEM_DESIGN_v3.md` — system architecture decisions, stage model, data flow diagrams
+4. `CODE_STRUCTURE.md` — exact file paths, data flows, form specs, validation rules
+5. `QUALITY_GATES.md` — verify all 13 gates before every commit
+6. `UI_UX_CHECKLIST.md` — read before modifying any frontend component
+7. `SECURITY_BASELINE.md` — read before modifying any backend route
+8. `QOYOD_INTEGRATION_PLAN.md` — future enhancement: Qoyod API integration plan (read before touching payments)
 
 **Golden rule:** Claude Code runs fully autonomously — no confirmation steps, commits and pushes all changes automatically.
 
@@ -21,11 +23,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Wathbah Manufacturing System (v2.4)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
+**Wathbah Manufacturing System (v3.2.0)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
 
 Built in two layers:
 - **Layer 1 (v1.0):** QR Asset Manager — processes Orgadata DOCX files, generates QR codes, tracks customer service requests
-- **Layer 2 (v2.x):** ERP System — leads CRM, projects lifecycle, file upload, role-based access
+- **Layer 2 (v3.x):** ERP System — full 15-stage project lifecycle (leads → warranty), vendors/POs, procurement, manufacturing, delivery phases, customer QR confirmation, warranty auto-check
 
 Frontend: React 19 SPA. Backend: Express API. Database: PostgreSQL. Deployed: Render.com.
 
@@ -79,25 +81,28 @@ There are no automated tests configured.
 
 ### Backend (`artifacts/api-server/`)
 
-- Entry: `src/index.ts` — runs DB migrations, seeds admin account + dropdown options, starts server
+- Entry: `src/index.ts` — runs DB migrations, seeds admin account + dropdown options, starts server; runs warranty expiry check on startup and every 6h
 - App: `src/app.ts` — middleware, CORS, global JWT auth guard, route mounting
-- Auth guard skips: `POST /api/admin/requests`, `GET /api/healthz`, `GET /api/erp/options/:category`
-- DB tables auto-created on startup via Drizzle (QR system + ERP Phase 1 tables)
+- Auth guard skips: `POST /api/admin/requests`, `GET /api/healthz`, `GET /api/erp/options/:category`, `GET /api/erp/phases/:id`, `POST /api/erp/phases/:id/confirm`, `GET /api/qr/download/:id`
+- DB tables auto-created on startup via Drizzle (all tables idempotent)
 - Default seed credentials: `admin` / `admin123`
-- Startup migrations (all idempotent):
+- Startup migrations (all idempotent `ADD COLUMN IF NOT EXISTS`):
   - Renames `'User'` role → `'Employee'`
-  - `ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS active / sort_order`
-  - `UPDATE dropdown_options SET active = true WHERE active IS NULL`
-- ERP routes: `routes/erp.ts`, mounted at `/api/erp/`
+  - `dropdown_options`: adds `active`, `sort_order`
+  - `project_files`: adds `is_active`
+  - `payment_milestones`: adds `linked_event`, `linked_phase_id`, `paid_amount`
+  - `project_phases`: adds `delivered_at`, `installed_at`, `customer_confirmed`, `customer_confirmed_at`
+- ERP routes: `routes/erp.ts` (65+ routes), mounted at `/api/erp/`
+- File detection: `lib/file-detector.ts` — auto-detects Orgadata file type from filename
 - Auth middleware: `requireAuth` + `requireRole(...roles)` in `src/lib/auth.ts`
 
 ### Frontend (`artifacts/qr-manager/`)
 
 - Entry: `src/main.tsx` — sets API base URL, monkey-patches global `fetch` to inject JWT from localStorage
 - Routing: wouter (not React Router)
-- Public routes: `/login`, `/scan`
-- ERP pages: `src/pages/erp/` — Leads, LeadDetail, Projects, ProjectDetail
-- Sidebar: `AdminLayout.tsx` — includes ERP nav + overdue lead badge
+- Public routes: `/login`, `/scan`, `/confirm/:phaseId` (customer QR confirmation — no auth)
+- ERP pages: `src/pages/erp/` — Leads, LeadDetail, Projects, ProjectDetail, ContractPage, Payments, Vendors, AdminSettings, PhaseConfirm
+- Sidebar: `AdminLayout.tsx` — includes ERP nav + overdue lead badge + overdue payment badge
 
 ### ⚠️ Critical: API Base URL in Every Page
 
@@ -109,8 +114,8 @@ fetch(`${API_BASE}/api/erp/leads`)   // ✅ correct
 fetch('/api/erp/leads')              // ❌ breaks in production
 ```
 
-Already applied to: `Leads.tsx`, `LeadDetail.tsx`, `Projects.tsx`, `ProjectDetail.tsx`, `AdminUsers.tsx`, `AdminLayout.tsx`.
-**Every new ERP page MUST import and use `API_BASE`.**
+Already applied to: `Leads.tsx`, `LeadDetail.tsx`, `Projects.tsx`, `ProjectDetail.tsx`, `Payments.tsx`, `Vendors.tsx`, `AdminSettings.tsx`, `AdminUsers.tsx`, `AdminLayout.tsx`.
+**Every new ERP page MUST import and use `API_BASE`. Exception: `PhaseConfirm.tsx` is a public page (no JWT) — it uses bare `/api/` paths intentionally.**
 
 ---
 
@@ -126,6 +131,8 @@ Already applied to: `Leads.tsx`, `LeadDetail.tsx`, `Projects.tsx`, `ProjectDetai
 | `JWT_SECRET` | Optional | Auto-generated if omitted on Render |
 | `QR_SCAN_BASE_URL` | Optional | Base URL in QR codes; falls back to `/scan` |
 | `LOG_LEVEL` | Optional | `trace`/`debug`/`info`/`warn`/`error` (default: `info`) |
+| `QOYOD_API_KEY` | Future | Qoyod accounting API key — see `QOYOD_INTEGRATION_PLAN.md` |
+| `QOYOD_BASE_URL` | Future | `https://api.qoyod.com/2.0` — see `QOYOD_INTEGRATION_PLAN.md` |
 
 ---
 
@@ -157,32 +164,28 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ## Version & Phase Status
 
-- **Current:** v2.5.3 — Assembly List + Cut Optimisation parsers with position/profile data panels
-- **Previous:** v2.5.2 — Contract Generator (A4 printable HTML + Settings template + Integrity Check)
+- **Current:** v3.2.0 — Phase 4 complete (Delivery, Installation, Sign-off, Warranty)
+- **Previous:** v3.1.0 — Phase 3 complete (Vendors, Purchase Orders, Manufacturing)
 - **Baseline:** v1.0 (tag `v1.0`, commit `c3ee916`) — original QR Asset Manager, safe rollback point
 
-### ERP Phase Status
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 1 | ✅ Complete | Leads CRM, Projects, File Upload, Contact Log, Dropdown Editor |
-| Phase 2 | ⏳ Next | Contracts + Payments |
-| Phase 3 | 🔜 Future | Procurement + Manufacturing |
-| Phase 4 | 🔜 Future | Delivery + Installation + Warranty |
+### ERP Phase Status — ALL COMPLETE
+| Phase | Version | Status | Description |
+|-------|---------|--------|-------------|
+| Phase 1 | v2.2 | ✅ Complete | Leads CRM, Projects, File Upload, Contact Log, Dropdown Editor |
+| Phase 2 | v2.6.0 | ✅ Complete | Contracts (A4 print), Payment Milestones, Accountant role, File versioning |
+| Phase 3 | v3.1.0 | ✅ Complete | Vendors, Purchase Orders, PO Items, Manufacturing Orders |
+| Phase 4 | v3.2.0 | ✅ Complete | Delivery Phases, Customer QR Confirmation, Warranty auto-check, Project close |
 
-### Pending from Ahmad (blockers for Phase 2+)
-- Orgadata Price Quotation sample (.docx)
-- Contract template example
-- Qoyod document format sample
-- Wathbah logo (high-res PNG/SVG)
-- Confirm: can Employee see prices? (default: No)
-- Confirm: warranty default duration (typically 12 months?)
-- Confirm: payment milestone defaults (30/40/30?)
+### Future Enhancements (not yet planned)
+- Qoyod API integration — see `QOYOD_INTEGRATION_PLAN.md`
+- UI/UX redesign for mobile-first factory floor use
+- Price visibility for Employee role (currently blocked — default: hidden)
 
 ---
 
 ## Quality & Security Summary
 
-### Before every commit — all 12 gates must pass (QUALITY_GATES.md):
+### Before every commit — all 13 gates must pass (QUALITY_GATES.md):
 1. `pnpm run typecheck` — zero errors
 2. `pnpm run build` — succeeds
 3. Server starts, `/api/healthz` responds
