@@ -4,6 +4,26 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.2.0] - April 2026
+
+### Added — Phase 4: Delivery, Installation, Sign-off, Warranty
+
+- **`customer_confirmed` / `customer_confirmed_at` columns** on `project_phases` (idempotent `ALTER TABLE` migration on startup).
+- **New backend endpoints:**
+  - `PATCH /api/erp/phases/:id/deliver` — sets status=`delivered`, `deliveredAt`=now, auto-advances project to stage 9.
+  - `PATCH /api/erp/phases/:id/install` — sets status=`installed`, `installedAt`=now, auto-advances project to stage 10.
+  - `PATCH /api/erp/phases/:id/signoff` (enhanced) — if ALL project phases are now `signed_off`, starts warranty (`warrantyStartDate`, `warrantyEndDate` from `warrantyMonths`, default 12), advances project to stage 13.
+  - `GET /api/erp/phases/:id` (public) — returns phase info + project/customer name for the customer confirmation page.
+  - `POST /api/erp/phases/:id/confirm` (public) — sets `customerConfirmed=true`, `customerConfirmedAt`=now.
+- **Warranty expiry check** — runs once on startup and every 6 hours; advances projects with expired `warrantyEndDate` to stage 14 (Done).
+- **Public customer confirmation page** (`/confirm/:phaseId`) — mobile-friendly page accessed via QR code link; shows phase info, one-tap confirmation button, opens WhatsApp with pre-filled bilingual message on confirm.
+- **`PhasesSection`** in ProjectDetail: add/delete phases, status badges (pending/delivered/installed/signed_off), per-phase action buttons (deliver/install/sign-off), customer confirmation badge, notes editor, copy-link button.
+- **`WarrantySection`** in ProjectDetail: warranty start/end dates, months remaining, active/expired badge.
+- **i18n**: ~50 new strings for phases, customer confirmation, warranty in both Arabic and English.
+- **App routing**: added `/confirm/:phaseId` public route; `Header` hidden on confirm pages.
+
+---
+
 ## [3.1.0] - April 2026
 
 ### Added — Phase 3: Vendors, Purchase Orders, Manufacturing

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { projectsTable } from "./projects";
 
 export const projectPhasesTable = pgTable("project_phases", {
@@ -11,6 +11,8 @@ export const projectPhasesTable = pgTable("project_phases", {
   deliveredAt: timestamp("delivered_at"),
   installedAt: timestamp("installed_at"),
   signedOffAt: timestamp("signed_off_at"),
+  customerConfirmed: boolean("customer_confirmed").notNull().default(false),
+  customerConfirmedAt: timestamp("customer_confirmed_at"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

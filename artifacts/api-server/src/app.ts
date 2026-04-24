@@ -37,7 +37,9 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
     (req.method === "GET"  && (req.path === "/healthz" || req.path === "/health")) ||
     (req.method === "POST" && req.path === "/admin/requests") || // scan form
     (req.method === "GET"  && req.path.startsWith("/erp/options/")) || // dropdown options used by public forms
-    (req.method === "GET"  && req.path.startsWith("/qr/download/")); // QR HTML reports — no sensitive data
+    (req.method === "GET"  && req.path.startsWith("/qr/download/")) || // QR HTML reports — no sensitive data
+    (req.method === "GET"  && /^\/erp\/phases\/\d+$/.test(req.path)) || // phase info for customer confirm page
+    (req.method === "POST" && /^\/erp\/phases\/\d+\/confirm$/.test(req.path)); // customer QR confirmation
   if (isPublic) return next();
   requireAuth(req, res, next);
 });

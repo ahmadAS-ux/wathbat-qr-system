@@ -27,6 +27,7 @@ import ErpAdminSettings from "@/pages/erp/AdminSettings";
 import ErpContractPage from "@/pages/erp/ContractPage";
 import ErpPayments from "@/pages/erp/Payments";
 import ErpVendors from "@/pages/erp/Vendors";
+import ErpPhaseConfirm from "@/pages/erp/PhaseConfirm";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +69,7 @@ function AppRoutes() {
   const [, navigate] = useLocation();
   const isScanPage = location === '/scan';
   const isLoginPage = location === '/login';
+  const isConfirmPage = location.startsWith('/confirm/');
   const isAdminPage = location.startsWith('/admin') || location.startsWith('/erp') || location.startsWith('/qr');
 
   // Redirect already-logged-in users away from /login
@@ -79,10 +81,11 @@ function AppRoutes() {
 
   return (
     <div className="flex flex-col min-h-screen relative">
-      {!isScanPage && !isLoginPage && !isAdminPage && <Header />}
+      {!isScanPage && !isLoginPage && !isAdminPage && !isConfirmPage && <Header />}
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/scan" component={Scan} />
+        <Route path="/confirm/:phaseId" component={ErpPhaseConfirm} />
         <Route path="/" component={P(Admin)} />
         <Route path="/qr/upload" component={P(QrUpload)} />
         <Route path="/admin" component={P(Admin)} />

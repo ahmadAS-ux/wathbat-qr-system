@@ -173,6 +173,304 @@ const FILE_SLOTS = [
   { fileType: 'other',             labelAr: 'أخرى',               labelEn: 'Other',                 multiFile: true  },
 ];
 
+interface Phase {
+  id: number;
+  projectId: number;
+  phaseNumber: number;
+  label: string | null;
+  status: string;
+  deliveredAt: string | null;
+  installedAt: string | null;
+  signedOffAt: string | null;
+  customerConfirmed: boolean;
+  customerConfirmedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+function phaseStatusColor(s: string): string {
+  if (s === 'signed_off') return 'bg-teal-50 text-teal-700 border-teal-200';
+  if (s === 'installed') return 'bg-blue-50 text-blue-700 border-blue-200';
+  if (s === 'delivered') return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (s === 'manufacturing') return 'bg-purple-50 text-purple-700 border-purple-200';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
+}
+
+function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl: boolean; t: (k: string) => string; user: { role: string } | null }) {
+  const [phases, setPhases] = useState<Phase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ label: '', phaseNumber: '' });
+  const [adding, setAdding] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<number | null>(null);
+  const [notesVal, setNotesVal] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
+  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
+
+  const loadPhases = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/phases`);
+      if (res.ok) setPhases(await res.json());
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadPhases(); }, [projectId]);
+
+  const handleAdd = async () => {
+    setAdding(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/phases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: addForm.label.trim() || null,
+          phaseNumber: addForm.phaseNumber ? Number(addForm.phaseNumber) : (phases.length + 1),
+        }),
+      });
+      if (res.ok) { setShowAdd(false); setAddForm({ label: '', phaseNumber: '' }); await loadPhases(); }
+    } finally { setAdding(false); }
+  };
+
+  const doAction = async (phaseId: number, action: 'deliver' | 'install' | 'signoff') => {
+    if (action === 'signoff' && !window.confirm(t('phase_sign_off_confirm'))) return;
+    setActionLoading(`${phaseId}-${action}`);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/phases/${phaseId}/${action}`, { method: 'PATCH' });
+      if (res.ok) await loadPhases();
+    } finally { setActionLoading(null); }
+  };
+
+  const handleDelete = async (phaseId: number) => {
+    if (!window.confirm(t('phase_delete_confirm'))) return;
+    setDeletingId(phaseId);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/phases/${phaseId}`, { method: 'DELETE' });
+      if (res.ok) setPhases(prev => prev.filter(p => p.id !== phaseId));
+    } finally { setDeletingId(null); }
+  };
+
+  const copyLink = (phaseId: number) => {
+    const link = `${window.location.origin}/confirm/${phaseId}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedId(phaseId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const saveNotes = async (phaseId: number) => {
+    setSavingNotes(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/phases/${phaseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notesVal }),
+      });
+      if (res.ok) { setEditingNotesId(null); await loadPhases(); }
+    } finally { setSavingNotes(false); }
+  };
+
+  const phaseStatusLabel = (s: string) => ({
+    pending: t('phase_status_pending'),
+    manufacturing: t('phase_status_manufacturing'),
+    delivered: t('phase_status_delivered'),
+    installed: t('phase_status_installed'),
+    signed_off: t('phase_status_signed_off'),
+  }[s] ?? s);
+
+  const isActing = (phaseId: number, action: string) => actionLoading === `${phaseId}-${action}`;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+      <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+        <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('phases_title')}</h2>
+        {canManage && (
+          <button onClick={() => setShowAdd(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+            <Plus className="w-3.5 h-3.5" /> {t('phases_add')}
+          </button>
+        )}
+      </div>
+
+      {showAdd && (
+        <div className="mb-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('phase_number')}</label>
+              <input type="number" value={addForm.phaseNumber} onChange={e => setAddForm(f => ({ ...f, phaseNumber: e.target.value }))} placeholder={String(phases.length + 1)} min={1} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+            </div>
+            <div>
+              <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('phase_label')}</label>
+              <input type="text" value={addForm.label} onChange={e => setAddForm(f => ({ ...f, label: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+            </div>
+          </div>
+          <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <button onClick={handleAdd} disabled={adding} className={`px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              {adding ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
+            </button>
+            <button onClick={() => setShowAdd(false)} className={`px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-white transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+      ) : phases.length === 0 ? (
+        <p className={`text-sm text-slate-400 text-center py-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('phases_empty')}</p>
+      ) : (
+        <div className="space-y-3">
+          {phases.map(ph => (
+            <div key={ph.id} className="rounded-xl border border-slate-200 overflow-hidden">
+              {/* Phase header */}
+              <div className={`flex items-start gap-3 px-4 py-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <div className="w-8 h-8 rounded-lg bg-[#1B2A4A]/8 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-[#1B2A4A] font-bold text-sm">{ph.phaseNumber}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`flex items-center gap-2 flex-wrap mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <span className={`font-semibold text-[#1B2A4A] text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                      {ph.label || `${t('phase_label')} ${ph.phaseNumber}`}
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${phaseStatusColor(ph.status)}`}>
+                      {phaseStatusLabel(ph.status)}
+                    </span>
+                    {ph.customerConfirmed ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 font-semibold">
+                        ✓ {t('phase_customer_confirmed')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 border border-slate-200">
+                        {t('phase_awaiting_confirmation')}
+                      </span>
+                    )}
+                  </div>
+                  {/* Timestamps */}
+                  <div className={`flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-400 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    {ph.deliveredAt && <span dir="ltr">{t('phase_delivered_at')}: {new Date(ph.deliveredAt).toLocaleDateString()}</span>}
+                    {ph.installedAt && <span dir="ltr">{t('phase_installed_at')}: {new Date(ph.installedAt).toLocaleDateString()}</span>}
+                    {ph.signedOffAt && <span dir="ltr">{t('phase_signed_off_at')}: {new Date(ph.signedOffAt).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+                {canDelete && (
+                  <button onClick={() => handleDelete(ph.id)} disabled={deletingId === ph.id} className="p-1.5 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors shrink-0 disabled:opacity-50">
+                    {deletingId === ph.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              {canManage && ph.status !== 'signed_off' && (
+                <div className={`flex items-center gap-2 px-4 pb-3 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  {ph.status === 'pending' || ph.status === 'manufacturing' ? (
+                    <button onClick={() => doAction(ph.id, 'deliver')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-amber-300 text-amber-700 bg-amber-50 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                      {isActing(ph.id, 'deliver') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_mark_delivered')}
+                    </button>
+                  ) : null}
+                  {ph.status === 'delivered' && (
+                    <button onClick={() => doAction(ph.id, 'install')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-blue-300 text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                      {isActing(ph.id, 'install') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_mark_installed')}
+                    </button>
+                  )}
+                  {ph.status === 'installed' && (
+                    <button onClick={() => doAction(ph.id, 'signoff')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-teal-300 text-teal-700 bg-teal-50 rounded-xl hover:bg-teal-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                      {isActing(ph.id, 'signoff') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_sign_off')}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Notes + Copy Link row */}
+              <div className={`flex items-center gap-2 px-4 pb-3 border-t border-slate-50 pt-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                {editingNotesId === ph.id ? (
+                  <div className={`flex-1 flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="text"
+                      value={notesVal}
+                      onChange={e => setNotesVal(e.target.value)}
+                      className={`flex-1 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+                    />
+                    <button onClick={() => saveNotes(ph.id)} disabled={savingNotes} className="px-2 py-1 text-xs bg-[#1B2A4A] text-white rounded-lg hover:bg-[#142240] disabled:opacity-50">
+                      {savingNotes ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '✓'}
+                    </button>
+                    <button onClick={() => setEditingNotesId(null)} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-slate-100">✕</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setEditingNotesId(ph.id); setNotesVal(ph.notes ?? ''); }}
+                    className={`text-xs text-slate-400 hover:text-slate-600 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                  >
+                    {ph.notes ? ph.notes : `+ ${t('phase_notes')}`}
+                  </button>
+                )}
+                <button
+                  onClick={() => copyLink(ph.id)}
+                  className={`ms-auto flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-500 hover:text-[#1B2A4A] border border-slate-200 rounded-lg hover:border-[#1B2A4A]/30 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  {copiedId === ph.id ? (
+                    <CheckCircle2 className="w-3 h-3 text-teal-500" />
+                  ) : (
+                    <Circle className="w-3 h-3" />
+                  )}
+                  {copiedId === ph.id ? t('phase_link_copied') : t('phase_copy_link')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WarrantySection({ project, isRtl, t }: { project: { warrantyStartDate?: string | null; warrantyEndDate?: string | null; warrantyMonths?: number | null; stageInternal?: number } | null; isRtl: boolean; t: (k: string) => string }) {
+  if (!project?.warrantyStartDate) return null;
+
+  const today = new Date();
+  const endDate = project.warrantyEndDate ? new Date(project.warrantyEndDate) : null;
+  const isActive = endDate ? endDate >= today : true;
+
+  let monthsRemaining: number | null = null;
+  if (endDate && isActive) {
+    const diff = (endDate.getFullYear() - today.getFullYear()) * 12 + (endDate.getMonth() - today.getMonth());
+    monthsRemaining = Math.max(0, diff);
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+      <h2 className={`font-semibold text-[#1B2A4A] mb-3 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('warranty_title')}</h2>
+      <div className="space-y-2">
+        <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+          <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+            {isActive ? t('warranty_active') : t('warranty_expired')}
+          </span>
+        </div>
+        <div className={`grid grid-cols-2 gap-3 text-xs text-slate-600 mt-2 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+          <div>
+            <p className="text-slate-400 mb-0.5">{t('warranty_start')}</p>
+            <p className="font-medium" dir="ltr">{project.warrantyStartDate}</p>
+          </div>
+          {endDate && (
+            <div>
+              <p className="text-slate-400 mb-0.5">{t('warranty_end')}</p>
+              <p className="font-medium" dir="ltr">{project.warrantyEndDate}</p>
+            </div>
+          )}
+          {monthsRemaining !== null && (
+            <div>
+              <p className="text-slate-400 mb-0.5">{t('warranty_months_remaining')}</p>
+              <p className="font-medium" dir="ltr">{monthsRemaining}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PO {
   id: number;
   vendorId: number;
@@ -1755,6 +2053,12 @@ export default function ErpProjectDetail() {
 
         {/* Manufacturing Section */}
         <ManufacturingSection projectId={id} isRtl={isRtl} t={t} user={user} />
+
+        {/* Phases Section */}
+        <PhasesSection projectId={id} isRtl={isRtl} t={t} user={user} />
+
+        {/* Warranty Section */}
+        <WarrantySection project={project} isRtl={isRtl} t={t} />
 
         {/* QR Orders Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">

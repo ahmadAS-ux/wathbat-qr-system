@@ -338,6 +338,10 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS paid_amount INTEGER`);
     // status 'due' is a new valid value in v3.0 — no migration needed, existing 'pending' rows remain valid
 
+    // v3.2: Phase 4 — customer confirmation columns on project_phases
+    await db.execute(sql`ALTER TABLE project_phases ADD COLUMN IF NOT EXISTS customer_confirmed BOOLEAN NOT NULL DEFAULT false`);
+    await db.execute(sql`ALTER TABLE project_phases ADD COLUMN IF NOT EXISTS customer_confirmed_at TIMESTAMP`);
+
     // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
     await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);
 
@@ -504,4 +508,25 @@ Date: _______________________                Date: _______________________`,
 
     logger.info({ port }, "Server listening");
   });
+
+  // v3.2: Warranty expiry check — runs every 6 hours
+  // Projects where warrantyEndDate < today AND stageInternal < 14 → mark complete
+  const runWarrantyExpiryCheck = async () => {
+    try {
+      const result = await db.execute(sql`
+        UPDATE projects
+        SET stage_internal = 14, stage_display = 'complete'
+        WHERE warranty_end_date IS NOT NULL
+          AND warranty_end_date < CURRENT_DATE
+          AND stage_internal < 14
+      `);
+      if ((result as any).rowCount > 0) {
+        logger.info({ count: (result as any).rowCount }, '[v3.2] Warranty expiry check: projects marked complete');
+      }
+    } catch (err) {
+      logger.warn({ err }, '[v3.2] Warranty expiry check failed');
+    }
+  };
+  runWarrantyExpiryCheck(); // run once on startup
+  setInterval(runWarrantyExpiryCheck, 6 * 60 * 60 * 1000);
 });

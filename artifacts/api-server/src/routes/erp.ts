@@ -1309,7 +1309,7 @@ router.delete("/erp/phases/:id", requireRole(...ADMIN_FM), async (req: Request, 
   }
 });
 
-// PATCH /erp/phases/:id/signoff — sign off a phase and trigger linked payment milestones
+// PATCH /erp/phases/:id/signoff — sign off a phase, trigger milestones, and start warranty if all phases done
 router.patch("/erp/phases/:id/signoff", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -1331,9 +1331,145 @@ router.patch("/erp/phases/:id/signoff", requireRole(...NO_SALES_NO_ACCT), async 
       ))
       .returning();
 
-    res.json({ phase: updatedPhase, triggeredMilestones });
+    // Check if ALL phases for this project are now signed off → start warranty
+    const allPhases = await db.select().from(projectPhasesTable)
+      .where(eq(projectPhasesTable.projectId, phase.projectId));
+    const allSignedOff = allPhases.length > 0 && allPhases.every(p => p.status === 'signed_off' || p.id === id);
+    let warrantyStarted = false;
+    if (allSignedOff) {
+      const [proj] = await db.select({
+        stageInternal: projectsTable.stageInternal,
+        warrantyMonths: projectsTable.warrantyMonths,
+      }).from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+      if (proj && (proj.stageInternal ?? 0) < 13) {
+        const warrantyMonths = proj.warrantyMonths ?? 12;
+        const today = new Date();
+        const endDate = new Date(today);
+        endDate.setMonth(endDate.getMonth() + warrantyMonths);
+        const fmt = (d: Date) => d.toISOString().split('T')[0];
+        await db.update(projectsTable)
+          .set({
+            stageInternal: 13,
+            stageDisplay: 'complete',
+            warrantyStartDate: fmt(today),
+            warrantyEndDate: fmt(endDate),
+          })
+          .where(eq(projectsTable.id, phase.projectId));
+        warrantyStarted = true;
+      }
+      // Auto-advance to stage 11 even if warranty already set
+      else if (proj && (proj.stageInternal ?? 0) < 11) {
+        await db.update(projectsTable)
+          .set({ stageInternal: 11, stageDisplay: 'complete' })
+          .where(eq(projectsTable.id, phase.projectId));
+      }
+    } else {
+      // At least one phase signed off → advance to stage 11 if lower
+      const [proj] = await db.select({ stageInternal: projectsTable.stageInternal })
+        .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+      if (proj && (proj.stageInternal ?? 0) < 11) {
+        await db.update(projectsTable)
+          .set({ stageInternal: 11, stageDisplay: 'complete' })
+          .where(eq(projectsTable.id, phase.projectId));
+      }
+    }
+
+    res.json({ phase: updatedPhase, triggeredMilestones, warrantyStarted });
   } catch (err) {
     logger.error({ err }, "PATCH /erp/phases/:id/signoff failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── PHASE 4 — DELIVERY, INSTALLATION, CUSTOMER CONFIRMATION ─────────────────
+
+// PATCH /erp/phases/:id/deliver — mark phase as delivered, auto-advance project to stage 9
+router.patch("/erp/phases/:id/deliver", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    if (!phase) return notFound(res);
+
+    const [updated] = await db.update(projectPhasesTable)
+      .set({ status: 'delivered', deliveredAt: new Date() })
+      .where(eq(projectPhasesTable.id, id))
+      .returning();
+
+    const [proj] = await db.select({ stageInternal: projectsTable.stageInternal })
+      .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+    if (proj && (proj.stageInternal ?? 0) < 9) {
+      await db.update(projectsTable)
+        .set({ stageInternal: 9, stageDisplay: 'complete' })
+        .where(eq(projectsTable.id, phase.projectId));
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/phases/:id/deliver failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/phases/:id/install — mark phase as installed, auto-advance project to stage 10
+router.patch("/erp/phases/:id/install", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    if (!phase) return notFound(res);
+
+    const [updated] = await db.update(projectPhasesTable)
+      .set({ status: 'installed', installedAt: new Date() })
+      .where(eq(projectPhasesTable.id, id))
+      .returning();
+
+    const [proj] = await db.select({ stageInternal: projectsTable.stageInternal })
+      .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+    if (proj && (proj.stageInternal ?? 0) < 10) {
+      await db.update(projectsTable)
+        .set({ stageInternal: 10, stageDisplay: 'complete' })
+        .where(eq(projectsTable.id, phase.projectId));
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/phases/:id/install failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/phases/:id — public — get phase info for customer confirmation page
+router.get("/erp/phases/:id", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    if (!phase) return notFound(res);
+    const [proj] = await db.select({ id: projectsTable.id, name: projectsTable.name, customerName: projectsTable.customerName })
+      .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+    res.json({ ...phase, projectName: proj?.name ?? '', customerName: proj?.customerName ?? '' });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/phases/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/phases/:id/confirm — PUBLIC — customer confirmation via QR scan
+router.post("/erp/phases/:id/confirm", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    if (!phase) return notFound(res);
+    const [proj] = await db.select({ name: projectsTable.name })
+      .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+    await db.update(projectPhasesTable)
+      .set({ customerConfirmed: true, customerConfirmedAt: new Date() })
+      .where(eq(projectPhasesTable.id, id));
+    res.json({ success: true, projectName: proj?.name ?? '', phaseNumber: phase.phaseNumber });
+  } catch (err) {
+    logger.error({ err }, "POST /erp/phases/:id/confirm failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
