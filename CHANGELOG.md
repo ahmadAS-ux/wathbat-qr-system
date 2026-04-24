@@ -4,6 +4,22 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.1.0] - April 2026
+
+### Added — Phase 3: Vendors, Purchase Orders, Manufacturing
+
+- **`vendors` table** (new): stores supplier info (`name`, `phone`, `email`, `category`, `contactPerson`, `notes`). Full CRUD at `GET/POST /api/erp/vendors`, `PATCH/DELETE /api/erp/vendors/:id`.
+- **`purchase_orders` table** (new): POs per project linked to a vendor. CRUD at `GET/POST /api/erp/projects/:id/purchase-orders`, `GET/PATCH/DELETE /api/erp/purchase-orders/:id`.
+- **`po_items` table** (new): line items per PO (`description`, `category`, `quantity`, `unit`, `unitPrice`, `receivedQuantity`, `status`). `POST /api/erp/purchase-orders/:id/items`, `PATCH /api/erp/po-items/:id` (auto-computes item status + PO rollup), `DELETE /api/erp/po-items/:id`.
+- **`manufacturing_orders` table** (new): single MO per project (`status`: pending / in_progress / ready). `GET/POST /api/erp/projects/:id/manufacturing`, `PATCH /api/erp/manufacturing/:id`. Creating an MO auto-advances project to stage 7; setting status=`ready` auto-advances to stage 8.
+- **Vendors page** (`/erp/vendors`): card list with search + category filter, add/edit form, vendor PO history expandable, delete (blocked if active POs).
+- **Procurement section** in ProjectDetail: create PO with vendor dropdown, add/remove items, receive items (partial or full), auto PO status rollup.
+- **Manufacturing section** in ProjectDetail: Send to Manufacturing form (deadline + notes), Start / Complete (Ready) buttons with auto stage advance.
+- **Vendors sidebar nav item**: visible to Admin, FactoryManager, Employee; uses Package icon; position between Payments and Settings.
+- **i18n**: added ~60 new strings for vendors, procurement, manufacturing in both Arabic and English.
+
+---
+
 ## [3.0.0] - April 2026
 
 ### Added — v3.0 Foundation: 15-Stage Workflow + File Versioning + Phases + Payment Events

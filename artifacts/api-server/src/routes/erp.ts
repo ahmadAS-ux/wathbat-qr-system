@@ -19,6 +19,10 @@ import {
   parsedCutOptimisationsTable,
   systemSettings,
   paymentMilestonesTable,
+  vendorsTable,
+  purchaseOrdersTable,
+  poItemsTable,
+  manufacturingOrdersTable,
   PROJECT_FILE_TYPES,
   DEPRECATED_FILE_TYPES,
   MULTI_FILE_TYPES,
@@ -464,7 +468,12 @@ router.delete("/erp/leads/:id", requireRole(...ADMIN_FM), async (req: Request, r
       .from(projectsTable)
       .where(eq(projectsTable.fromLeadId, id));
     for (const proj of linkedProjects) {
+      await db.delete(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, proj.id));
+      const pos = await db.select({ id: purchaseOrdersTable.id }).from(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, proj.id));
+      if (pos.length > 0) await db.delete(poItemsTable).where(inArray(poItemsTable.poId, pos.map(p => p.id)));
+      await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, proj.id));
       await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, proj.id));
+      await db.delete(projectPhasesTable).where(eq(projectPhasesTable.projectId, proj.id));
       await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, proj.id));
       await db.delete(projectsTable).where(eq(projectsTable.id, proj.id));
     }
@@ -734,6 +743,14 @@ router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request
     const id = Number(req.params.id);
     // processed_docs.project_id has no ON DELETE CASCADE — NULL it out to preserve QR history
     await db.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${id}`);
+    // Phase 3: manufacturing_orders
+    await db.delete(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, id));
+    // Phase 3: po_items → purchase_orders (grandchildren first)
+    const pos = await db.select({ id: purchaseOrdersTable.id }).from(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
+    if (pos.length > 0) {
+      await db.delete(poItemsTable).where(inArray(poItemsTable.poId, pos.map(p => p.id)));
+    }
+    await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
     // payment_milestones has no onDelete cascade — must delete explicitly
     await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
     // project_phases: delete after clearing FK refs in payment_milestones
@@ -1771,6 +1788,342 @@ router.patch("/erp/payments/:id", requireRole("Admin", "Accountant"), uploadAny.
   } catch (err) {
     logger.error({ err }, "PATCH /erp/payments/:id failed");
     res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── VENDORS ─────────────────────────────────────────────────────────────────
+
+// GET /erp/vendors
+router.get("/erp/vendors", requireRole(...NO_SALES_NO_ACCT), async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(vendorsTable).orderBy(asc(vendorsTable.name));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/vendors failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/vendors
+router.post("/erp/vendors", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const { name, phone, email, category, contactPerson, notes } = req.body;
+    if (!name || String(name).trim().length < 2) {
+      return res.status(400).json({ error: "Vendor name is required (min 2 chars)" });
+    }
+    const [row] = await db.insert(vendorsTable).values({
+      name: String(name).trim(),
+      phone: phone ? String(phone).trim() : null,
+      email: email ? String(email).trim() : null,
+      category: category || "Other",
+      contactPerson: contactPerson ? String(contactPerson).trim() : null,
+      notes: notes ? String(notes).trim() : null,
+    }).returning();
+    return res.status(201).json(row);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/vendors failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/vendors/:id
+router.patch("/erp/vendors/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const { name, phone, email, category, contactPerson, notes } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (phone !== undefined) updates.phone = phone ? String(phone).trim() : null;
+    if (email !== undefined) updates.email = email ? String(email).trim() : null;
+    if (category !== undefined) updates.category = category;
+    if (contactPerson !== undefined) updates.contactPerson = contactPerson ? String(contactPerson).trim() : null;
+    if (notes !== undefined) updates.notes = notes ? String(notes).trim() : null;
+    const [row] = await db.update(vendorsTable).set(updates).where(eq(vendorsTable.id, id)).returning();
+    if (!row) return notFound(res);
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/vendors/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// DELETE /erp/vendors/:id — blocked if vendor has POs
+router.delete("/erp/vendors/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [existing] = await db.select({ id: vendorsTable.id }).from(vendorsTable).where(eq(vendorsTable.id, id));
+    if (!existing) return notFound(res);
+    const linkedPos = await db.select({ id: purchaseOrdersTable.id }).from(purchaseOrdersTable).where(eq(purchaseOrdersTable.vendorId, id));
+    if (linkedPos.length > 0) {
+      return res.status(409).json({ error: "Cannot delete vendor with linked purchase orders" });
+    }
+    await db.delete(vendorsTable).where(eq(vendorsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /erp/vendors/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/vendors/:id/purchase-orders — all POs for a vendor across all projects
+router.get("/erp/vendors/:id/purchase-orders", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const rows = await db.execute(sql`
+      SELECT po.*, p.name AS project_name, p.customer_name
+      FROM purchase_orders po
+      JOIN projects p ON p.id = po.project_id
+      WHERE po.vendor_id = ${id}
+      ORDER BY po.created_at DESC
+    `);
+    return res.json(rows.rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/vendors/:id/purchase-orders failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────
+
+// GET /erp/projects/:id/purchase-orders
+router.get("/erp/projects/:id/purchase-orders", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const rows = await db.execute(sql`
+      SELECT po.*, v.name AS vendor_name,
+             (SELECT COUNT(*) FROM po_items WHERE po_id = po.id) AS items_count
+      FROM purchase_orders po
+      JOIN vendors v ON v.id = po.vendor_id
+      WHERE po.project_id = ${projectId}
+      ORDER BY po.created_at DESC
+    `);
+    return res.json(rows.rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/purchase-orders failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/projects/:id/purchase-orders
+router.post("/erp/projects/:id/purchase-orders", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const sess = session(req);
+    const { vendorId, notes, items } = req.body;
+    if (!vendorId) return res.status(400).json({ error: "vendorId is required" });
+    const [po] = await db.insert(purchaseOrdersTable).values({
+      projectId,
+      vendorId: Number(vendorId),
+      notes: notes || null,
+      createdBy: sess.userId,
+    }).returning();
+    if (items && Array.isArray(items) && items.length > 0) {
+      await db.insert(poItemsTable).values(items.map((item: any) => ({
+        poId: po.id,
+        description: String(item.description || '').trim() || 'Item',
+        category: item.category || 'Other',
+        quantity: Number(item.quantity) || 1,
+        unit: item.unit || 'pcs',
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+      })));
+    }
+    return res.status(201).json(po);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/projects/:id/purchase-orders failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/purchase-orders/:id — PO detail with items
+router.get("/erp/purchase-orders/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [po] = await db.select().from(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+    if (!po) return notFound(res);
+    const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, po.vendorId));
+    const items = await db.select().from(poItemsTable).where(eq(poItemsTable.poId, id)).orderBy(asc(poItemsTable.id));
+    return res.json({ ...po, vendor, items });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/purchase-orders/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/purchase-orders/:id
+router.patch("/erp/purchase-orders/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const { status, notes, totalAmount, amountPaid } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (status !== undefined) updates.status = status;
+    if (notes !== undefined) updates.notes = notes || null;
+    if (totalAmount !== undefined) updates.totalAmount = totalAmount ? Number(totalAmount) : null;
+    if (amountPaid !== undefined) updates.amountPaid = amountPaid ? Number(amountPaid) : null;
+    const [row] = await db.update(purchaseOrdersTable).set(updates).where(eq(purchaseOrdersTable.id, id)).returning();
+    if (!row) return notFound(res);
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/purchase-orders/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// DELETE /erp/purchase-orders/:id
+router.delete("/erp/purchase-orders/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    await db.delete(poItemsTable).where(eq(poItemsTable.poId, id));
+    await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /erp/purchase-orders/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── PO ITEMS ────────────────────────────────────────────────────────────────
+
+// POST /erp/purchase-orders/:id/items
+router.post("/erp/purchase-orders/:id/items", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const poId = Number(req.params.id);
+    if (Number.isNaN(poId)) return notFound(res);
+    const { description, category, quantity, unit, unitPrice } = req.body;
+    if (!description || String(description).trim().length < 1) {
+      return res.status(400).json({ error: "description is required" });
+    }
+    const [item] = await db.insert(poItemsTable).values({
+      poId,
+      description: String(description).trim(),
+      category: category || 'Other',
+      quantity: quantity ? Number(quantity) : 1,
+      unit: unit || 'pcs',
+      unitPrice: unitPrice ? Number(unitPrice) : null,
+    }).returning();
+    return res.status(201).json(item);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/purchase-orders/:id/items failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/po-items/:id — update receivedQuantity (auto-computes status)
+router.patch("/erp/po-items/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [item] = await db.select().from(poItemsTable).where(eq(poItemsTable.id, id));
+    if (!item) return notFound(res);
+    const receivedQuantity = req.body.receivedQuantity !== undefined ? Number(req.body.receivedQuantity) : item.receivedQuantity;
+    const qty = item.quantity;
+    const newReceived = Math.max(0, receivedQuantity);
+    const newStatus = newReceived >= qty ? 'received' : newReceived > 0 ? 'partial' : 'pending';
+    const updates: Record<string, unknown> = { receivedQuantity: newReceived, status: newStatus };
+    if (req.body.description !== undefined) updates.description = String(req.body.description).trim();
+    if (req.body.category !== undefined) updates.category = req.body.category;
+    if (req.body.quantity !== undefined) updates.quantity = Number(req.body.quantity);
+    if (req.body.unit !== undefined) updates.unit = req.body.unit;
+    if (req.body.unitPrice !== undefined) updates.unitPrice = req.body.unitPrice ? Number(req.body.unitPrice) : null;
+    const [updated] = await db.update(poItemsTable).set(updates).where(eq(poItemsTable.id, id)).returning();
+    // Auto-advance PO status
+    const allItems = await db.select().from(poItemsTable).where(eq(poItemsTable.poId, item.poId));
+    const allReceived = allItems.every(i => (i.id === id ? newStatus : i.status) === 'received');
+    const anyReceived = allItems.some(i => (i.id === id ? newStatus : i.status) !== 'pending');
+    const poStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'pending';
+    await db.update(purchaseOrdersTable).set({ status: poStatus }).where(eq(purchaseOrdersTable.id, item.poId));
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/po-items/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// DELETE /erp/po-items/:id
+router.delete("/erp/po-items/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    await db.delete(poItemsTable).where(eq(poItemsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /erp/po-items/:id failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── MANUFACTURING ORDERS ────────────────────────────────────────────────────
+
+// GET /erp/projects/:id/manufacturing
+router.get("/erp/projects/:id/manufacturing", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const [mfg] = await db.select().from(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, projectId));
+    return res.json(mfg ?? null);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/manufacturing failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/projects/:id/manufacturing — FactoryManager/Admin only
+router.post("/erp/projects/:id/manufacturing", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const sess = session(req);
+    const [existing] = await db.select({ id: manufacturingOrdersTable.id }).from(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, projectId));
+    if (existing) return res.status(409).json({ error: "Manufacturing order already exists for this project" });
+    const [project] = await db.select({ stageInternal: projectsTable.stageInternal, deliveryDeadline: projectsTable.deliveryDeadline }).from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!project) return notFound(res);
+    const [mfg] = await db.insert(manufacturingOrdersTable).values({
+      projectId,
+      deliveryDeadline: project.deliveryDeadline ?? null,
+      notes: req.body.notes || null,
+      createdBy: sess.userId,
+    }).returning();
+    // Auto-advance to stage 7 if current < 7
+    if ((project.stageInternal ?? 0) < 7) {
+      await db.update(projectsTable).set({ stageInternal: 7, stageDisplay: 'in_production' }).where(eq(projectsTable.id, projectId));
+    }
+    return res.status(201).json(mfg);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/projects/:id/manufacturing failed");
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/manufacturing/:id — update status/notes
+router.patch("/erp/manufacturing/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const sess = session(req);
+    const [existing] = await db.select().from(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.id, id));
+    if (!existing) return notFound(res);
+    const updates: Record<string, unknown> = { updatedAt: new Date(), updatedBy: sess.userId };
+    if (req.body.status !== undefined) updates.status = req.body.status;
+    if (req.body.notes !== undefined) updates.notes = req.body.notes || null;
+    const [updated] = await db.update(manufacturingOrdersTable).set(updates).where(eq(manufacturingOrdersTable.id, id)).returning();
+    // Stage auto-advance
+    if (req.body.status === 'ready') {
+      const [proj] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, existing.projectId));
+      if (proj && (proj.stageInternal ?? 0) < 8) {
+        await db.update(projectsTable).set({ stageInternal: 8, stageDisplay: 'in_production' }).where(eq(projectsTable.id, existing.projectId));
+      }
+    }
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/manufacturing/:id failed");
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 

@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 
@@ -272,6 +272,59 @@ async function runStartupMigrations() {
         signed_off_at TIMESTAMP,
         notes TEXT,
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // v3.1: Phase 3 tables — vendors, purchase_orders, po_items, manufacturing_orders
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS vendors (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        category TEXT NOT NULL DEFAULT 'Other',
+        contact_person TEXT,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        vendor_id INTEGER NOT NULL REFERENCES vendors(id),
+        status TEXT NOT NULL DEFAULT 'pending',
+        total_amount INTEGER,
+        amount_paid INTEGER,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NOT NULL REFERENCES users(id)
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS po_items (
+        id SERIAL PRIMARY KEY,
+        po_id INTEGER NOT NULL REFERENCES purchase_orders(id),
+        description TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        unit TEXT NOT NULL DEFAULT 'pcs',
+        unit_price INTEGER,
+        received_quantity INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending'
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS manufacturing_orders (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        status TEXT NOT NULL DEFAULT 'pending',
+        delivery_deadline DATE,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_at TIMESTAMP,
+        updated_by INTEGER REFERENCES users(id)
       )
     `);
 

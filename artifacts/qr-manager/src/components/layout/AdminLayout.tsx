@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search,
+  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -62,6 +62,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const isAdmin = user?.role === 'Admin';
   const isErpUser = user?.role !== 'Accountant';
   const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
+  const isVendorsUser = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
 
   useEffect(() => {
     if (!isErpUser) return;
@@ -253,6 +254,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             {overduePaymentsCount}
                           </span>
                         )}
+                      </div>
+                    </Link>
+                  )}
+                  {isVendorsUser && (
+                    <Link href="/erp/vendors">
+                      <div
+                        onClick={() => handleNavClick('/erp/vendors', false)}
+                        className={navItem(isActive('/erp/vendors', false))}
+                        style={navItemStyle(isActive('/erp/vendors', false))}
+                      >
+                        <Package className={navIcon(isActive('/erp/vendors', false))} />
+                        <span className="flex-1">{t('erp_vendors_nav')}</span>
                       </div>
                     </Link>
                   )}

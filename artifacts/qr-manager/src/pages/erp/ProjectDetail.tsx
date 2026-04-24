@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 
@@ -15,6 +15,24 @@ interface ProjectFile {
   uploadedAt: string;
   uploadedBy: number;
   uploadedByName?: string | null;
+  isActive?: boolean;
+}
+
+interface DetectionItem {
+  filename: string;
+  size: number;
+  file: File;
+  detectedType: string | null;
+  confidence: 'high' | 'low';
+  assignedType: string;
+}
+
+interface ExpectedFile {
+  value: string;
+  labelEn: string;
+  labelAr: string;
+  multi: boolean;
+  uploaded: boolean;
 }
 
 interface QROrder {
@@ -91,6 +109,7 @@ interface NameMismatchData {
   nameInFile: string;
   nameInSystem: string;
   pendingFile: File;
+  fileType: string;
 }
 
 interface Project {
@@ -122,31 +141,472 @@ const STAGE_DISPLAY_STYLES: Record<string, { bg: string; text: string; border: s
   complete:      { bg: 'bg-teal-50',    text: 'text-[#0F6E56]',  border: 'border-teal-200',   dot: 'bg-[#0F6E56]'   },
 };
 
-const INTERNAL_STAGES = [
-  { n: 0,  labelAr: 'عميل محتمل',        labelEn: 'Lead'              },
-  { n: 1,  labelAr: 'استفسار',            labelEn: 'Inquiry'           },
-  { n: 2,  labelAr: 'دراسة فنية',         labelEn: 'Tech Study'        },
-  { n: 3,  labelAr: 'عرض السعر',          labelEn: 'Quotation'         },
-  { n: 4,  labelAr: 'العقد',              labelEn: 'Contract'          },
-  { n: 5,  labelAr: 'الدفعة الأولى',      labelEn: 'Deposit'           },
-  { n: 6,  labelAr: 'المشتريات',          labelEn: 'Procurement'       },
-  { n: 7,  labelAr: 'استلام المواد',      labelEn: 'Receiving'         },
-  { n: 8,  labelAr: 'التصنيع',            labelEn: 'Manufacturing'     },
-  { n: 9,  labelAr: 'التسليم',            labelEn: 'Delivery'          },
-  { n: 10, labelAr: 'التركيب',            labelEn: 'Installation'      },
-  { n: 11, labelAr: 'السداد',             labelEn: 'Payment'           },
-  { n: 12, labelAr: 'الضمان',             labelEn: 'Warranty'          },
-  { n: 13, labelAr: 'مكتمل',              labelEn: 'Done'              },
+type StageType = 'linear' | 'iterative' | 'parallel' | 'per_phase' | 'continuous';
+
+const INTERNAL_STAGES: { n: number; labelAr: string; labelEn: string; type: StageType }[] = [
+  { n: 0,  labelAr: 'عميل محتمل',   labelEn: 'Lead',           type: 'linear'     },
+  { n: 1,  labelAr: 'استفسار',       labelEn: 'Inquiry',        type: 'linear'     },
+  { n: 2,  labelAr: 'دراسة فنية',    labelEn: 'Tech Study',     type: 'iterative'  },
+  { n: 3,  labelAr: 'مشتريات',       labelEn: 'Procurement',    type: 'iterative'  },
+  { n: 4,  labelAr: 'عرض سعر',       labelEn: 'Quotation',      type: 'iterative'  },
+  { n: 5,  labelAr: 'العقد',         labelEn: 'Contract',       type: 'linear'     },
+  { n: 6,  labelAr: 'الدفعة الأولى', labelEn: 'Deposit',        type: 'linear'     },
+  { n: 7,  labelAr: 'التصنيع',       labelEn: 'Manufacturing',  type: 'parallel'   },
+  { n: 8,  labelAr: 'استلام المواد', labelEn: 'Receiving',      type: 'parallel'   },
+  { n: 9,  labelAr: 'التوصيل',       labelEn: 'Delivery',       type: 'per_phase'  },
+  { n: 10, labelAr: 'التركيب',       labelEn: 'Installation',   type: 'per_phase'  },
+  { n: 11, labelAr: 'التسليم',       labelEn: 'Sign-off',       type: 'per_phase'  },
+  { n: 12, labelAr: 'المدفوعات',     labelEn: 'Payment',        type: 'continuous' },
+  { n: 13, labelAr: 'الضمان',        labelEn: 'Warranty',       type: 'linear'     },
+  { n: 14, labelAr: 'مكتمل',         labelEn: 'Done',           type: 'linear'     },
 ];
 
 const FILE_SLOTS = [
-  { fileType: 'glass_order',      labelAr: 'طلبية زجاج / ألواح', labelEn: 'Glass / Panel Order', multiFile: false },
-  { fileType: 'price_quotation',  labelAr: 'عرض السعر',          labelEn: 'Quotation',            multiFile: false },
-  { fileType: 'section',          labelAr: 'المقاطع',            labelEn: 'Section',              multiFile: false },
-  { fileType: 'assembly_list',    labelAr: 'قائمة التجميع',      labelEn: 'Assembly List',        multiFile: false },
-  { fileType: 'cut_optimisation', labelAr: 'تحسين القص',         labelEn: 'Cut Optimisation',     multiFile: false },
-  { fileType: 'qoyod',            labelAr: 'قيود',               labelEn: 'Qoyod',                multiFile: true  },
+  { fileType: 'glass_order',       labelAr: 'طلبية زجاج / ألواح', labelEn: 'Glass / Panel Order',  multiFile: false },
+  { fileType: 'quotation',         labelAr: 'عرض السعر',           labelEn: 'Quotation',             multiFile: false },
+  { fileType: 'section',           labelAr: 'المقاطع',             labelEn: 'Section',               multiFile: false },
+  { fileType: 'assembly_list',     labelAr: 'قائمة التجميع',       labelEn: 'Assembly List',         multiFile: false },
+  { fileType: 'cut_optimisation',  labelAr: 'تحسين القص',          labelEn: 'Cut Optimisation',      multiFile: false },
+  { fileType: 'material_analysis', labelAr: 'تحليل المواد',        labelEn: 'Material Analysis',     multiFile: false },
+  { fileType: 'vendor_order',      labelAr: 'أمر مورد',            labelEn: 'Vendor Order',          multiFile: true  },
+  { fileType: 'qoyod',             labelAr: 'قيود',                labelEn: 'Qoyod',                 multiFile: true  },
+  { fileType: 'other',             labelAr: 'أخرى',               labelEn: 'Other',                 multiFile: true  },
 ];
+
+interface PO {
+  id: number;
+  vendorId: number;
+  vendorName?: string;
+  status: string;
+  totalAmount: number | null;
+  amountPaid: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+interface POItem {
+  id: number;
+  poId: number;
+  description: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number | null;
+  receivedQuantity: number;
+  status: string;
+}
+
+interface ManufacturingOrder {
+  id: number;
+  projectId: number;
+  status: string;
+  deliveryDeadline: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+interface VendorOption { id: number; name: string; }
+
+function poStatusColor(s: string) {
+  if (s === 'received') return 'bg-teal-50 text-teal-700 border-teal-200';
+  if (s === 'partial') return 'bg-amber-50 text-amber-700 border-amber-200';
+  if (s === 'sent') return 'bg-blue-50 text-blue-700 border-blue-200';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
+}
+function mfgStatusColor(s: string) {
+  if (s === 'ready') return 'bg-teal-50 text-teal-700 border-teal-200';
+  if (s === 'in_progress') return 'bg-amber-50 text-amber-700 border-amber-200';
+  return 'bg-slate-100 text-slate-600 border-slate-200';
+}
+
+function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; isRtl: boolean; t: (k: string) => string; user: { role: string } | null }) {
+  const [pos, setPos] = useState<PO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ vendorId: '', notes: '' });
+  const [creating, setCreating] = useState(false);
+  const [expandedPo, setExpandedPo] = useState<number | null>(null);
+  const [poItems, setPoItems] = useState<Record<number, POItem[]>>({});
+  const [loadingItems, setLoadingItems] = useState<number | null>(null);
+  const [showAddItem, setShowAddItem] = useState<number | null>(null);
+  const [itemForm, setItemForm] = useState({ description: '', category: 'Aluminum', quantity: '1', unit: 'pcs', unitPrice: '' });
+  const [addingItem, setAddingItem] = useState(false);
+  const [receivingItem, setReceivingItem] = useState<number | null>(null);
+  const [receiveQty, setReceiveQty] = useState('');
+  const [deletingPoId, setDeletingPoId] = useState<number | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+
+  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
+  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
+
+  const loadPos = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/purchase-orders`);
+      if (res.ok) setPos(await res.json());
+    } finally { setLoading(false); }
+  };
+
+  const loadVendors = async () => {
+    const res = await fetch(`${API_BASE}/api/erp/vendors`);
+    if (res.ok) setVendors(await res.json());
+  };
+
+  useEffect(() => { loadPos(); loadVendors(); }, [projectId]);
+
+  const handleCreate = async () => {
+    if (!createForm.vendorId) return;
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/purchase-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendorId: Number(createForm.vendorId), notes: createForm.notes || undefined }),
+      });
+      if (res.ok) { setShowCreate(false); setCreateForm({ vendorId: '', notes: '' }); await loadPos(); }
+    } finally { setCreating(false); }
+  };
+
+  const toggleExpand = async (poId: number) => {
+    if (expandedPo === poId) { setExpandedPo(null); return; }
+    setExpandedPo(poId);
+    if (!poItems[poId]) {
+      setLoadingItems(poId);
+      try {
+        const res = await fetch(`${API_BASE}/api/erp/purchase-orders/${poId}`);
+        if (res.ok) { const d = await res.json(); setPoItems(p => ({ ...p, [poId]: d.items ?? [] })); }
+      } finally { setLoadingItems(null); }
+    }
+  };
+
+  const refreshPo = async (poId: number) => {
+    const res = await fetch(`${API_BASE}/api/erp/purchase-orders/${poId}`);
+    if (res.ok) {
+      const d = await res.json();
+      setPoItems(p => ({ ...p, [poId]: d.items ?? [] }));
+      setPos(prev => prev.map(po => po.id === poId ? { ...po, status: d.status, totalAmount: d.totalAmount, amountPaid: d.amountPaid } : po));
+    }
+  };
+
+  const handleAddItem = async (poId: number) => {
+    if (!itemForm.description.trim()) return;
+    setAddingItem(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/purchase-orders/${poId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: itemForm.description,
+          category: itemForm.category,
+          quantity: Number(itemForm.quantity) || 1,
+          unit: itemForm.unit,
+          unitPrice: itemForm.unitPrice ? Number(itemForm.unitPrice) : undefined,
+        }),
+      });
+      if (res.ok) { setShowAddItem(null); setItemForm({ description: '', category: 'Aluminum', quantity: '1', unit: 'pcs', unitPrice: '' }); await refreshPo(poId); }
+    } finally { setAddingItem(false); }
+  };
+
+  const handleReceive = async (itemId: number, poId: number) => {
+    const qty = Number(receiveQty);
+    if (!qty || qty < 1) return;
+    setReceivingItem(itemId);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/po-items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receivedQuantity: qty }),
+      });
+      if (res.ok) { setReceivingItem(null); setReceiveQty(''); await refreshPo(poId); await loadPos(); }
+    } finally { setReceivingItem(null); }
+  };
+
+  const handleDeletePo = async (poId: number) => {
+    if (!window.confirm(t('po_delete_confirm'))) return;
+    setDeletingPoId(poId);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/purchase-orders/${poId}`, { method: 'DELETE' });
+      if (res.ok) { setPos(p => p.filter(po => po.id !== poId)); if (expandedPo === poId) setExpandedPo(null); }
+    } finally { setDeletingPoId(null); }
+  };
+
+  const handleDeleteItem = async (itemId: number, poId: number) => {
+    if (!window.confirm(t('po_item_delete_confirm'))) return;
+    setDeletingItemId(itemId);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/po-items/${itemId}`, { method: 'DELETE' });
+      if (res.ok) { await refreshPo(poId); }
+    } finally { setDeletingItemId(null); }
+  };
+
+  const poStatusLabel = (s: string) => ({ pending: t('po_status_pending'), sent: t('po_status_sent'), partial: t('po_status_partial'), received: t('po_status_received') }[s] ?? s);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+      <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+        <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('procurement_title')}</h2>
+        {canManage && vendors.length > 0 && (
+          <button onClick={() => setShowCreate(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+            <Plus className="w-3.5 h-3.5" /> {t('po_create')}
+          </button>
+        )}
+      </div>
+
+      {/* Create PO form */}
+      {showCreate && (
+        <div className="mb-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+          <div>
+            <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('po_vendor')} *</label>
+            <select
+              value={createForm.vendorId}
+              onChange={e => setCreateForm(f => ({ ...f, vendorId: e.target.value }))}
+              className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+            >
+              <option value="">{t('po_select_vendor')}</option>
+              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('po_notes')}</label>
+            <input type="text" value={createForm.notes} onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+          </div>
+          <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <button onClick={handleCreate} disabled={creating || !createForm.vendorId} className={`px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              {creating ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
+            </button>
+            <button onClick={() => setShowCreate(false)} className={`px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-white transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+      ) : pos.length === 0 ? (
+        <p className={`text-sm text-slate-400 text-center py-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('po_no_pos')}</p>
+      ) : (
+        <div className="space-y-3">
+          {pos.map(po => (
+            <div key={po.id} className="rounded-xl border border-slate-200 overflow-hidden">
+              {/* PO header row */}
+              <div className={`flex items-center gap-3 px-4 py-3 bg-slate-50/60 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <span className={`text-sm font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{po.vendorName ?? `#${po.id}`}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${poStatusColor(po.status)}`}>{poStatusLabel(po.status)}</span>
+                  </div>
+                  {po.totalAmount != null && (
+                    <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{po.totalAmount.toLocaleString()} {t('erp_payment_sar')}</p>
+                  )}
+                </div>
+                <div className={`flex items-center gap-1 shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <button onClick={() => toggleExpand(po.id)} className={`flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 hover:text-[#1B2A4A] hover:bg-white rounded-lg transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    {t('po_expand_items')} {expandedPo === po.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                  {canDelete && (
+                    <button onClick={() => handleDeletePo(po.id)} disabled={deletingPoId === po.id} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                      {deletingPoId === po.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* PO items */}
+              {expandedPo === po.id && (
+                <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+                  {loadingItems === po.id ? (
+                    <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-slate-400" /></div>
+                  ) : (poItems[po.id] ?? []).length === 0 ? (
+                    <p className={`text-xs text-slate-400 text-center py-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('po_no_items')}</p>
+                  ) : (
+                    (poItems[po.id] ?? []).map(item => (
+                      <div key={item.id} className={`flex items-start gap-3 py-2 border-b border-slate-50 last:border-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm text-slate-700 ${isRtl ? 'font-[Tajawal]' : ''}`}>{item.description}</p>
+                          <p className="text-xs text-slate-400 mt-0.5" dir="ltr">
+                            {item.quantity} {item.unit}
+                            {item.unitPrice != null && ` · ${item.unitPrice.toLocaleString()} ${t('erp_payment_sar')}`}
+                            {` · ${t('po_item_received_qty')}: ${item.receivedQuantity}/${item.quantity}`}
+                          </p>
+                        </div>
+                        <div className={`flex items-center gap-1.5 shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                          {item.status !== 'received' && canManage && (
+                            receivingItem === item.id ? (
+                              <div className={`flex items-center gap-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                <input
+                                  type="number"
+                                  value={receiveQty}
+                                  onChange={e => setReceiveQty(e.target.value)}
+                                  min={1}
+                                  max={item.quantity - item.receivedQuantity}
+                                  className="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-[#1B2A4A]/40"
+                                  dir="ltr"
+                                />
+                                <button onClick={() => handleReceive(item.id, po.id)} className="px-2 py-1 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
+                                  ✓
+                                </button>
+                                <button onClick={() => { setReceivingItem(null); setReceiveQty(''); }} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-slate-100 transition-colors">
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => { setReceivingItem(item.id); setReceiveQty(String(item.quantity - item.receivedQuantity)); }} className={`px-2 py-1 text-xs font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 rounded-lg hover:bg-teal-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                                {t('po_mark_received')}
+                              </button>
+                            )
+                          )}
+                          {canDelete && (
+                            <button onClick={() => handleDeleteItem(item.id, po.id)} disabled={deletingItemId === item.id} className="p-1 text-slate-300 hover:text-red-400 rounded transition-colors disabled:opacity-50">
+                              {deletingItemId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Add item form */}
+                  {canManage && showAddItem === po.id ? (
+                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} placeholder={t('po_item_description')} className={`col-span-2 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+                        <select value={itemForm.category} onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))} className={`px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                          {['Aluminum','Glass','Accessories','Special Parts'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select value={itemForm.unit} onChange={e => setItemForm(f => ({ ...f, unit: e.target.value }))} className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr">
+                          {['pcs','m²','kg','m'].map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                        <input type="number" value={itemForm.quantity} onChange={e => setItemForm(f => ({ ...f, quantity: e.target.value }))} placeholder={t('po_item_qty')} min={1} className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+                        <input type="number" value={itemForm.unitPrice} onChange={e => setItemForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder={t('po_item_unit_price')} className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+                      </div>
+                      <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <button onClick={() => handleAddItem(po.id)} disabled={addingItem || !itemForm.description.trim()} className={`px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                          {addingItem ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_save')}
+                        </button>
+                        <button onClick={() => setShowAddItem(null)} className={`px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
+                      </div>
+                    </div>
+                  ) : canManage && (
+                    <button onClick={() => setShowAddItem(po.id)} className={`mt-2 flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#1B2A4A] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+                      <Plus className="w-3.5 h-3.5" /> {t('po_add_item')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number; isRtl: boolean; t: (k: string) => string; user: { role: string } | null }) {
+  const [order, setOrder] = useState<ManufacturingOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sendForm, setSendForm] = useState({ deliveryDeadline: '', notes: '' });
+  const [sending, setSending] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager';
+
+  const loadOrder = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/manufacturing`);
+      if (res.ok) { const d = await res.json(); setOrder(d.length ? d[0] : null); }
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadOrder(); }, [projectId]);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${projectId}/manufacturing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryDeadline: sendForm.deliveryDeadline || undefined, notes: sendForm.notes || undefined }),
+      });
+      if (res.ok) await loadOrder();
+    } finally { setSending(false); }
+  };
+
+  const handleUpdate = async (status: string) => {
+    if (!order) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/manufacturing/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) await loadOrder();
+    } finally { setUpdating(false); }
+  };
+
+  const mfgStatusLabel = (s: string) => ({ pending: t('manufacturing_status_pending'), in_progress: t('manufacturing_status_in_progress'), ready: t('manufacturing_status_ready') }[s] ?? s);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+      <h2 className={`font-semibold text-[#1B2A4A] mb-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('manufacturing_title')}</h2>
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+      ) : order ? (
+        <div className="space-y-3">
+          <div className={`flex items-center gap-3 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${mfgStatusColor(order.status)}`}>
+              {mfgStatusLabel(order.status)}
+            </span>
+            {order.deliveryDeadline && (
+              <span className="text-xs text-slate-400" dir="ltr">{t('manufacturing_deadline')}: {order.deliveryDeadline}</span>
+            )}
+            {order.updatedAt && (
+              <span className="text-xs text-slate-400" dir="ltr">{t('manufacturing_updated_at')}: {new Date(order.updatedAt).toLocaleDateString()}</span>
+            )}
+          </div>
+          {order.notes && (
+            <p className={`text-sm text-slate-600 bg-slate-50 rounded-xl p-3 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{order.notes}</p>
+          )}
+          {canManage && (
+            <div className={`flex gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+              {order.status === 'pending' && (
+                <button onClick={() => handleUpdate('in_progress')} disabled={updating} className={`px-4 py-2 text-xs font-semibold bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {updating ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('start_manufacturing')}
+                </button>
+              )}
+              {order.status === 'in_progress' && (
+                <button onClick={() => handleUpdate('ready')} disabled={updating} className={`px-4 py-2 text-xs font-semibold bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {updating ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('complete_manufacturing')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : canManage ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('manufacturing_deadline')}</label>
+              <input type="date" value={sendForm.deliveryDeadline} onChange={e => setSendForm(f => ({ ...f, deliveryDeadline: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+            </div>
+          </div>
+          <div>
+            <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('manufacturing_notes')}</label>
+            <textarea value={sendForm.notes} onChange={e => setSendForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 resize-none ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+          </div>
+          <button onClick={handleSend} disabled={sending} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {t('send_to_manufacturing')}
+          </button>
+        </div>
+      ) : (
+        <p className={`text-sm text-slate-400 text-center py-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('manufacturing_no_order')}</p>
+      )}
+    </div>
+  );
+}
 
 export default function ErpProjectDetail() {
   const { t, isRtl } = useLanguage();
@@ -182,6 +642,21 @@ export default function ErpProjectDetail() {
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<number | null>(null);
+
+  // Smart batch upload
+  const batchInputRef = useRef<HTMLInputElement>(null);
+  const [detectionItems, setDetectionItems] = useState<DetectionItem[]>([]);
+  const [detectingBatch, setDetectingBatch] = useState(false);
+  const [uploadingBatch, setUploadingBatch] = useState(false);
+
+  // Expected files checklist
+  const [expectedFiles, setExpectedFiles] = useState<ExpectedFile[]>([]);
+
+  // All files including inactive (for version history)
+  const [allFiles, setAllFiles] = useState<ProjectFile[]>([]);
+
+  // Which single-file slots have their version history expanded
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
@@ -238,7 +713,7 @@ export default function ErpProjectDetail() {
     } catch {}
   };
 
-  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); }, [id]);
+  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadExpectedFiles(); loadAllFiles(); }, [id]);
 
   const completionPct = (m: PaymentMilestone): number | null => {
     if (!m.paidAmount || !m.amount || m.amount === 0) return null;
@@ -322,9 +797,9 @@ export default function ErpProjectDetail() {
         `${API_BASE}/api/erp/projects/${id}/files${extraQuery}`,
         { method: 'POST', body: fd }
       );
-      if (res.status === 409 && fileType === 'price_quotation') {
+      if (res.status === 409 && (fileType === 'price_quotation' || fileType === 'quotation')) {
         const conflict = await res.json();
-        setNameMismatch({ nameInFile: conflict.nameInFile, nameInSystem: conflict.nameInSystem, pendingFile: file });
+        setNameMismatch({ nameInFile: conflict.nameInFile, nameInSystem: conflict.nameInSystem, pendingFile: file, fileType });
         return;
       }
       if (fileType === 'glass_order') {
@@ -335,6 +810,8 @@ export default function ErpProjectDetail() {
           await loadParsedData();
         }
       }
+      await loadExpectedFiles();
+      await loadAllFiles();
     } finally {
       setUploadingFor(null);
       setPendingFileType('');
@@ -349,7 +826,7 @@ export default function ErpProjectDetail() {
     const params = choice === 'proceedAndUpdate'
       ? '?confirmNameMismatch=true&updateProjectName=true'
       : '?confirmNameMismatch=true';
-    await uploadFile(pendingFile, 'price_quotation', params);
+    await uploadFile(pendingFile, nameMismatch.fileType, params);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -421,8 +898,79 @@ export default function ErpProjectDetail() {
     }
   };
 
+  const loadExpectedFiles = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files/expected`);
+      if (res.ok) setExpectedFiles(await res.json());
+    } catch {}
+  };
+
+  const loadAllFiles = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files?includeInactive=true`);
+      if (res.ok) setAllFiles(await res.json());
+    } catch {}
+  };
+
+  const handleBatchSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    if (batchInputRef.current) batchInputRef.current.value = '';
+    setDetectingBatch(true);
+    try {
+      const fd = new FormData();
+      files.forEach(f => fd.append('files[]', f));
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files/detect`, {
+        method: 'POST',
+        body: fd,
+      });
+      if (res.ok) {
+        const results: { filename: string; size: number; detectedType: string | null; confidence: 'high' | 'low' }[] = await res.json();
+        const items: DetectionItem[] = results.map((r, i) => ({
+          filename: r.filename,
+          size: r.size,
+          file: files[i],
+          detectedType: r.detectedType,
+          confidence: r.confidence,
+          assignedType: r.detectedType ?? 'other',
+        }));
+        setDetectionItems(items);
+      }
+    } finally {
+      setDetectingBatch(false);
+    }
+  };
+
+  const updateDetectionItem = (idx: number, assignedType: string) => {
+    setDetectionItems(prev => prev.map((item, i) => i === idx ? { ...item, assignedType } : item));
+  };
+
+  const handleUploadAll = async () => {
+    if (!detectionItems.length) return;
+    setUploadingBatch(true);
+    try {
+      for (const item of detectionItems) {
+        await uploadFile(item.file, item.assignedType);
+      }
+      setDetectionItems([]);
+      await loadExpectedFiles();
+      await loadAllFiles();
+    } finally {
+      setUploadingBatch(false);
+    }
+  };
+
+  const inactiveFor = (fileType: string): ProjectFile[] =>
+    allFiles.filter(f => f.fileType === fileType && f.isActive === false);
+
+  const labelForType = (fileType: string): string => {
+    const slot = FILE_SLOTS.find(s => s.fileType === fileType);
+    if (!slot) return fileType;
+    return isRtl ? slot.labelAr : slot.labelEn;
+  };
+
   const fileFor = (fileType: string) =>
-    project?.files.find(f => f.fileType === fileType) ?? null;
+    project?.files.find(f => f.fileType === fileType || (fileType === 'quotation' && f.fileType === 'price_quotation')) ?? null;
 
   const stageStyle = STAGE_DISPLAY_STYLES[project?.stageDisplay ?? 'new'] ?? STAGE_DISPLAY_STYLES.new;
 
@@ -577,6 +1125,15 @@ export default function ErpProjectDetail() {
                   <span className={done ? 'text-slate-400 line-through' : current ? 'text-[#1B2A4A]' : 'text-slate-400'}>
                     {isRtl ? stage.labelAr : stage.labelEn}
                   </span>
+                  {stage.type === 'iterative' && (
+                    <RotateCcw className="w-3 h-3 text-amber-400 shrink-0" />
+                  )}
+                  {stage.type === 'parallel' && (
+                    <ArrowLeftRight className="w-3 h-3 text-blue-400 shrink-0" />
+                  )}
+                  {stage.type === 'continuous' && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-500 border border-purple-100 shrink-0">مستمر</span>
+                  )}
                   <span className="ms-auto text-slate-300 text-xs">{stage.n}</span>
                 </li>
               );
@@ -586,32 +1143,94 @@ export default function ErpProjectDetail() {
 
         {/* Files Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
-          <h2 className="font-semibold text-[#1B2A4A] mb-4">{t('erp_project_files')}</h2>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-[#1B2A4A]">{t('erp_project_files')}</h2>
+            {canUpload && (
+              <button
+                onClick={() => batchInputRef.current?.click()}
+                disabled={detectingBatch || uploadingBatch}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-40"
+              >
+                {detectingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />}
+                {t('files_batch_select')}
+              </button>
+            )}
+          </div>
+
+          {/* Hidden file inputs */}
+          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+          <input ref={batchInputRef} type="file" className="hidden" multiple onChange={handleBatchSelect} />
+
+          {/* Batch detection summary */}
+          {detectionItems.length > 0 && (
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-blue-100">
+                <span className="text-sm font-semibold text-[#1B2A4A]">
+                  {t('files_detect_summary').replace('{count}', String(detectionItems.length))}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setDetectionItems([])} className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-white transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleUploadAll}
+                    disabled={uploadingBatch}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] disabled:opacity-40 transition-colors"
+                  >
+                    {uploadingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    {t('files_upload_all')}
+                  </button>
+                </div>
+              </div>
+              <div className="divide-y divide-blue-50">
+                {detectionItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-white/60">
+                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="flex-1 min-w-0 text-xs text-slate-700 truncate" dir="ltr">{item.filename}</span>
+                    {item.confidence === 'high' && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-600 border border-teal-100 shrink-0">
+                        {t('files_detect_high')}
+                      </span>
+                    )}
+                    <select
+                      value={item.assignedType}
+                      onChange={e => updateDetectionItem(idx, e.target.value)}
+                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#1B2A4A]/30 shrink-0"
+                      dir="ltr"
+                    >
+                      {FILE_SLOTS.map(s => (
+                        <option key={s.fileType} value={s.fileType}>{isRtl ? s.labelAr : s.labelEn}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {FILE_SLOTS.map(slot => {
               const isUploading = uploadingFor === slot.fileType;
               const isDetecting = detectingGlass && pendingFileType === slot.fileType;
               const label = isRtl ? slot.labelAr : slot.labelEn;
+              const inactive = inactiveFor(slot.fileType);
+              const versionsExpanded = expandedVersions.has(slot.fileType);
+
+              const toggleVersions = () => setExpandedVersions(prev => {
+                const next = new Set(prev);
+                if (next.has(slot.fileType)) next.delete(slot.fileType); else next.add(slot.fileType);
+                return next;
+              });
 
               if (slot.multiFile) {
-                // ── Qoyod multi-file slot ─────────────────────────────────────
                 const slotFiles = project?.files.filter(f => f.fileType === slot.fileType) ?? [];
                 return (
                   <div key={slot.fileType} className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
-                    {/* Header */}
                     <div className="flex items-center gap-3 p-3">
                       <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                       <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
                       {slotFiles.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#1B2A4A]/8 text-[#1B2A4A]">
-                          {slotFiles.length} {t('project_file_files_count').replace('{count}', String(slotFiles.length))}
-                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#1B2A4A]/8 text-[#1B2A4A]">{slotFiles.length}</span>
                       )}
                       {canUpload && (
                         <button
@@ -624,7 +1243,6 @@ export default function ErpProjectDetail() {
                         </button>
                       )}
                     </div>
-                    {/* File list */}
                     {slotFiles.length > 0 ? (
                       <div className="border-t border-slate-100 divide-y divide-slate-100">
                         {slotFiles.map(f => (
@@ -637,20 +1255,11 @@ export default function ErpProjectDetail() {
                               </p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => downloadFile(f.id, f.originalFilename)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors"
-                                title={t('erp_file_download')}
-                              >
+                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors" title={t('erp_file_download')}>
                                 <Download className="w-3.5 h-3.5" />
                               </button>
                               {canDelete && (
-                                <button
-                                  onClick={() => setConfirmDeleteFileId(f.id)}
-                                  disabled={deletingFileId === f.id}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                                  title={t('project_file_delete')}
-                                >
+                                <button onClick={() => setConfirmDeleteFileId(f.id)} disabled={deletingFileId === f.id} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40" title={t('project_file_delete')}>
                                   {deletingFileId === f.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                 </button>
                               )}
@@ -662,11 +1271,7 @@ export default function ErpProjectDetail() {
                       <div className="border-t border-slate-100 px-3 py-4 text-center bg-white">
                         <p className="text-xs text-slate-300 mb-2">{t('project_file_no_files')}</p>
                         {canUpload && (
-                          <button
-                            onClick={() => triggerUpload(slot.fileType)}
-                            disabled={isUploading}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] transition-colors disabled:opacity-40"
-                          >
+                          <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] transition-colors disabled:opacity-40">
                             {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                             {t('erp_file_upload')}
                           </button>
@@ -677,14 +1282,85 @@ export default function ErpProjectDetail() {
                 );
               }
 
-              // ── Single-file slot ──────────────────────────────────────────
-              const existing = fileFor(slot.fileType);
-              // For glass_order: fall back to the most recent QR upload if no project_files entry exists
-              const qrFallback = (slot.fileType === 'glass_order' && !existing && qrOrders.length > 0)
-                ? qrOrders[0]
-                : null;
+              // ── Glass Order: dual display ─────────────────────────────────
+              if (slot.fileType === 'glass_order') {
+                const existing = fileFor('glass_order');
+                const hasOriginal = !!existing;
+                const hasQr = qrOrders.length > 0;
+                return (
+                  <div key="glass_order" className="space-y-1">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+                      <div className="flex items-center gap-3 p-3">
+                        <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                        <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
+                        {canUpload && (
+                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                            {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          </button>
+                        )}
+                      </div>
+                      {(hasOriginal || hasQr) && (
+                        <div className={`border-t border-slate-100 p-3 bg-white ${hasOriginal && hasQr ? 'grid grid-cols-2 gap-3' : ''}`}>
+                          {hasOriginal && (
+                            <div className="rounded-lg border border-slate-100 p-2.5">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1B2A4A]/8 text-[#1B2A4A] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 truncate" dir="ltr">{existing!.originalFilename}</p>
+                              <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(existing!.uploadedAt).toLocaleDateString()}</p>
+                              <button onClick={() => downloadFile(existing!.id, existing!.originalFilename)} className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 hover:text-[#1B2A4A] transition-colors">
+                                <Download className="w-3 h-3" />{t('erp_file_download')}
+                              </button>
+                            </div>
+                          )}
+                          {hasQr && (
+                            <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
+                              <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
+                              <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
+                                <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {!hasOriginal && !hasQr && (
+                        <div className="border-t border-slate-100 px-3 py-2 bg-white">
+                          <p className="text-xs text-slate-300">{t('project_file_no_upload')}</p>
+                        </div>
+                      )}
+                    </div>
+                    {inactive.length > 0 && (
+                      <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
+                        {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        {t('files_prev_versions').replace('{n}', String(inactive.length))}
+                      </button>
+                    )}
+                    {versionsExpanded && inactive.length > 0 && (
+                      <div className="rounded-xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                        {inactive.map(f => (
+                          <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/50">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
+                              <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
+                            </div>
+                            <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
-              // Badge for parsed data count
+              // ── Standard single-file slot ─────────────────────────────────
+              const existing = fileFor(slot.fileType);
               const parsedBadge = slot.fileType === 'assembly_list' && parsedAssemblyList
                 ? t('assembly_list_parsed_positions').replace('{count}', String(parsedAssemblyList.positionCount))
                 : slot.fileType === 'cut_optimisation' && parsedCutOptimisation
@@ -694,54 +1370,61 @@ export default function ErpProjectDetail() {
               return (
                 <div key={slot.fileType} className="space-y-1">
                   <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-700">{label}</p>
-                      {parsedBadge && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-600 border border-teal-100">{parsedBadge}</span>
+                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-slate-700">{label}</p>
+                        {parsedBadge && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-600 border border-teal-100">{parsedBadge}</span>
+                        )}
+                      </div>
+                      {existing ? (
+                        <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
+                      ) : (
+                        <p className="text-xs text-slate-300 mt-0.5">{t('project_file_no_upload')}</p>
                       )}
                     </div>
-                    {existing ? (
-                      <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
-                    ) : qrFallback ? (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <p className="text-xs text-slate-400 truncate" dir="ltr">{qrFallback.originalFilename}</p>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100 shrink-0">QR</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-300 mt-0.5">{t('project_file_no_upload')}</p>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {existing && (
+                        <button onClick={() => downloadFile(existing.id, existing.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors" title={t('erp_file_download')}>
+                          <Download className="w-4 h-4" />
+                        </button>
+                      )}
+                      {existing && canDelete && (
+                        <button onClick={() => setConfirmDeleteFileId(existing.id)} disabled={deletingFileId === existing.id} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40" title={t('project_file_delete')}>
+                          {deletingFileId === existing.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
+                      {canUpload && (
+                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                          {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {(existing || qrFallback) && (
-                      <button
-                        onClick={() => existing
-                          ? downloadFile(existing.id, existing.originalFilename)
-                          : window.open(`${API_BASE}/api/qr/download/${qrFallback!.reportFileId}`, '_blank')
-                        }
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors"
-                        title={t('erp_file_download')}
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                    )}
-                    {canUpload && (
-                      <button
-                        onClick={() => triggerUpload(slot.fileType)}
-                        disabled={isUploading || isDetecting}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40"
-                        title={existing ? t('erp_file_replace') : t('erp_file_upload')}
-                      >
-                        {(isUploading || isDetecting) ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Upload className="w-4 h-4" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
+
+                  {/* Version history */}
+                  {inactive.length > 0 && (
+                    <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
+                      {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      {t('files_prev_versions').replace('{n}', String(inactive.length))}
+                    </button>
+                  )}
+                  {versionsExpanded && inactive.length > 0 && (
+                    <div className="rounded-xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                      {inactive.map(f => (
+                        <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/50">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
+                            <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
+                          </div>
+                          <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Assembly List parsed data panel */}
                   {slot.fileType === 'assembly_list' && parsedAssemblyList && parsedAssemblyList.positionCount > 0 && (
@@ -799,6 +1482,21 @@ export default function ErpProjectDetail() {
               );
             })}
           </div>
+
+          {/* Expected files checklist */}
+          {expectedFiles.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-500 mb-2">{t('files_expected_title')}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {expectedFiles.map(ef => (
+                  <div key={ef.value} className={`flex items-center gap-2 text-xs py-0.5 ${ef.uploaded ? 'text-teal-600' : 'text-slate-400'}`}>
+                    {ef.uploaded ? <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" /> : <Circle className="w-3 h-3 text-slate-300 shrink-0" />}
+                    <span>{isRtl ? ef.labelAr : ef.labelEn}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Generate Contract — Stage 4 — visible to Admin, FactoryManager, SalesAgent */}
@@ -809,7 +1507,7 @@ export default function ErpProjectDetail() {
                 <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
                   {t('contract_stage_label')}
                 </h2>
-                {!project?.files?.some(f => f.fileType === 'price_quotation') && (
+                {!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation') && (
                   <p className={`text-xs text-slate-400 mt-0.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
                     {t('contract_generate_disabled_tooltip')}
                   </p>
@@ -817,7 +1515,7 @@ export default function ErpProjectDetail() {
               </div>
               <button
                 onClick={() => navigate(`/erp/projects/${id}/contract`)}
-                disabled={!project?.files?.some(f => f.fileType === 'price_quotation')}
+                disabled={!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation')}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#243860] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
               >
                 <FileText className="w-4 h-4" />
@@ -1051,6 +1749,12 @@ export default function ErpProjectDetail() {
             </div>
           )}
         </div>
+
+        {/* Procurement Section */}
+        <ProcurementSection projectId={id} isRtl={isRtl} t={t} user={user} />
+
+        {/* Manufacturing Section */}
+        <ManufacturingSection projectId={id} isRtl={isRtl} t={t} user={user} />
 
         {/* QR Orders Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
