@@ -81,6 +81,19 @@ const NO_SALES_NO_ACCT = ["Admin", "FactoryManager", "Employee"];
 const ADMIN_FM = ["Admin", "FactoryManager"];
 const ADMIN_ONLY = ["Admin"];
 
+// File types that must be .docx (Orgadata outputs) — any other extension is rejected
+const ORGADATA_FILE_TYPES = new Set([
+  'glass_order', 'quotation', 'section', 'assembly_list', 'cut_optimisation', 'material_analysis',
+]);
+
+function requiresDocx(fileType: string): boolean {
+  return ORGADATA_FILE_TYPES.has(fileType);
+}
+
+function isDocx(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.docx');
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractProjectNameFromDocx(buffer: Buffer): string | null {
@@ -812,6 +825,11 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
           continue;
         }
 
+        if (requiresDocx(ft) && !isDocx(f.originalname)) {
+          results.push({ filename: f.originalname, error: `Only .docx files are accepted for ${ft}`, fileType: ft });
+          continue;
+        }
+
         if (ft === 'glass_order') {
           // Glass order via QR pipeline — handled via same logic as single upload below
           // For batch, run inline
@@ -875,6 +893,11 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
 
     // Use singleFile (already confirmed non-null above) as a typed local reference
     const uploadedFile = singleFile;
+
+    if (requiresDocx(fileType) && !isDocx(uploadedFile.originalname)) {
+      res.status(400).json({ error: `Only .docx files are accepted for ${fileType}` });
+      return;
+    }
 
     // ── Glass order: QR pipeline → processed_docs ──────────────────────────
     if (fileType === "glass_order") {
