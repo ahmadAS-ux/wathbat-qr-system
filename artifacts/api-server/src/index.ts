@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 
@@ -258,6 +258,32 @@ async function runStartupMigrations() {
         notes TEXT
       )
     `);
+
+    // v3.0: project_phases table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS project_phases (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        phase_number INTEGER NOT NULL,
+        label TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        delivered_at TIMESTAMP,
+        installed_at TIMESTAMP,
+        signed_off_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // v3.0: idempotent column additions
+    await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
+    await db.execute(sql`UPDATE project_files SET is_active = true WHERE is_active IS NULL`);
+
+    await db.execute(sql`ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS linked_event TEXT`);
+    await db.execute(sql`ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS linked_phase_id INTEGER REFERENCES project_phases(id)`);
+    // paid_amount already exists from v2.6.0 — guard with IF NOT EXISTS just in case
+    await db.execute(sql`ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS paid_amount INTEGER`);
+    // status 'due' is a new valid value in v3.0 — no migration needed, existing 'pending' rows remain valid
 
     // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
     await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);

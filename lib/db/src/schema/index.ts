@@ -12,3 +12,4 @@ export * from "./system_settings";
 export * from "./parsed_assembly_lists";
 export * from "./parsed_cut_optimisations";
 export * from "./payment_milestones";
+export * from "./project_phases";

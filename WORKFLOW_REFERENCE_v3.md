@@ -50,29 +50,49 @@ Before starting any session, Claude Code must read:
 
 ---
 
-## 2. UI Display Stages
+## 2. UI Display Stages (v3.0 — 15 stages, SYSTEM_DESIGN_v3.md Section 1)
 
-The UI shows **4 stages** on every project card. The DB tracks **13 internal stages** for full detail.
+The UI shows **4 stages** on every project card. The DB tracks **15 internal stages (0–14)** for full detail.
+
+| # | Key | English | Arabic | Display Stage |
+|---|-----|---------|--------|--------------|
+| 0 | lead | Lead | عميل محتمل | new |
+| 1 | inquiry | Inquiry | استفسار | new |
+| 2 | tech_study | Tech Study | دراسة فنية | in_study |
+| 3 | procurement | Procurement | مشتريات | in_study |
+| 4 | quotation | Quotation | عرض سعر | in_study |
+| 5 | contract | Contract | العقد | in_production |
+| 6 | deposit | Deposit | الدفعة الأولى | in_production |
+| 7 | manufacturing | Manufacturing | التصنيع | in_production |
+| 8 | receiving | Receiving | استلام المواد | in_production |
+| 9 | delivery | Delivery | التوصيل | complete |
+| 10 | installation | Installation | التركيب | complete |
+| 11 | signoff | Sign-off | التسليم | complete |
+| 12 | payment | Payment | المدفوعات | complete |
+| 13 | warranty | Warranty | الضمان | complete |
+| 14 | done | Done | مكتمل | complete |
 
 | Display Stage | Arabic | Color | Internal Stages Covered |
 |---|---|---|---|
-| `new` | جديد | Gray `#6B7280` | 0 (Lead), 1 (Inquiry) |
-| `in_study` | قيد الدراسة | Blue `#185FA5` | 2 (Tech Study), 3 (Quotation), 4 (Contract), 5 (Deposit) |
-| `in_production` | تصنيع | Amber `#B8860B` | 6 (Procurement), 7 (Receiving), 8 (Manufacturing) |
-| `complete` | مكتمل | Teal `#0F6E56` | 9 (Delivery), 10 (Installation), 11 (Payment), 12 (Warranty), 13 (Done) |
+| `new` | جديد | Gray `#6B7280` | 0–1 |
+| `in_study` | قيد الدراسة | Blue `#185FA5` | 2–4 |
+| `in_production` | تصنيع | Amber `#B8860B` | 5–8 |
+| `complete` | مكتمل | Teal `#0F6E56` | 9–14 |
 
 ### DB columns per project
 ```sql
 stage_display  TEXT  -- 'new' | 'in_study' | 'in_production' | 'complete'
-stage_internal INTEGER -- 0 to 13
+stage_internal INTEGER -- 0 to 14
 ```
 
-### Stage advancement rules
+### Stage advancement rules (file-triggered — see autoAdvanceStage in erp.ts)
 - Lead created → `stage_display = 'new'`, `stage_internal = 0`
 - Converted to project → `stage_internal = 1` (display stays `new`)
-- Files uploaded + quotation sent → `stage_internal = 3` → display becomes `in_study`
-- Deposit confirmed → `stage_internal = 5` → display becomes `in_production`
-- Manufacturing ready → `stage_internal = 8` → display becomes `complete` (temporarily)
+- Section/Assembly/CutOpt/Material uploaded → `stage_internal = 2` (in_study)
+- Vendor Order or Glass Order uploaded → `stage_internal = 3` (in_study)
+- Quotation uploaded → `stage_internal = 4` (in_study)
+- Contract printed → `stage_internal = 4` (stays in_study; future: 5 = contract)
+- Deposit paid (first milestone) → `stage_internal = 5` → display becomes `in_production`
 - Warranty expired → `stage_internal = 13` → project archived
 
 ---
@@ -154,14 +174,15 @@ export const projects = pgTable('projects', {
 export const projectFiles = pgTable('project_files', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').notNull().references(() => projects.id),
-  fileType: text('file_type').notNull(), // v2.5.0 valid: 'glass_order'|'price_quotation'|'section'|'assembly_list'|'cut_optimisation'|'qoyod' (multi-file). Legacy (hidden): 'technical_doc'|'qoyod_deposit'|'qoyod_payment'|'attachment'
+  /** v3.0 valid: 'glass_order'|'quotation'|'section'|'assembly_list'|'cut_optimisation'|'material_analysis'
+   *  multi-file: 'vendor_order'|'qoyod'|'other'. Legacy (hidden): 'price_quotation'|'technical_doc'|etc. */
+  fileType: text('file_type').notNull(),
   originalFilename: text('original_filename').notNull(),
-  fileData: customType<{ data: Buffer }>({   // BYTEA
-    dataType() { return 'bytea'; },
-  })('file_data').notNull(),
+  fileData: bytea('file_data').notNull(),
   uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
   uploadedBy: integer('uploaded_by').notNull().references(() => users.id),
-  // One file per fileType per project (re-upload replaces old). Exception: 'qoyod' is multi-file (accumulates).
+  /** true = active version; false = superseded (single-file types only). Re-upload sets old to false. */
+  isActive: boolean('is_active').notNull().default(true),
 });
 ```
 
@@ -334,28 +355,65 @@ export const manufacturingOrders = pgTable('manufacturing_orders', {
 });
 ```
 
-### 3.14 `payment_milestones` table
+### 3.14 `payment_milestones` table (v3.0 — updated)
 
 ```typescript
 // lib/db/src/schema/payment_milestones.ts
-export const paymentMilestones = pgTable('payment_milestones', {
+export const paymentMilestonesTable = pgTable('payment_milestones', {
   id: serial('id').primaryKey(),
-  projectId: integer('project_id').notNull().references(() => projects.id),
-  label: text('label').notNull(),      // e.g. 'دفعة أولى 30%' | 'قبل التسليم 40%'
-  percentage: integer('percentage'),   // 30 | 40 | 30
-  amount: integer('amount'),           // SAR — calculated from contract total
+  projectId: integer('project_id').notNull().references(() => projectsTable.id),
+  label: text('label').notNull(),       // e.g. 'دفعة أولى 50%' | 'قبل التسليم 40%' | 'بعد التركيب 10%'
+  percentage: integer('percentage'),    // 50 | 40 | 10
+  amount: integer('amount'),            // SAR — calculated from contract total
+  paidAmount: integer('paid_amount'),   // actual amount received (may differ from amount)
   dueDate: date('due_date'),
-  status: text('status').notNull().default('pending'), // 'pending'|'paid'|'overdue'
+  status: text('status').notNull().default('pending'), // 'pending'|'due'|'paid'|'overdue'
   paidAt: timestamp('paid_at'),
-  qoyodDocFileId: integer('qoyod_doc_file_id').references(() => projectFiles.id),
+  qoyodDocFileId: integer('qoyod_doc_file_id').references(() => projectFilesTable.id),
+  /** Event that triggers this milestone becoming 'due': 'deposit'|'delivery'|'final' */
+  linkedEvent: text('linked_event'),
+  /** Phase sign-off that triggers this milestone — set on PATCH /phases/:id/signoff */
+  linkedPhaseId: integer('linked_phase_id').references(() => projectPhasesTable.id),
   notes: text('notes'),
 });
 ```
 
-### 3.15 `delivery_phases` table
+**Default milestones created on project creation:**
+| label | percentage | linkedEvent |
+|-------|-----------|-------------|
+| دفعة أولى (Deposit) | 50% | `deposit` |
+| قبل التسليم (Before Delivery) | 40% | `delivery` |
+| بعد التركيب (After Sign-off) | 10% | `final` |
+
+### 3.15 `project_phases` table (v3.0 — new)
+
+Tracks delivery/installation phases per project. Each phase can be signed off to trigger linked payment milestones.
 
 ```typescript
-// lib/db/src/schema/delivery_phases.ts
+// lib/db/src/schema/project_phases.ts
+export const projectPhasesTable = pgTable('project_phases', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projectsTable.id),
+  phaseNumber: integer('phase_number').notNull(),  // 1, 2, 3 ...
+  label: text('label'),                            // optional custom label
+  status: text('status').notNull().default('pending'), // 'pending'|'delivered'|'installed'|'signed_off'
+  deliveredAt: timestamp('delivered_at'),
+  installedAt: timestamp('installed_at'),
+  signedOffAt: timestamp('signed_off_at'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+```
+
+**Sign-off flow (`PATCH /api/erp/phases/:id/signoff`):**
+1. Sets `signedOffAt = now()`, `status = 'signed_off'`
+2. Finds all `payment_milestones` where `linkedPhaseId = phase.id` AND `status = 'pending'`
+3. Updates those milestones to `status = 'due'`
+
+### 3.16 `delivery_phases` table (planned — Phase 4)
+
+```typescript
+// lib/db/src/schema/delivery_phases.ts (future — not yet built)
 export const deliveryPhases = pgTable('delivery_phases', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').notNull().references(() => projects.id),
@@ -491,15 +549,24 @@ PATCH  /api/erp/leads/:id/lose            — mark as lost (body: { reason })
 ### 5.2 Projects
 
 ```
-GET    /api/erp/projects                  — list all projects (with filter: stage_display)
-POST   /api/erp/projects                  — create project (direct, no lead)
-GET    /api/erp/projects/:id              — full project detail + files + timeline
-PATCH  /api/erp/projects/:id             — update project fields or stage
-DELETE /api/erp/projects/:id             — Admin/FactoryManager only
+GET    /api/erp/projects                       — list all projects (with filter: stage_display)
+POST   /api/erp/projects                       — create project (direct, no lead)
+GET    /api/erp/projects/:id                   — full project detail + files (isActive=true) + phases
+PATCH  /api/erp/projects/:id                   — update project fields or stage
+DELETE /api/erp/projects/:id                   — Admin/FactoryManager only
 
-POST   /api/erp/projects/:id/files        — upload file (multipart, field: file, fileType)
-DELETE /api/erp/projects/:id/files/:fileId — delete / replace file (replaces same fileType)
-GET    /api/erp/projects/:id/files/:fileId — download file
+POST   /api/erp/projects/:id/files             — upload file(s); supports field 'file' (single) or 'files' (batch)
+GET    /api/erp/projects/:id/files             — list files; ?includeInactive=true shows all versions
+GET    /api/erp/projects/:id/files/expected    — 9-slot status array (one entry per KNOWN_FILE_TYPE)
+POST   /api/erp/projects/:id/files/detect      — auto-detect file types from filenames (no DB write)
+DELETE /api/erp/projects/:id/files/:fileId     — soft-delete (sets isActive=false)
+GET    /api/erp/projects/:id/files/:fileId     — download file
+
+GET    /api/erp/projects/:id/phases            — list delivery phases
+POST   /api/erp/projects/:id/phases            — create delivery phase
+PATCH  /api/erp/phases/:id                     — update phase (deliveredAt, installedAt, notes, status)
+DELETE /api/erp/phases/:id                     — Admin/FactoryManager only
+PATCH  /api/erp/phases/:id/signoff             — sign off phase + trigger linked payment milestones → 'due'
 ```
 
 ### 5.3 Vendors & Purchase Orders
@@ -556,13 +623,15 @@ DELETE /api/erp/options/:id              — Admin only
 
 ## 6. Project Lifecycle
 
-### Stage 0–1: Lead → Project
+> v3.0 — 15 internal stages (0–14). `autoAdvanceStage()` in `erp.ts` automatically advances `stageInternal` when files are uploaded. `getDisplayStage()` maps internal → display (see Section 2).
+
+### Stages 0–1: Lead → Project (`display: new`)
 
 **Lead fields (required):** customerName, phone, source, productInterest, buildingType, location, assignedTo, firstFollowupDate
 
 **Lead status flow:**
 ```
-new → followup → converted (→ project created)
+new → followup → converted (→ project created, stageInternal = 1)
               ↘ lost
 ```
 
@@ -570,143 +639,157 @@ new → followup → converted (→ project created)
 - Cannot be deleted — acts as audit trail
 - Author can edit their own entries only
 - `nextFollowupDate` required when lead is `new` or `followup`
-- `nextFollowupDate` not required when `converted` or `lost`
 - Dashboard shows overdue badge: follow-up date passed + no new log entry
 
-**Convert to project:** copies customerName, phone, location, buildingType, productInterest, estimatedValue, all contact log entries → new project. Sets `leads.status = 'converted'` and `leads.convertedProjectId`.
+**Convert to project:** copies customerName, phone, location, buildingType, productInterest, estimatedValue → new project. Sets `stageInternal = 1`, `stageDisplay = 'new'`. Creates default Phase 1 and 3 payment milestones (50% deposit, 40% before delivery, 10% after sign-off).
 
 ---
 
-### Stage 2–3: Technical Study + Quotation
+### Stages 2–4: Technical Study + Quotation (`display: in_study`)
 
-**Actions:** upload Orgadata Section + Price Quotation `.docx` files (v2.5.0+ slots)
+**File-triggered advances (autoAdvanceStage):**
+- Upload `section`, `assembly_list`, `cut_optimisation`, or `material_analysis` → `stageInternal` advances to `2` if currently ≤ 1
+- Upload `vendor_order` or `glass_order` → advances to `3` if currently ≤ 2
+- Upload `quotation` → advances to `4` if currently ≤ 3
 
 **File upload rules:**
-- Re-uploading same `fileType` deletes old file from DB and stores new one (single-file slots)
-- Glass/Panel Order (`glass_order`) triggers **existing QR generation pipeline** automatically
-- **Quotation upload (`price_quotation`)** triggers parser → extracts positions/prices/totals into `parsed_quotations`. Returns **409 Conflict** if project name in file doesn't match system name — frontend shows `NameMismatchModal` (Proceed / Proceed & update name / Cancel)
-- **Section upload (`section`)** triggers parser → extracts all embedded drawings into `parsed_section_drawings` (261 drawings typical). Name mismatch is warning-only (non-blocking)
-
-**Stage advance:** after quotation sent to customer → `stage_internal = 3`, `stage_display = 'in_study'`
+- Re-uploading a single-file type sets old row `isActive = false` and inserts new row (version history preserved)
+- `glass_order` triggers **existing QR generation pipeline** automatically
+- `quotation` triggers parser → extracts positions/prices/totals into `parsed_quotations`. Returns **409 Conflict** if project name in file doesn't match system name — frontend shows `NameMismatchModal` (Proceed / Proceed & update name / Cancel)
+- `section` triggers parser → extracts all embedded drawings into `parsed_section_drawings`. Name mismatch is warning-only (non-blocking)
+- `assembly_list` → `parsed_assembly_lists`, `cut_optimisation` → `parsed_cut_optimisations`
 
 ---
 
-### Stage 4: Contract
+### Stage 5: Contract (`display: in_production`)
 
 **Actions:** system renders branded contract as a printable HTML page. User prints or saves as PDF via browser.
 
-**Contract fields pulled from project:** customerName, projectName, deliveryDeadline, productInterest + parsed_quotations data
+**Contract fields:** customerName, projectName, deliveryDeadline, productInterest + parsed_quotations data
 
-**Template sections:** stored in `system_settings` table — 6 keys:
-- `contract_cover_intro_ar`, `contract_cover_intro_en` — cover page intro text
-- `contract_terms_ar`, `contract_terms_en` — terms and conditions
-- `contract_signature_block_ar`, `contract_signature_block_en` — signature lines
-- All support `{{placeholder}}` syntax (customerName, projectName, quotationNumber, quotationDate, deliveryDeadline, grandTotal, subtotalNet, taxRate, taxAmount, today, companyName)
+**Template:** stored in `system_settings` table — 6 keys (`contract_cover_intro_ar/en`, `contract_terms_ar/en`, `contract_signature_block_ar/en`). Supports `{{placeholder}}` syntax.
 
-**Contract page:** `/erp/projects/:id/contract` — cover → positions table → drawings (1 per page) → terms + signature
+**Contract page:** `/erp/projects/:id/contract` — cover → positions table → drawings → terms + signature
 **Print CSS:** `@page size: A4` + `page-break-after: always` — no PDF library
-**Drawings:** loaded via `<img src="/api/erp/drawings/:id">` — lazy, no base64 blobs
-**Integrity check:** runs on page load, blocks print if errors (name mismatch, missing files, unresolved placeholders, totals mismatch)
-**Override:** user can override with confirmation + backend log
-**Stage advance:** `POST /contract/mark-printed` advances stageInternal → 4 on print
+**Integrity check:** blocks print on errors (name mismatch, missing files, unresolved placeholders, totals mismatch)
+**Stage advance:** `POST /contract/mark-printed` → `stageInternal = 5`, `stageDisplay = 'in_production'`
 **Permissions:** Admin, FactoryManager, SalesAgent
-**Template editor:** Admin Settings page at `/erp/settings`
 
 ---
 
-### Stage 5: Deposit Confirmed
+### Stage 6: Deposit (`display: in_production`)
 
-**Actions:** Accountant uploads Qoyod document to the **Qoyod slot** (multi-file) → marks first payment milestone as paid → project activates
+**Actions:** Accountant uploads Qoyod document → marks first payment milestone (`linkedEvent = 'deposit'`) as paid → project activates manufacturing
 
-**Note (v2.5.0):** `qoyod_deposit` and `qoyod_payment` slots were merged into a single multi-file `qoyod` slot. Optional metadata `{ milestoneId, purpose: 'deposit'|'partial'|'final' }` links uploads to a specific payment milestone (Phase 2).
-
-**Stage advance:** deposit marked paid → `stage_internal = 5`, `stage_display = 'in_production'`
+**Stage advance:** deposit milestone marked paid → `stageInternal = 6`
 
 ---
 
-### Stage 6–7: Procurement + Receiving
-
-**Vendor quotation:** manual table entry (vendor name, items, qty, unit price). File upload optional attachment.
-
-**PO rules:**
-- Max 10 vendors per project
-- Partial receiving: `receivedQuantity` updated per item
-- PO status auto-updates: all items received → `status = 'received'`
-
-**Categories for items:** Aluminum | Glass | Accessories | Special Parts
-
----
-
-### Stage 8: Manufacturing Order
+### Stage 7: Manufacturing (`display: in_production`)
 
 **3-status flow:** Pending → In Progress → Ready
 
-**Stage advance:** status set to `ready` → `stage_internal = 8`, `stage_display = 'complete'`
-
-**Manufacturing order shows:**
-- Link to Technical Document download
-- Delivery deadline from project (from contract stage)
-- Free-text notes field for status updates (visible to team)
+**Manufacturing order shows:** link to Technical Document, delivery deadline, free-text notes field
+**Stage advance:** status set to `ready` → `stageInternal = 7`
 
 ---
 
-### Stage 9–10: Delivery + Installation
+### Stage 8: Receiving (`display: in_production`)
 
-**Delivery phases:** project can have multiple delivery phases (1, 2, 3...)
+**Actions:** Receive vendor purchase orders — track per-item quantities received.
 
-**Each phase tracked:** deliveryDate, installerStatus (pending/in_progress/done), customerConfirmed
+**PO rules:**
+- Partial receiving: `receivedQuantity` updated per item
+- PO status auto-updates: all items received → `status = 'received'`
+- Categories for items: Aluminum | Glass | Accessories | Special Parts
 
-**Customer confirmation flow:**
-1. Customer scans QR code on any delivered item
-2. QR opens delivery confirmation page (new public page: `/confirm/:deliveryPhaseId`)
-3. Page shows full phase summary (all items delivered)
-4. Button: "تأكيد الاستلام عبر واتساب" → opens `wa.me` link with pre-filled message
-5. System also records confirmation: `customerConfirmed = true`, timestamp stored
-6. Admin receives in-app notification (badge on sidebar)
+**Stage advance:** all POs received → `stageInternal = 8`
 
 ---
 
-### Stage 11: Payment Tracking
+### Stages 9–11: Delivery + Installation + Sign-off (`display: complete`)
 
-**Milestones set at contract stage** (e.g. 30% deposit, 40% pre-delivery, 30% post-install)
+**Delivery phases (`project_phases` table):** project can have multiple phases (1, 2, 3...).
 
-**Each milestone:** label, percentage, amount (SAR), dueDate, status (pending/paid/overdue)
+**Phase status flow:** `pending` → `delivered` → `installed` → `signed_off`
 
-**Overdue logic:** `dueDate < today AND status = 'pending'` → show warning on dashboard
+**Phase sign-off (`PATCH /api/erp/phases/:id/signoff`):**
+1. Sets `signedOffAt = now()`, `status = 'signed_off'`
+2. Updates any `payment_milestones` linked to this phase (`linkedPhaseId = phase.id`) from `pending` → `due`
 
-**Accountant marks paid:** uploads Qoyod document to the **Qoyod slot** (multi-file) → milestone status = 'paid'. Optional metadata `{ milestoneId, purpose: 'deposit'|'partial'|'final' }` links the upload to a specific milestone (Phase 2).
+**Stage advance:**
+- First phase delivered → `stageInternal = 9`
+- First phase installed → `stageInternal = 10`
+- All phases signed off → `stageInternal = 11`
 
 ---
 
-### Stage 12–13: Warranty + Complete
+### Stage 12: Payment (`display: complete`)
 
-**Warranty starts:** automatically after customer confirms installation in Stage 10
+**Milestones** created automatically on project creation: Deposit 50%, Before Delivery 40%, After Sign-off 10%.
 
-**Warranty duration:** set in `system_settings` (default: 12 months — TBD with Ahmad)
+**Each milestone:** label, percentage, amount (SAR), paidAmount, dueDate, status (`pending`|`due`|`paid`|`overdue`), linkedEvent, linkedPhaseId
+
+**Milestone becomes `due`:** either by `linkedEvent` matching a project lifecycle event, or by phase sign-off (via `linkedPhaseId`).
+
+**Overdue logic:** `dueDate < today AND status IN ('pending','due')` → show warning on dashboard
+
+**Accountant marks paid:** uploads Qoyod document → `status = 'paid'`, `paidAt = now()`.
+
+**Stage advance:** all milestones paid → `stageInternal = 12`
+
+---
+
+### Stage 13: Warranty (`display: complete`)
+
+**Warranty starts:** after final payment milestone marked paid (or after customer confirms final installation phase — TBD)
+
+**Warranty duration:** set in `system_settings` (default: 12 months — confirm with Ahmad)
 
 **`warrantyEndDate`** = `warrantyStartDate + warrantyMonths`
 
-**Project closes:** `warrantyEndDate < today` → `stage_internal = 13`, project moves to archive view
+---
+
+### Stage 14: Done (`display: complete`)
+
+**Project closes:** `warrantyEndDate < today` → `stageInternal = 14`, project moves to archive view
 
 ---
 
 ## 7. Orgadata File Types
 
-v2.5.0 — 6-slot layout (5 Orgadata + 1 Qoyod multi-file bucket)
+v3.0 — 9-slot layout (6 Orgadata single-file + 3 multi-file buckets)
 
 | File | `fileType` value | Multi-file? | Parsed? | How used |
 |---|---|---|---|---|
 | Glass / Panel Order | `glass_order` | No | ✅ Yes (QR pipeline) | Triggers QR code generation |
-| Quotation | `price_quotation` | No | ✅ Parsed (v2.5.1) | Extracts positions, prices, totals → `parsed_quotations`. 409 on project name mismatch. |
+| Quotation | `quotation` | No | ✅ Parsed (v2.5.1) | Extracts positions, prices, totals → `parsed_quotations`. 409 on project name mismatch. |
 | Section | `section` | No | ✅ Parsed (v2.5.1) | Extracts all embedded drawings in document order → `parsed_section_drawings`. |
 | Assembly List | `assembly_list` | No | ✅ Parsed (v2.5.3) | Extracts positions (positionCode, qty, system, dimensions, glass items) → `parsed_assembly_lists`. Badge + panel in ProjectDetail. |
 | Cut Optimisation | `cut_optimisation` | No | ✅ Parsed (v2.5.3) | Extracts profile summary (number, description, colour, qty, length, wastage) from Summary section → `parsed_cut_optimisations`. Badge + compact table in ProjectDetail. |
-| Qoyod | `qoyod` | **Yes** | N/A | Multi-file bucket for all payment proof documents (deposits, partial payments, final payments) |
+| Material Analysis | `material_analysis` | No | ❌ Stored only | Orgadata material analysis report — stored for reference |
+| Vendor Order | `vendor_order` | **Yes** | ❌ Stored only | Multi-file bucket for vendor purchase orders / RFQs |
+| Qoyod | `qoyod` | **Yes** | ❌ Stored only | Multi-file bucket for all payment proof documents (deposits, partial payments, final payments) |
+| Other | `other` | **Yes** | ❌ Stored only | General attachments bucket |
 
-**Rules:**
-- All Orgadata files are `.docx`. Re-uploading a single-file slot replaces the old row.
-- `qoyod` is multi-file — new uploads accumulate (no replacement). Each file is individually deletable.
-- Legacy types `technical_doc`, `qoyod_deposit`, `qoyod_payment`, `attachment` are no longer accepted for new uploads (returns 400). Existing DB rows are preserved but hidden from UI.
+**File versioning rules (v3.0):**
+- **Single-file types** (`glass_order`, `quotation`, `section`, `assembly_list`, `cut_optimisation`, `material_analysis`): re-uploading sets `isActive = false` on the old row and inserts a new row with `isActive = true`. Old versions are preserved in DB but hidden from UI.
+- **Multi-file types** (`vendor_order`, `qoyod`, `other`): all uploads are always `isActive = true`. Accumulate; never replaced. Each file is individually deletable.
+
+**Auto-detection (`POST /api/erp/projects/:id/files/detect`):**
+```
+Filename contains → detectedType
+glass_panel_order / glass panel order → glass_order
+quotation → quotation
+section → section
+assembly_list / assembly list → assembly_list
+cut_optimisation / cut optimisation → cut_optimisation
+material_analysis / material analysis → material_analysis
+order_-_ / order - (not glass panel) → vendor_order
+anything else → null (confidence: low)
+```
+
+**Legacy:** `price_quotation` is accepted as an alias for `quotation` (backward compat). Types `technical_doc`, `qoyod_deposit`, `qoyod_payment`, `attachment` are no longer accepted for new uploads (returns 400). Existing DB rows are preserved but hidden from UI.
 
 ---
 

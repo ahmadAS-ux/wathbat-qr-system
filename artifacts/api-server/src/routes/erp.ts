@@ -8,6 +8,7 @@ import {
   leadLogsTable,
   projectsTable,
   projectFilesTable,
+  projectPhasesTable,
   processedDocsTable,
   dropdownOptionsTable,
   usersTable,
@@ -21,7 +22,9 @@ import {
   PROJECT_FILE_TYPES,
   DEPRECATED_FILE_TYPES,
   MULTI_FILE_TYPES,
+  UI_SLOT_ORDER,
 } from "@workspace/db";
+import { detectFileType, KNOWN_FILE_TYPES } from "../lib/file-detector.js";
 import { asc } from "drizzle-orm";
 import { parseQuotationDocx } from "../lib/parsers/quotation-parser.js";
 import { parseSectionDocx } from "../lib/parsers/section-parser.js";
@@ -55,6 +58,12 @@ const upload = multer({
       cb(new Error("Only .docx files are accepted"));
     }
   },
+});
+
+// Multi-file upload: accepts field "files" (up to 20) for the detect and batch-upload endpoints
+const uploadMulti = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 // multer for PDF/any file uploads (payment proofs)
@@ -98,6 +107,92 @@ function session(req: Request) {
 
 function notFound(res: Response): void {
   res.status(404).json({ error: "Not found" });
+}
+
+// v3.0: 15-stage display mapping (SYSTEM_DESIGN_v3.md Section 1)
+function getDisplayStage(internal: number): string {
+  if (internal <= 1) return 'new';
+  if (internal <= 4) return 'in_study';
+  if (internal <= 8) return 'in_production';
+  return 'complete';
+}
+
+// v3.0: auto-advance stage when a file is uploaded
+async function autoAdvanceStage(projectId: number, fileType: string, currentStage: number) {
+  let targetStage: number | null = null;
+
+  if (['section', 'assembly_list', 'cut_optimisation', 'material_analysis'].includes(fileType) && currentStage < 2) {
+    targetStage = 2;
+  } else if (fileType === 'vendor_order' && currentStage < 3) {
+    targetStage = 3;
+  } else if ((fileType === 'quotation' || fileType === 'price_quotation') && currentStage < 4) {
+    targetStage = 4;
+  } else if (fileType === 'glass_order' && currentStage < 3) {
+    targetStage = 3;
+  }
+
+  if (targetStage !== null) {
+    await db.update(projectsTable)
+      .set({ stageInternal: targetStage, stageDisplay: getDisplayStage(targetStage) })
+      .where(eq(projectsTable.id, projectId));
+  }
+}
+
+// Helper: run post-save parsers for a file type (used by both single and batch upload)
+async function runParsersForFile(fileType: string, buffer: Buffer, fileId: number, projectId: number) {
+  if (fileType === 'price_quotation' || fileType === 'quotation') {
+    try {
+      const parsed = parseQuotationDocx(buffer);
+      await db.delete(parsedQuotationsTable).where(eq(parsedQuotationsTable.projectId, projectId));
+      await db.insert(parsedQuotationsTable).values({
+        projectId, sourceFileId: fileId,
+        projectNameInFile: parsed.projectName, quotationNumber: parsed.quotationNumber,
+        quotationDate: parsed.quotationDate, positions: parsed.positions,
+        subtotalNet: parsed.subtotalNet, taxRate: parsed.taxRate,
+        taxAmount: parsed.taxAmount, grandTotal: parsed.grandTotal,
+        rawPositionCount: parsed.rawPositionCount, dedupedPositionCount: parsed.dedupedPositionCount,
+      });
+    } catch (err) { logger.warn({ err }, 'Quotation parser failed'); }
+  }
+  if (fileType === 'section') {
+    try {
+      const parsed = parseSectionDocx(buffer);
+      await db.delete(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
+      const [sectionRow] = await db.insert(parsedSectionsTable).values({
+        projectId, sourceFileId: fileId, projectNameInFile: parsed.projectName,
+        system: parsed.system, drawingCount: parsed.drawings.length,
+      }).returning();
+      const CHUNK = 50;
+      for (let i = 0; i < parsed.drawings.length; i += CHUNK) {
+        const chunk = parsed.drawings.slice(i, i + CHUNK).map(d => ({
+          parsedSectionId: sectionRow.id, orderIndex: d.orderIndex,
+          positionCode: d.positionCode, mediaFilename: d.mediaFilename,
+          mimeType: d.mimeType, imageData: d.imageData,
+        }));
+        await db.insert(parsedSectionDrawingsTable).values(chunk);
+      }
+    } catch (err) { logger.warn({ err }, 'Section parser failed'); }
+  }
+  if (fileType === 'assembly_list') {
+    try {
+      const parsed = parseAssemblyListDocx(buffer);
+      await db.delete(parsedAssemblyListsTable).where(eq(parsedAssemblyListsTable.projectId, projectId));
+      await db.insert(parsedAssemblyListsTable).values({
+        projectId, sourceFileId: fileId, projectNameInFile: parsed.projectName,
+        positionCount: parsed.positionCount, positions: parsed.positions,
+      });
+    } catch (err) { logger.warn({ err }, 'Assembly list parser failed'); }
+  }
+  if (fileType === 'cut_optimisation') {
+    try {
+      const parsed = parseCutOptimisationDocx(buffer);
+      await db.delete(parsedCutOptimisationsTable).where(eq(parsedCutOptimisationsTable.projectId, projectId));
+      await db.insert(parsedCutOptimisationsTable).values({
+        projectId, sourceFileId: fileId, projectNameInFile: parsed.projectName,
+        profileCount: parsed.profileCount, profiles: parsed.profiles,
+      });
+    } catch (err) { logger.warn({ err }, 'Cut optimisation parser failed'); }
+  }
 }
 
 // ─── DROPDOWN OPTIONS ─────────────────────────────────────────────────────────
@@ -561,6 +656,21 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
         .where(and(eq(leadsTable.id, resolvedFromLeadId), inArray(leadsTable.status, ["new", "followup"])));
     }
 
+    // v3.0: create default Phase 1 for every new project
+    await db.insert(projectPhasesTable).values({
+      projectId: row.id,
+      phaseNumber: 1,
+      label: 'المرحلة 1 / Phase 1',
+      status: 'pending',
+    });
+
+    // v3.0: create default payment milestones
+    await db.insert(paymentMilestonesTable).values([
+      { projectId: row.id, label: 'Deposit / دفعة مقدمة', percentage: 50, linkedEvent: 'deposit' },
+      { projectId: row.id, label: 'Before delivery / قبل التوصيل', percentage: 40, linkedEvent: 'delivery' },
+      { projectId: row.id, label: 'After sign-off / بعد التسليم', percentage: 10, linkedEvent: 'final' },
+    ]);
+
     res.status(201).json(row);
   } catch (err) {
     logger.error({ err }, "POST /erp/projects failed");
@@ -568,7 +678,7 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
   }
 });
 
-// GET /erp/projects/:id — full detail + files
+// GET /erp/projects/:id — full detail + files (active only) + phases
 router.get("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -582,10 +692,14 @@ router.get("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Re
       uploadedAt: projectFilesTable.uploadedAt,
       uploadedBy: projectFilesTable.uploadedBy,
       uploadedByName: usersTable.username,
+      isActive: projectFilesTable.isActive,
     }).from(projectFilesTable)
       .leftJoin(usersTable, eq(projectFilesTable.uploadedBy, usersTable.id))
-      .where(eq(projectFilesTable.projectId, id));
-    res.json({ ...project, files });
+      .where(and(eq(projectFilesTable.projectId, id), eq(projectFilesTable.isActive, true)));
+    const phases = await db.select().from(projectPhasesTable)
+      .where(eq(projectPhasesTable.projectId, id))
+      .orderBy(asc(projectPhasesTable.phaseNumber));
+    res.json({ ...project, files, phases });
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id failed");
     res.status(500).json({ error: "Internal error" });
@@ -622,6 +736,8 @@ router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request
     await db.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${id}`);
     // payment_milestones has no onDelete cascade — must delete explicitly
     await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
+    // project_phases: delete after clearing FK refs in payment_milestones
+    await db.delete(projectPhasesTable).where(eq(projectPhasesTable.projectId, id));
     // project_files delete cascades: parsed_quotations, parsed_sections, parsed_section_drawings,
     // parsed_assembly_lists, parsed_cut_optimisations (all have ON DELETE CASCADE on source_file_id)
     await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, id));
@@ -633,35 +749,122 @@ router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request
   }
 });
 
-// POST /erp/projects/:id/files — upload file
+// POST /erp/projects/:id/files — upload file(s)
+// Supports both legacy single-file (field: "file" + body: fileType) and
+// new multi-file (field: "files" array + body: fileTypes JSON array).
 // For glass_order: runs QR pipeline → saved to processed_docs with project_id
-// For all other types: saved to project_files as before
-router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.single("file"), async (req: Request, res: Response) => {
+// For single-file types: old files set to is_active=false, new file set to is_active=true
+// For multi-file types (vendor_order, qoyod, other): all files stay is_active=true
+router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadMulti.fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 20 }]), async (req: Request, res: Response) => {
   try {
     const projectId = Number(req.params.id);
+    const sess = session(req);
+
+    const filesMap = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const singleFile = filesMap?.['file']?.[0] ?? undefined;
+    const multiFiles = filesMap?.['files'] ?? [];
+
+    // ── Multi-file batch upload (new v3.0 path) ──────────────────────────────
+    if (multiFiles.length > 0) {
+      let fileTypesRaw: string[] = [];
+      try {
+        fileTypesRaw = JSON.parse(String(req.body?.fileTypes ?? '[]'));
+      } catch {
+        res.status(400).json({ error: 'fileTypes must be a valid JSON array' });
+        return;
+      }
+      if (fileTypesRaw.length !== multiFiles.length) {
+        res.status(400).json({ error: 'fileTypes array length must match files count' });
+        return;
+      }
+
+      const [proj] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, projectId));
+      if (!proj) return notFound(res);
+
+      const results = [];
+      for (let i = 0; i < multiFiles.length; i++) {
+        const f = multiFiles[i]!;
+        const ft = String(fileTypesRaw[i]);
+
+        if ((DEPRECATED_FILE_TYPES as readonly string[]).includes(ft)) {
+          results.push({ filename: f.originalname, error: 'Deprecated file type', fileType: ft });
+          continue;
+        }
+        if (!(PROJECT_FILE_TYPES as readonly string[]).includes(ft)) {
+          results.push({ filename: f.originalname, error: 'Invalid fileType', fileType: ft });
+          continue;
+        }
+
+        if (ft === 'glass_order') {
+          // Glass order via QR pipeline — handled via same logic as single upload below
+          // For batch, run inline
+          try {
+            const result = await parseAndInjectQR(f.buffer);
+            const reportFilename = `${f.originalname.replace(/\.docx$/i, '')}_QR_Report.html`;
+            const [saved] = await db.insert(processedDocsTable).values({
+              originalFilename: f.originalname,
+              reportFilename,
+              projectName: result.projectName || null,
+              processingDate: result.date || null,
+              positionCount: result.positions.length,
+              originalFile: f.buffer,
+              reportFile: result.outputBuffer,
+              projectId,
+            }).returning({ id: processedDocsTable.id });
+            results.push({ filename: f.originalname, fileType: ft, savedId: saved.id });
+            await autoAdvanceStage(projectId, ft, proj.stageInternal ?? 1);
+          } catch (err: any) {
+            results.push({ filename: f.originalname, fileType: ft, error: 'QR parse failed' });
+          }
+          continue;
+        }
+
+        // Single-file types: mark old files inactive
+        if (!(MULTI_FILE_TYPES as readonly string[]).includes(ft)) {
+          await db.update(projectFilesTable)
+            .set({ isActive: false })
+            .where(and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, ft), eq(projectFilesTable.isActive, true)));
+        }
+
+        const [row] = await db.insert(projectFilesTable).values({
+          projectId, fileType: ft, originalFilename: f.originalname, fileData: f.buffer, uploadedBy: sess.userId, isActive: true,
+        }).returning();
+
+        await runParsersForFile(ft, f.buffer, row.id, projectId);
+        await autoAdvanceStage(projectId, ft, proj.stageInternal ?? 1);
+        results.push({ id: row.id, fileType: ft, originalFilename: f.originalname, uploadedAt: row.uploadedAt });
+      }
+
+      res.status(201).json(results);
+      return;
+    }
+
+    // ── Single-file legacy upload path ───────────────────────────────────────
     const fileType = String(req.body?.fileType ?? "");
-    if (!req.file || !fileType) {
+    if (!singleFile || !fileType) {
       res.status(400).json({ error: "file and fileType are required" });
       return;
     }
-    const sess = session(req);
 
     // ── v2.5.0: fileType validation ──────────────────────────────────────────
     if ((DEPRECATED_FILE_TYPES as readonly string[]).includes(fileType)) {
-      res.status(400).json({ error: "This file type has been deprecated in v2.5.0. Valid types: glass_order, price_quotation, section, assembly_list, cut_optimisation, qoyod." });
+      res.status(400).json({ error: "This file type has been deprecated. Valid types: glass_order, quotation, section, assembly_list, cut_optimisation, material_analysis, vendor_order, qoyod, other." });
       return;
     }
-    if (fileType !== "glass_order" && !(PROJECT_FILE_TYPES as readonly string[]).includes(fileType)) {
+    if (!(PROJECT_FILE_TYPES as readonly string[]).includes(fileType)) {
       res.status(400).json({ error: "Invalid fileType" });
       return;
     }
+
+    // Use singleFile (already confirmed non-null above) as a typed local reference
+    const uploadedFile = singleFile;
 
     // ── Glass order: QR pipeline → processed_docs ──────────────────────────
     if (fileType === "glass_order") {
       const confirm = req.query.confirm === "true";
       const updateName = req.query.updateName === "true";
 
-      const orgadataName = extractProjectNameFromDocx(req.file.buffer);
+      const orgadataName = extractProjectNameFromDocx(uploadedFile.buffer);
 
       if (!confirm) {
         const [project] = await db
@@ -693,7 +896,7 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
 
       let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
       try {
-        result = await parseAndInjectQR(req.file.buffer);
+        result = await parseAndInjectQR(uploadedFile.buffer);
       } catch (err: any) {
         if (err?.message === "NO_POSITIONS") {
           res.status(400).json({
@@ -705,22 +908,26 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
         throw err;
       }
 
-      const originalName = req.file.originalname.replace(/\.docx$/i, "");
+      const originalName = uploadedFile.originalname.replace(/\.docx$/i, "");
       const reportFilename = `${originalName}_QR_Report.html`;
 
       const [saved] = await db
         .insert(processedDocsTable)
         .values({
-          originalFilename: req.file.originalname,
+          originalFilename: uploadedFile.originalname,
           reportFilename,
           projectName: result.projectName || null,
           processingDate: result.date || null,
           positionCount: result.positions.length,
-          originalFile: req.file.buffer,
+          originalFile: uploadedFile.buffer,
           reportFile: result.outputBuffer,
           projectId,
         })
         .returning({ id: processedDocsTable.id });
+
+      // Stage auto-advance for glass_order
+      const [projForGlass] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, projectId));
+      if (projForGlass) await autoAdvanceStage(projectId, 'glass_order', projForGlass.stageInternal ?? 1);
 
       res.status(201).json({
         fileId: saved.id,
@@ -732,26 +939,27 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
     }
 
     // ── All other file types → project_files ────────────────────────────────
-    // Multi-file types (e.g. qoyod) accumulate; single-file types replace on re-upload
+    // Multi-file types accumulate; single-file types: mark old version inactive
     if (!(MULTI_FILE_TYPES as readonly string[]).includes(fileType)) {
-      await db.delete(projectFilesTable).where(
-        and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, fileType))
-      );
+      await db.update(projectFilesTable)
+        .set({ isActive: false })
+        .where(and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, fileType), eq(projectFilesTable.isActive, true)));
     }
 
     const [row] = await db.insert(projectFilesTable).values({
       projectId,
       fileType,
-      originalFilename: req.file.originalname,
-      fileData: req.file.buffer,
+      originalFilename: uploadedFile.originalname,
+      fileData: uploadedFile.buffer,
       uploadedBy: sess.userId,
+      isActive: true,
     }).returning();
 
     const newFileId = row.id;
-    const fileBuffer = req.file.buffer;
+    const fileBuffer = uploadedFile.buffer;
 
     // ── Post-save parsers (failure does NOT roll back the file upload) ────────
-    if (fileType === 'price_quotation') {
+    if (fileType === 'price_quotation' || fileType === 'quotation') {
       try {
         const parsed = parseQuotationDocx(fileBuffer);
 
@@ -760,7 +968,8 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
         if (parsed.projectName && project?.name && !namesMatch(parsed.projectName, project.name)) {
           const confirmed = req.query.confirmNameMismatch === 'true';
           if (!confirmed) {
-            await db.delete(projectFilesTable).where(eq(projectFilesTable.id, newFileId));
+            // Rollback: mark file inactive (don't hard-delete so version history is preserved)
+            await db.update(projectFilesTable).set({ isActive: false }).where(eq(projectFilesTable.id, newFileId));
             res.status(409).json({
               error: 'PROJECT_NAME_MISMATCH',
               message: 'Project name in file does not match project in system',
@@ -866,6 +1075,10 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
       }
     }
 
+    // v3.0: stage auto-advance after single-file upload
+    const [projForAdv] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (projForAdv) await autoAdvanceStage(projectId, fileType, projForAdv.stageInternal ?? 1);
+
     res.status(201).json({
       id: row.id,
       projectId: row.projectId,
@@ -873,9 +1086,95 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), upload.
       originalFilename: row.originalFilename,
       uploadedAt: row.uploadedAt,
       uploadedBy: row.uploadedBy,
+      isActive: row.isActive,
     });
   } catch (err) {
     logger.error({ err }, "POST /erp/projects/:id/files failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/files — list files (?includeInactive=true for all versions)
+router.get("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const includeInactive = req.query.includeInactive === 'true';
+    const rows = await db.select({
+      id: projectFilesTable.id,
+      projectId: projectFilesTable.projectId,
+      fileType: projectFilesTable.fileType,
+      originalFilename: projectFilesTable.originalFilename,
+      uploadedAt: projectFilesTable.uploadedAt,
+      uploadedBy: projectFilesTable.uploadedBy,
+      isActive: projectFilesTable.isActive,
+    }).from(projectFilesTable)
+      .where(
+        includeInactive
+          ? eq(projectFilesTable.projectId, id)
+          : and(eq(projectFilesTable.projectId, id), eq(projectFilesTable.isActive, true))
+      )
+      .orderBy(desc(projectFilesTable.uploadedAt));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/files failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/files/expected — file slots with active status and version counts
+router.get("/erp/projects/:id/files/expected", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+
+    // Count versions per type (all files, including inactive)
+    const allFiles = await db.select({
+      id: projectFilesTable.id,
+      fileType: projectFilesTable.fileType,
+      originalFilename: projectFilesTable.originalFilename,
+      uploadedAt: projectFilesTable.uploadedAt,
+      isActive: projectFilesTable.isActive,
+    }).from(projectFilesTable)
+      .where(eq(projectFilesTable.projectId, id))
+      .orderBy(desc(projectFilesTable.uploadedAt));
+
+    const slots = KNOWN_FILE_TYPES.map(slot => {
+      const filesForType = allFiles.filter(f => f.fileType === slot.value || (slot.value === 'quotation' && f.fileType === 'price_quotation'));
+      const activeFile = filesForType.find(f => f.isActive) ?? null;
+      return {
+        type: slot.value,
+        labelEn: slot.labelEn,
+        labelAr: slot.labelAr,
+        multi: slot.multi,
+        uploaded: filesForType.length > 0,
+        activeFile,
+        versionCount: filesForType.length,
+      };
+    });
+
+    res.json(slots);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/files/expected failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/projects/:id/files/detect — detect file types from filenames (no save)
+router.post("/erp/projects/:id/files/detect", requireRole(...NO_SALES_NO_ACCT), uploadMulti.array('files', 20), async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'No files uploaded' });
+      return;
+    }
+    const results = files.map(f => {
+      const { detected, confidence } = detectFileType(f.originalname);
+      return { filename: f.originalname, size: f.size, detectedType: detected, confidence };
+    });
+    res.json(results);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/projects/:id/files/detect failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -912,6 +1211,112 @@ router.delete("/erp/projects/:id/files/:fileId", requireRole("Admin", "FactoryMa
     res.status(204).send();
   } catch (err) {
     logger.error({ err }, "DELETE /erp/projects/:id/files/:fileId failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── PROJECT PHASES ───────────────────────────────────────────────────────────
+
+// GET /erp/projects/:id/phases
+router.get("/erp/projects/:id/phases", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const rows = await db.select().from(projectPhasesTable)
+      .where(eq(projectPhasesTable.projectId, id))
+      .orderBy(asc(projectPhasesTable.phaseNumber));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/phases failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// POST /erp/projects/:id/phases — create phase
+router.post("/erp/projects/:id/phases", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [proj] = await db.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.id, id));
+    if (!proj) return notFound(res);
+    const { label, phase_number, phaseNumber } = req.body as { label?: string; phase_number?: number; phaseNumber?: number };
+    const pNum = Number(phaseNumber ?? phase_number ?? 1);
+    const [row] = await db.insert(projectPhasesTable).values({
+      projectId: id,
+      phaseNumber: pNum,
+      label: label || null,
+      status: 'pending',
+    }).returning();
+    res.status(201).json(row);
+  } catch (err) {
+    logger.error({ err }, "POST /erp/projects/:id/phases failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/phases/:id — update phase status/dates/notes
+router.patch("/erp/phases/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const allowed = ['status', 'label', 'deliveredAt', 'installedAt', 'signedOffAt', 'notes'];
+    const updates: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: 'No valid fields to update' });
+      return;
+    }
+    const [row] = await db.update(projectPhasesTable).set(updates).where(eq(projectPhasesTable.id, id)).returning();
+    if (!row) return notFound(res);
+    res.json(row);
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/phases/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// DELETE /erp/phases/:id — Admin/FactoryManager only
+router.delete("/erp/phases/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    // Unlink payment milestones that reference this phase before deleting
+    await db.execute(sql`UPDATE payment_milestones SET linked_phase_id = NULL WHERE linked_phase_id = ${id}`);
+    await db.delete(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /erp/phases/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// PATCH /erp/phases/:id/signoff — sign off a phase and trigger linked payment milestones
+router.patch("/erp/phases/:id/signoff", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
+    if (!phase) return notFound(res);
+
+    const [updatedPhase] = await db.update(projectPhasesTable)
+      .set({ status: 'signed_off', signedOffAt: new Date() })
+      .where(eq(projectPhasesTable.id, id))
+      .returning();
+
+    // Trigger payment milestones linked to this phase
+    const triggeredMilestones = await db.update(paymentMilestonesTable)
+      .set({ status: 'due' })
+      .where(and(
+        eq(paymentMilestonesTable.linkedPhaseId, id),
+        eq(paymentMilestonesTable.status, 'pending'),
+      ))
+      .returning();
+
+    res.json({ phase: updatedPhase, triggeredMilestones });
+  } catch (err) {
+    logger.error({ err }, "PATCH /erp/phases/:id/signoff failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -1284,8 +1689,9 @@ router.post("/erp/projects/:id/payments", requireRole("Admin", "Accountant"), as
     if (Number.isNaN(projectId)) return notFound(res);
     const [proj] = await db.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.id, projectId));
     if (!proj) return notFound(res);
-    const { label, percentage, amount, dueDate, notes } = req.body as {
+    const { label, percentage, amount, dueDate, notes, linkedEvent, linkedPhaseId } = req.body as {
       label?: string; percentage?: number; amount?: number; dueDate?: string; notes?: string;
+      linkedEvent?: string; linkedPhaseId?: number;
     };
     if (!label || label.trim().length < 1) {
       res.status(400).json({ error: "label is required" });
@@ -1298,6 +1704,8 @@ router.post("/erp/projects/:id/payments", requireRole("Admin", "Accountant"), as
       amount: amount ? Number(amount) : null,
       dueDate: dueDate || null,
       notes: notes || null,
+      linkedEvent: linkedEvent || null,
+      linkedPhaseId: linkedPhaseId ? Number(linkedPhaseId) : null,
     }).returning();
     res.status(201).json(row);
   } catch (err) {

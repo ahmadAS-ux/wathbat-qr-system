@@ -4,6 +4,31 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.0.0] - April 2026
+
+### Added — v3.0 Foundation: 15-Stage Workflow + File Versioning + Phases + Payment Events
+
+- **15-stage project lifecycle** (`stageInternal` 0–14): replaces 13-stage scheme. New `getDisplayStage()` maps internal stages → 4 display stages (new: 0–1, in_study: 2–4, in_production: 5–8, complete: 9–14). `autoAdvanceStage()` triggers on every file upload.
+- **`project_phases` table** (new): tracks delivery/installation phases per project (`phaseNumber`, `status`, `deliveredAt`, `installedAt`, `signedOffAt`, `notes`). Phase CRUD at `GET/POST /api/erp/projects/:id/phases` and `PATCH/DELETE /api/erp/phases/:id`.
+- **Phase sign-off endpoint** (`PATCH /api/erp/phases/:id/signoff`): sets `signedOffAt`, updates linked `payment_milestones` from `pending` → `due` via `linkedPhaseId`.
+- **File versioning** (`is_active` column on `project_files`): re-uploading a single-file type sets old row `isActive = false` (preserves history) and inserts new active row. Multi-file types always `isActive = true`.
+- **`file-detector.ts`** (new lib): `detectFileType(filename)` auto-detects file type from filename with confidence level. `KNOWN_FILE_TYPES` array (9 types) for UI slot rendering.
+- **9 file type slots**: added `material_analysis` (single), `vendor_order` (multi), `other` (multi) to existing 6 types. `quotation` is the canonical alias for `price_quotation`.
+- **`POST /api/erp/projects/:id/files/detect`**: batch filename detection — returns `[{filename, size, detectedType, confidence}]` with no DB writes.
+- **`GET /api/erp/projects/:id/files/expected`**: 9-slot status array showing which file types are present/missing per project.
+- **`GET /api/erp/projects/:id/files`**: new list endpoint; `?includeInactive=true` shows all file versions.
+- **Multi-file batch upload**: `POST .../files` now accepts `files[]` field for batch upload; returns array of results.
+- **Default payment milestones on project creation**: 3 milestones auto-created (Deposit 50% / Before Delivery 40% / After Sign-off 10%) with `linkedEvent` field.
+- **`payment_milestones` additions**: `linked_event TEXT`, `linked_phase_id INTEGER REFERENCES project_phases`, `paid_amount INTEGER` columns. Status now includes `'due'` state.
+
+### Changed
+
+- `POST /api/erp/projects/:id/files` now uses `uploadMulti.fields([{name:'file'},{name:'files'}])` to support both single and batch upload paths.
+- Project detail (`GET /api/erp/projects/:id`) now includes `phases` array and filters files to `isActive = true` only.
+- Project delete now cascades to `project_phases` before deleting `project_files`.
+
+---
+
 ## [2.6.3] - April 2026
 
 ### Fixed
