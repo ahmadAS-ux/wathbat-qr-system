@@ -29,6 +29,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Version rule:** Every commit that changes behavior bumps version in all 3 package.json files + CHANGELOG + git tag. See QUALITY_GATES.md Gate 12.
 
+**Bug Fix Protocol:**
+1. READ the actual code first — do not guess from documentation
+2. Add console.log at every step of the flow
+3. Trace the EXACT path: click → handler → fetch → response → UI update
+4. Find the EXACT line where the chain breaks
+5. Fix ONLY that line — do not refactor surrounding code
+6. Test the fix works
+7. Remove console.logs
+8. Update CODE_AUDIT.md with what you found
+9. Then commit
+
+NEVER: guess the fix from docs alone, combine multiple fixes, or refactor while fixing.
+
 ---
 
 
