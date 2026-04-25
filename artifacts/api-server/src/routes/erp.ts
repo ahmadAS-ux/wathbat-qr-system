@@ -628,6 +628,24 @@ router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reques
   }
 });
 
+// GET /erp/projects/stage-distribution — count projects grouped by stageDisplay
+router.get("/erp/projects/stage-distribution", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({ stage: projectsTable.stageDisplay, count: sql<number>`count(*)::int` })
+      .from(projectsTable)
+      .groupBy(projectsTable.stageDisplay);
+    const dist: Record<string, number> = { new: 0, in_study: 0, in_production: 0, complete: 0 };
+    for (const r of rows) {
+      if (r.stage && r.stage in dist) dist[r.stage] = r.count;
+    }
+    res.json(dist);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/stage-distribution failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // POST /erp/projects — create directly or linked to existing lead via fromLeadId
 router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {

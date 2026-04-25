@@ -544,6 +544,20 @@ export const translations = {
     dash_lead_status_new: "New",
     dash_lead_status_followup: "Follow-up",
     dash_no_recent_history: "No documents yet",
+    // Dashboard v2 — design reference additions
+    dash_quick_search: "Quick Search",
+    dash_today_report: "Today's Report",
+    dash_new_project: "New Project",
+    dash_tab_dashboard: "Dashboard",
+    dash_tab_requests: "Maintenance Requests",
+    dash_funnel_title: "Stage Distribution",
+    dash_stage_new: "New Lead",
+    dash_stage_in_study: "Study & Quote",
+    dash_stage_in_production: "Production",
+    dash_stage_complete: "Complete",
+    dash_trend_last_month: "vs last month",
+    dash_last_updated: "Last Updated",
+    dash_project_code: "Project No.",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1088,6 +1102,20 @@ export const translations = {
     dash_lead_status_new: "جديد",
     dash_lead_status_followup: "متابعة",
     dash_no_recent_history: "لا يوجد مستندات بعد",
+    // Dashboard v2 — design reference additions
+    dash_quick_search: "بحث سريع",
+    dash_today_report: "تقرير اليوم",
+    dash_new_project: "مشروع جديد",
+    dash_tab_dashboard: "لوحة التحكم",
+    dash_tab_requests: "طلبات الصيانة",
+    dash_funnel_title: "توزيع المراحل",
+    dash_stage_new: "عميل جديد",
+    dash_stage_in_study: "دراسة وعرض",
+    dash_stage_in_production: "إنتاج",
+    dash_stage_complete: "منجز",
+    dash_trend_last_month: "عن الشهر الماضي",
+    dash_last_updated: "آخر تحديث",
+    dash_project_code: "رقم المشروع",
   }
 };
 
