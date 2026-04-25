@@ -20,9 +20,9 @@ interface RequestRow {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-blue-50 text-blue-700 border-blue-200',
-  'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
-  Done: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  New: 'bg-[#E1ECF7] text-[#1E508C] border-[#CFDEEF]',
+  'In Progress': 'bg-[#FBF0D6] text-[#9A6B0E] border-[#EEDDB0]',
+  Done: 'bg-[#E4F1E8] text-[#1F7A4D] border-[#CFE4D6]',
 };
 
 const PAGE_SIZE = 20;
@@ -122,7 +122,7 @@ export default function AdminRequests() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#F4F2EB]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
           {/* Page header */}
           <div className={`flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>

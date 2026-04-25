@@ -358,17 +358,17 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
               {canManage && ph.status !== 'signed_off' && (
                 <div className={`flex items-center gap-2 px-4 pb-3 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
                   {ph.status === 'pending' || ph.status === 'manufacturing' ? (
-                    <button onClick={() => doAction(ph.id, 'deliver')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-amber-300 text-amber-700 bg-amber-50 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    <button onClick={() => doAction(ph.id, 'deliver')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-[#EEDDB0] text-[#9A6B0E] bg-[#FBF0D6] rounded-xl hover:bg-[#FBF0D6] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                       {isActing(ph.id, 'deliver') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_mark_delivered')}
                     </button>
                   ) : null}
                   {ph.status === 'delivered' && (
-                    <button onClick={() => doAction(ph.id, 'install')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-blue-300 text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    <button onClick={() => doAction(ph.id, 'install')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-[#CFDEEF] text-[#1E508C] bg-[#E1ECF7] rounded-xl hover:bg-[#E1ECF7] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                       {isActing(ph.id, 'install') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_mark_installed')}
                     </button>
                   )}
                   {ph.status === 'installed' && (
-                    <button onClick={() => doAction(ph.id, 'signoff')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-teal-300 text-teal-700 bg-teal-50 rounded-xl hover:bg-teal-100 disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    <button onClick={() => doAction(ph.id, 'signoff')} disabled={!!actionLoading} className={`px-3 py-1.5 text-xs font-semibold border border-[#BFDDD9] text-[#0E6E6A] bg-[#DCEFEC] rounded-xl hover:bg-[#DCEFEC] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                       {isActing(ph.id, 'signoff') ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('phase_sign_off')}
                     </button>
                   )}
@@ -2205,8 +2205,8 @@ export default function ErpProjectDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
           <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-red-600" />
+              <div className="w-9 h-9 rounded-full bg-[#F7E2DF] flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-[#A0312A]" />
               </div>
               <h2 className={`font-bold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_project_title')}</h2>
             </div>
@@ -2238,8 +2238,8 @@ export default function ErpProjectDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
           <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-red-600" />
+              <div className="w-9 h-9 rounded-full bg-[#F7E2DF] flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-[#A0312A]" />
               </div>
               <h2 className={`font-bold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_file_title')}</h2>
             </div>

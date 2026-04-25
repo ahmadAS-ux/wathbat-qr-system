@@ -26,10 +26,10 @@ interface Lead {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-700',
-  followup: 'bg-amber-100 text-amber-700',
-  converted: 'bg-teal-100 text-teal-700',
-  lost: 'bg-red-100 text-red-700',
+  new: 'bg-[#E1ECF7] text-[#1E508C]',
+  followup: 'bg-[#FBF0D6] text-[#9A6B0E]',
+  converted: 'bg-[#DCEFEC] text-[#0E6E6A]',
+  lost: 'bg-[#F7E2DF] text-[#A0312A]',
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -49,10 +49,10 @@ interface SearchLead {
 }
 
 const SEARCH_STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-700',
-  followup: 'bg-amber-100 text-amber-700',
-  converted: 'bg-teal-100 text-teal-700',
-  lost: 'bg-red-100 text-red-700',
+  new: 'bg-[#E1ECF7] text-[#1E508C]',
+  followup: 'bg-[#FBF0D6] text-[#9A6B0E]',
+  converted: 'bg-[#DCEFEC] text-[#0E6E6A]',
+  lost: 'bg-[#F7E2DF] text-[#A0312A]',
 };
 
 // Modal for creating a new lead
@@ -482,7 +482,7 @@ export default function ErpLeads() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${overdue ? 'bg-red-100 text-red-700' : STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${overdue ? 'bg-[#F7E2DF] text-[#A0312A]' : STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
                           {STATUS_ICONS[lead.status]}
                           {overdue ? t('erp_lead_overdue') : (statusLabel[lead.status] ?? lead.status)}
                         </span>

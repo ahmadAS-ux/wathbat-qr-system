@@ -48,10 +48,10 @@ interface SearchLead {
 }
 
 const LEAD_STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-700',
-  followup: 'bg-amber-100 text-amber-700',
-  converted: 'bg-teal-100 text-teal-700',
-  lost: 'bg-red-100 text-red-700',
+  new: 'bg-[#E1ECF7] text-[#1E508C]',
+  followup: 'bg-[#FBF0D6] text-[#9A6B0E]',
+  converted: 'bg-[#DCEFEC] text-[#0E6E6A]',
+  lost: 'bg-[#F7E2DF] text-[#A0312A]',
 };
 
 function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {

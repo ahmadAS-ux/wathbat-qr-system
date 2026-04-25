@@ -227,10 +227,10 @@ textarea::placeholder {
 
 /* Card — shared across all admin pages */
 .dash-card {
-  background: #FAFAF7;
+  background: #FFFFFF;
   border: 1px solid #ECEAE2;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .num {

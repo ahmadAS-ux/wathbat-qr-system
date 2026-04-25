@@ -35,10 +35,10 @@ interface Lead {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-700',
-  followup: 'bg-amber-100 text-amber-700',
-  converted: 'bg-teal-100 text-teal-700',
-  lost: 'bg-red-100 text-red-700',
+  new: 'bg-[#E1ECF7] text-[#1E508C]',
+  followup: 'bg-[#FBF0D6] text-[#9A6B0E]',
+  converted: 'bg-[#DCEFEC] text-[#0E6E6A]',
+  lost: 'bg-[#F7E2DF] text-[#A0312A]',
 };
 
 export default function ErpLeadDetail() {
@@ -266,7 +266,7 @@ export default function ErpLeadDetail() {
               )}
               <button
                 onClick={() => setShowLoseModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#F7E2DF] text-[#A0312A] border border-[#EBC9C5] rounded-xl text-sm font-semibold hover:bg-[#F7E2DF] transition-colors"
               >
                 <XCircle className="w-4 h-4" />
                 {t('erp_lose_btn')}
@@ -376,8 +376,8 @@ export default function ErpLeadDetail() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
           <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-red-600" />
+              <div className="w-9 h-9 rounded-full bg-[#F7E2DF] flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-[#A0312A]" />
               </div>
               <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_lead_title')}</h2>
             </div>

@@ -78,7 +78,7 @@ export default function AdminHistory() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#F4F2EB]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
           {/* Page header */}
           <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>

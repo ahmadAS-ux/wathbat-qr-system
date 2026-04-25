@@ -272,10 +272,10 @@ export default function ContractPage() {
             <span
               className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
                 report.overall === 'green'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-[#E4F1E8] text-[#1F7A4D]'
                   : report.overall === 'amber'
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-red-100 text-red-700'
+                    ? 'bg-[#FBF0D6] text-[#9A6B0E]'
+                    : 'bg-[#F7E2DF] text-[#A0312A]'
               } ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
             >
               {report.overall === 'green'
