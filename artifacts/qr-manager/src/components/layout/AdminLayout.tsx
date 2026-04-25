@@ -359,7 +359,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             };
             return (
               <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-[#B8860B]/20 border border-[#B8860B]/30 flex items-center justify-center text-[#B8860B] text-xs font-bold shrink-0">
+                <div className="w-8 h-8 rounded-full bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-white text-xs font-bold shrink-0">
                   {user.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
