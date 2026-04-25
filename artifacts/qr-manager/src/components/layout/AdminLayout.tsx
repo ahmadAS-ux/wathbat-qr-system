@@ -25,7 +25,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [searchResults, setSearchResults] = useState<{ type: string; id: number; name: string; subtitle: string; url: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [mfgCollapsed, setMfgCollapsed] = useState(() => localStorage.getItem('sidebar_mfg_collapsed') === 'true');
+  const [mfgCollapsed, setMfgCollapsed] = useState(false);
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
 
   const canSearch = user?.role !== 'Accountant';
