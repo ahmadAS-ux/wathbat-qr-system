@@ -181,14 +181,27 @@ The contract document includes the payment schedule:
 - UI shows active file in slot, with "Previous versions (N)" expandable
 - Multi-file types: all files are `is_active = true` (no replacement logic)
 
-### Smart Detection
+### Smart Detection — Batch Flow Only
 
-1. Employee drops one or multiple files
+**⚠️ RULE: The slot determines the file type. The filename does NOT.**
+
+Auto-detection via `file-detector.ts` applies ONLY to the batch "Select files" flow.
+Individual slot uploads use the slot's `fileType` directly — detection is never called.
+
+**Batch flow (Select files → detect → confirm → upload all):**
+1. Employee clicks "Select files" → selects multiple .docx files
 2. System reads each filename, matches against detection patterns
 3. Shows detection summary: "Glass Order ✅, Quotation ✅, Unknown File ⚠️"
 4. Unknown files: employee picks category from dropdown or marks as "Other"
 5. Misdetected files: employee can correct the category
-6. "Upload All" button saves the batch
+6. "Upload All" button saves each file individually to its assigned slot
+
+**Individual slot flow (click upload icon on a specific slot):**
+1. Employee clicks the upload icon/button on a specific slot
+2. File picker opens — `accept='.docx'` for single-file types, `accept='*/*'` for multi-file types
+3. Employee selects one file
+4. File uploads immediately to that slot's `fileType` — no detection, no confirmation step
+5. Wrong file type → employee must re-click the correct slot and upload again
 
 ### Glass Order — Dual Display
 

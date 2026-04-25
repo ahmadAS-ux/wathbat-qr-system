@@ -264,6 +264,25 @@ The QR system (Layer 1) and ERP system (Layer 2) share data. Every commit must v
 
 ---
 
+### Gate 14: Upload Flow Separation ✅
+
+The system has THREE upload flows that must remain strictly separated. Before committing any file upload change:
+
+**Rule: The slot determines the file type. The filename does NOT.**
+
+- [ ] **Individual slot upload (Flow A):** `triggerUpload(fileType)` must set `pendingFileType` to the slot's `fileType` and call `uploadFile(file, pendingFileType)` directly — `file-detector.ts` must NOT be called in this path
+- [ ] **Multi-file slot upload (Flow B):** uses the same `fileInputRef` as Flow A with `accept='*/*'` — same direct `uploadFile()` call, no detection
+- [ ] **Batch "Select files" (Flow C):** uses separate `batchInputRef`, calls `handleBatchSelect()` which calls `detectFileType(filename)` — detection IS expected and required here
+- [ ] `triggerUpload` sets `accept='.docx'` for single-file types; `accept='*/*'` for `vendor_order`, `qoyod`, `other`
+- [ ] `deleteFile` calls `loadProject()` + `loadAllFiles()` + `loadExpectedFiles()` — all three, always
+- [ ] glass_order upload success calls `loadQrOrders()` + `loadProject()` — both required
+
+**Test: upload "random_file.docx" by clicking the Glass Order slot upload button → file must land in `glass_order` slot, not auto-detected as another type.**
+
+**FAIL if:** Individual slot upload runs `detectFileType()`, or batch upload skips detection, or the two flows share upload logic.
+
+---
+
 ## Commit Message Convention
 
 ```
@@ -287,7 +306,7 @@ Types:
 Add this to every Claude Code prompt:
 
 ```
-Before committing, verify all 13 gates in QUALITY_GATES.md pass:
+Before committing, verify all 14 gates in QUALITY_GATES.md pass:
 1. pnpm run typecheck — zero errors
 2. pnpm run build — succeeds (PORT=3001 BASE_PATH=/ pnpm run build)
 3. Server starts and /api/healthz responds
@@ -301,4 +320,5 @@ Before committing, verify all 13 gates in QUALITY_GATES.md pass:
 11. Every new data record has a parent entity link; cascade DELETE covers new tables (vendors→POs→items, projects→phases)
 12. Version bumped in all 3 package.json files + CHANGELOG updated + git tag created
 13. QR data visible in ERP views, no "Unauthorized" on any link; public endpoints in app.ts skip list
+14. Upload flow separation: individual slot upload uses slot's fileType directly, batch uses auto-detection; never mix the two paths
 ```

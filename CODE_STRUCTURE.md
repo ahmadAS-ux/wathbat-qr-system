@@ -234,25 +234,112 @@ This is the EXACT flow that must work for any dropdown in the system:
    — Inside RTL context, numbers must not reverse
 ```
 
-### How File Upload Works (end-to-end)
+### How File Upload Works — Three Separate Flows
+
+**⚠️ CRITICAL RULE: The slot determines the file type. The filename does NOT.**
+- Individual slot upload always uses the slot's `fileType` directly — `file-detector.ts` is NEVER called
+- Only the batch "Select files" flow uses auto-detection via `file-detector.ts`
+- These two flows must never share upload logic
+
+#### Flow A — Individual Slot Upload (click upload icon on a specific slot)
 
 ```
-1. FRONTEND (ProjectDetail.tsx):
-   — File input: accept=".docx"
-   — FormData: field name "file", plus field "fileType" = 'glass_order' | 'technical_doc' | 'price_quotation'
-   — POST /api/erp/projects/:id/files
+TRIGGER: triggerUpload(fileType) called from any single-slot button/icon
+  — Sets fileInputRef.current.accept = '.docx' for single-file types
+  — Sets fileInputRef.current.accept = '*/*' for multi types: vendor_order, qoyod, other
+  — Sets pendingFileType = fileType
+  — Clicks the hidden <input ref={fileInputRef}>
 
-2. BACKEND (erp.ts):
-   — Multer receives file (max 50MB)
-   — Validate: file.originalname ends with .docx
-   — If same fileType already exists for this project → DELETE old row first
-   — INSERT new row into project_files with fileData = file.buffer (BYTEA)
-   — If fileType === 'glass_order' → trigger existing QR pipeline (POST /api/qr/process logic)
-   — Return: { id, fileType, originalFilename, uploadedAt }
+FILE SELECTED → handleFileChange(e)
+  — Reads file from e.target.files[0]
+  — Calls uploadFile(file, pendingFileType) directly
+  — NO filename detection — fileType is fixed to the slot that was clicked
 
-3. DISPLAY (ProjectDetail.tsx):
-   — For each fileType, show: filename + upload date + download button + replace button
-   — Download: GET /api/erp/projects/:id/files/:fileId → streams BYTEA as .docx
+uploadFile(file, fileType)
+  — Builds FormData: fd.append('file', file) + fd.append('fileType', fileType)
+  — POST /api/erp/projects/:id/files (JWT auto-injected by main.tsx fetch patch)
+  — On 409 for quotation/price_quotation → setNameMismatch({...}) → shows NameMismatchModal
+  — On 409 for glass_order → setGlassDetect({...}) → shows glass conflict modal
+  — On success for glass_order → loadQrOrders() + loadProject()
+  — On success for other types → loadProject() + loadParsedData() (if assembly_list/cut_optimisation)
+  — Always: loadExpectedFiles() + loadAllFiles()
+
+BACKEND (POST /api/erp/projects/:id/files):
+  — Multer field: 'file' (single), max 50MB
+  — Reads fileType from req.body.fileType
+  — Validates fileType is in PROJECT_FILE_TYPES
+  — Single-file types: sets old active row to is_active=false before insert
+  — Multi-file types (vendor_order, qoyod, other): always insert new row, no deactivation
+  — glass_order: runs QR pipeline → saves to processed_docs (NOT project_files)
+  — quotation: parses Orgadata header for project name → may return 409 if name conflicts
+  — Returns: { id, fileType, originalFilename, uploadedAt }
+```
+
+#### Flow B — Multi-file Slot Upload (click "+ Add file" or "Upload File" inside a multi slot)
+
+```
+TRIGGER: triggerUpload(fileType) where fileType is 'vendor_order' | 'qoyod' | 'other'
+  — Same as Flow A — uses shared fileInputRef with accept='*/*'
+  — fileType is fixed to that specific multi-file slot type
+
+FILE SELECTED → handleFileChange(e)
+  — Same as Flow A — calls uploadFile(file, pendingFileType) directly
+  — NO detection — file lands in the exact slot the user clicked
+
+RESULT: New file row added to project_files with is_active=true (accumulates, no replacement)
+```
+
+#### Flow C — Batch Upload (click "Select files" button at top of file section)
+
+```
+TRIGGER: Click on "Select files" button → clicks <input ref={batchInputRef} multiple accept=".docx">
+
+FILES SELECTED → handleBatchSelect(e)
+  — Reads all files from e.target.files[]
+  — For each file: calls detectFileType(file.name) from file-detector.ts
+  — detectFileType returns { detected: string|null, confidence: 'high'|'low' }
+  — Builds detectionItems[] with assignedType (detected or 'other') + status
+  — Sets detectionItems state → renders detection panel with file list
+
+DETECTION PANEL SHOWN:
+  — Each item shows detected type + confidence badge
+  — Employee can change assignedType via dropdown
+  — "Upload All" button → handleUploadAll()
+
+handleUploadAll()
+  — Loops detectionItems in sequence (not parallel)
+  — For each item: uploadFile(item.file, item.assignedType)
+  — Same uploadFile() function as Flow A — individual 409 handling per file
+  — Updates each item's status (success/error) in detection panel
+
+BACKEND: Identical to Flow A for each individual file — uses 'file' field, not 'files'
+```
+
+#### File Deletion
+
+```
+deleteFile(fileId)
+  — DELETE /api/erp/projects/:id/files/:fileId (hard delete from project_files)
+  — On success: loadProject() + loadAllFiles() + loadExpectedFiles()
+  — All three loaders called to keep slot status indicators current
+```
+
+#### 409 Conflict Handling
+
+```
+Quotation / price_quotation 409:
+  — Backend detects project name in .docx != project name in DB
+  — Returns: { error, message, nameInFile, nameInSystem, hint }
+  — Frontend: shows NameMismatchModal with 3 choices:
+      "Keep DB name" → re-upload with ?confirmNameMismatch=true
+      "Update to file name" → re-upload with ?confirmNameMismatch=true&updateProjectName=true
+      "Cancel" → abort upload
+
+Glass_order 409:
+  — Backend detects Orgadata project name != ERP project name
+  — Returns: { conflict: true, orgadataName, systemName, message }
+  — Frontend: shows glass conflict modal (setGlassDetect)
+  — User confirms → re-upload with ?confirm=true&updateName=true/false
 ```
 
 ### How Lead → Project Conversion Works

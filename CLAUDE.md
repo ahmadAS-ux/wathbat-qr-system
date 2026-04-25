@@ -211,6 +211,27 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ---
 
+## File Upload System — Architecture (Audited April 2026)
+
+The file upload system has THREE separate flows. Never mix them. See CODE_STRUCTURE.md §3 for full detail.
+
+| Flow | Trigger | Detection | Endpoint field |
+|------|---------|-----------|----------------|
+| A — Individual slot | Click upload on a specific slot | **None** — uses slot's `fileType` directly | `file` (single) |
+| B — Multi-file slot | Click "+ Add file" inside vendor_order / qoyod / other slot | **None** — same as Flow A | `file` (single) |
+| C — Batch | Click "Select files" button | **Yes** — `detectFileType(filename)` from `file-detector.ts` | `file` (single, per item in sequence) |
+
+**Golden rule: The slot determines the file type. The filename does NOT.**
+
+Key implementation details (all in `ProjectDetail.tsx`):
+- `triggerUpload(fileType)` sets `accept='.docx'` for single-file slots; `accept='*/*'` for `vendor_order`, `qoyod`, `other`
+- `handleFileChange` always calls `uploadFile(file, pendingFileType)` — no detection ever runs here
+- `deleteFile` calls `loadProject()` + `loadAllFiles()` + `loadExpectedFiles()` — all three required
+- `glass_order` upload success: `loadQrOrders()` + `loadProject()` — both required (stage may auto-advance)
+- 409 for quotation → `NameMismatchModal`; 409 for glass_order → glass conflict modal
+
+---
+
 ## ⚠️ Known Technical Debt
 
 ### Authentication
