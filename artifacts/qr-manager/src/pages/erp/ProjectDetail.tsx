@@ -921,7 +921,6 @@ export default function ErpProjectDetail() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFileType, setPendingFileType] = useState<string>('');
-  const [detectingGlass, setDetectingGlass] = useState(false);
   const [glassDetect, setGlassDetect] = useState<GlassDetectResult | null>(null);
   const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
@@ -1100,6 +1099,11 @@ export default function ErpProjectDetail() {
         setNameMismatch({ nameInFile: conflict.nameInFile, nameInSystem: conflict.nameInSystem, pendingFile: file, fileType });
         return;
       }
+      if (res.status === 409 && fileType === 'glass_order') {
+        const conflict = await res.json();
+        setGlassDetect({ orgadataName: conflict.orgadataName ?? '', orgadataPerson: null, pendingFile: file, nameMatches: false });
+        return;
+      }
       if (fileType === 'glass_order') {
         await loadQrOrders();
       } else {
@@ -1131,32 +1135,7 @@ export default function ErpProjectDetail() {
     const file = e.target.files?.[0];
     if (!file || !pendingFileType) return;
     if (fileInputRef.current) fileInputRef.current.value = '';
-
-    if (pendingFileType === 'glass_order') {
-      setDetectingGlass(true);
-      const fd = new FormData();
-      fd.append('file', file);
-      try {
-        const res = await fetch(`${API_BASE}/api/erp/files/detect-project`, {
-          method: 'POST',
-          body: fd,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const nameMatches =
-            (data.orgadataName ?? '').toLowerCase().trim() ===
-            (project?.name ?? '').toLowerCase().trim();
-          setDetectingGlass(false);
-          setGlassDetect({ orgadataName: data.orgadataName, orgadataPerson: data.orgadataPerson, pendingFile: file, nameMatches });
-          return;
-        }
-      } catch {}
-      setDetectingGlass(false);
-      // Fallback: upload directly if detect fails
-      await uploadFile(file, 'glass_order');
-      return;
-    }
-
+    // Always use the slot's fileType directly — never auto-detect from filename
     await uploadFile(file, pendingFileType);
   };
 
@@ -1509,7 +1488,6 @@ export default function ErpProjectDetail() {
           <div className="space-y-3">
             {FILE_SLOTS.map(slot => {
               const isUploading = uploadingFor === slot.fileType;
-              const isDetecting = detectingGlass && pendingFileType === slot.fileType;
               const label = isRtl ? slot.labelAr : slot.labelEn;
               const inactive = inactiveFor(slot.fileType);
               const versionsExpanded = expandedVersions.has(slot.fileType);
@@ -1592,8 +1570,8 @@ export default function ErpProjectDetail() {
                         <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                         <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
                         {canUpload && (
-                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
-                            {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                            {(isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                           </button>
                         )}
                       </div>
@@ -1694,8 +1672,8 @@ export default function ErpProjectDetail() {
                         </button>
                       )}
                       {canUpload && (
-                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
-                          {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                          {(isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                         </button>
                       )}
                     </div>
