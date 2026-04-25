@@ -952,7 +952,7 @@ export default function ErpProjectDetail() {
   const canCreateMilestone = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
 
   const loadProject = async () => {
-    setLoading(true);
+    if (!project) setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/erp/projects/${id}`);
       if (res.ok) {
