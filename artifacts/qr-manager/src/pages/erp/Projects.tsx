@@ -180,7 +180,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
                 <p className="text-xs text-teal-600 mt-1">✓ {t('erp_from_lead')} #{fromLeadId}</p>
               )}
               {showSuggestions && searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
+                <div className="absolute z-10 w-full mt-1 bg-[#FAFAF7] border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">{t('erp_similar_customers')}</p>
                   {searchResults.map(lead => (
                     <button
@@ -220,14 +220,14 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_product')}</label>
-                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white" value={form.productInterest} onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}>
+                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.productInterest} onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}>
                   <option value="">—</option>
                   {products.map(p => <option key={p.value} value={p.value}>{label(p)}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_building')}</label>
-                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white" value={form.buildingType} onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}>
+                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.buildingType} onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}>
                   <option value="">—</option>
                   {buildings.map(b => <option key={b.value} value={b.value}>{label(b)}</option>)}
                 </select>
@@ -345,7 +345,7 @@ export default function ErpProjects() {
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 filter === f
                   ? 'bg-[#141A24] text-white border-[#1B2A4A]'
-                  : 'bg-white text-slate-500 border-[#ECEAE2] hover:border-slate-300'
+                  : 'bg-[#FAFAF7] text-slate-500 border-[#ECEAE2] hover:border-slate-300'
               }`}
             >
               {stageLabel[f]}

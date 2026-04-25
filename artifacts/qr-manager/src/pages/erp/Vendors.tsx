@@ -202,12 +202,12 @@ export default function ErpVendors() {
             value={searchQ}
             onChange={e => setSearchQ(e.target.value)}
             placeholder={t('ph_search')}
-            className={`flex-1 min-w-[180px] px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl bg-white focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+            className={`flex-1 min-w-[180px] px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl bg-[#FAFAF7] focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
           />
           <select
             value={filterCat}
             onChange={e => setFilterCat(e.target.value)}
-            className={`px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl bg-white focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+            className={`px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl bg-[#FAFAF7] focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
           >
             <option value="">{t('admin_filter_all')}</option>
             {VENDOR_CATEGORIES.map(c => (
@@ -329,7 +329,7 @@ export default function ErpVendors() {
                 <select
                   value={form.category}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 bg-white ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+                  className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 bg-[#FAFAF7] ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
                 >
                   {VENDOR_CATEGORIES.map(c => (
                     <option key={c} value={c}>{categoryLabel(c, isRtl, t)}</option>

@@ -18,12 +18,12 @@ export function NameMismatchModal({ nameInFile, nameInSystem, onChoice }: Props)
       onClick={() => onChoice('cancel')}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden"
+        className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-md border border-[#ECEAE2] overflow-hidden"
         dir={isRtl ? 'rtl' : 'ltr'}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+        <div className={`flex items-center justify-between px-6 py-4 border-b border-[#ECEAE2] ${isRtl ? 'flex-row-reverse' : ''}`}>
           <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
             <h3 className={`font-semibold text-slate-900 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
@@ -44,7 +44,7 @@ export function NameMismatchModal({ nameInFile, nameInSystem, onChoice }: Props)
             {t('name_mismatch_body')}
           </p>
 
-          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-3 text-sm">
+          <div className="rounded-xl bg-[#F4F2EB] border border-[#ECEAE2] p-4 space-y-3 text-sm">
             <div>
               <p className={`text-xs text-slate-400 mb-1 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('name_mismatch_in_file')}</p>
               <p className="font-semibold text-slate-700" dir="ltr">"{nameInFile}"</p>
@@ -64,13 +64,13 @@ export function NameMismatchModal({ nameInFile, nameInSystem, onChoice }: Props)
             </button>
             <button
               onClick={() => onChoice('proceed')}
-              className={`w-full px-4 py-2.5 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              className={`w-full px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
             >
               {t('name_mismatch_proceed')}
             </button>
             <button
               onClick={() => onChoice('cancel')}
-              className={`w-full px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              className={`w-full px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
             >
               {t('name_mismatch_cancel')}
             </button>

@@ -194,7 +194,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 autoComplete="off"
               />
               {showNameSuggestions && nameResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
+                <div className="absolute z-10 w-full mt-1 bg-[#FAFAF7] border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">{t('erp_similar_customers')}</p>
                   {nameResults.map(lead => (
                     <button
@@ -243,7 +243,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_source')} *</label>
                 <select
-                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]"
                   value={form.source}
                   onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
                 >
@@ -254,7 +254,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_building')} *</label>
                 <select
-                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]"
                   value={form.buildingType}
                   onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}
                 >
@@ -267,7 +267,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_product')} *</label>
               <select
-                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]"
                 value={form.productInterest}
                 onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}
               >
@@ -423,7 +423,7 @@ export default function ErpLeads() {
         <div className="flex gap-1 mb-4 bg-[#ECEAE2] rounded-xl p-1 w-fit">
           <button
             onClick={() => setTab('active')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'active' ? 'bg-white text-[#1B2A4A] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'active' ? 'bg-[#FAFAF7] text-[#1B2A4A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
           >
             {t('erp_leads_active')}
             {activeLeads.length > 0 && (
@@ -432,7 +432,7 @@ export default function ErpLeads() {
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'all' ? 'bg-white text-[#1B2A4A] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'all' ? 'bg-[#FAFAF7] text-[#1B2A4A] shadow-[0_1px_3px_rgba(0,0,0,0.06)]' : 'text-slate-500 hover:text-slate-700'}`}
           >
             {t('erp_leads_all')}
           </button>

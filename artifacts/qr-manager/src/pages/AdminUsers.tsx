@@ -101,7 +101,7 @@ export default function AdminUsers() {
             </div>
             <button
               onClick={() => { setShowCreate(true); setFormError(''); setForm({ username: '', password: '', role: 'User' }); }}
-              className={`flex items-center gap-1.5 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3.5 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
+              className={`flex items-center gap-1.5 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3.5 py-2 rounded-xl transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Plus className="w-4 h-4" />
               {t('users_new')}
@@ -217,7 +217,7 @@ export default function AdminUsers() {
                   <select
                     value={form.role}
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                    className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 pr-8"
+                    className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-[#FAFAF7] appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 pr-8"
                   >
                     <option value="User">User</option>
                     <option value="Admin">Admin</option>
@@ -237,7 +237,7 @@ export default function AdminUsers() {
                 <button
                   onClick={createUser}
                   disabled={submitting}
-                  className="px-5 py-2 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] disabled:opacity-50 text-white rounded-xl transition-colors shadow-sm"
+                  className="px-5 py-2 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] disabled:opacity-50 text-white rounded-xl transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                 >
                   {submitting ? t('admin_creating') : t('users_create_btn')}
                 </button>

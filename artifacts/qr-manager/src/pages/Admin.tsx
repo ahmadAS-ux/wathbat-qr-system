@@ -397,7 +397,7 @@ export default function Admin() {
       <div className="min-h-screen" style={{ background: '#F4F2EB' }}>
 
         {/* ── Page Header ── */}
-        <header className="bg-white border-b border-[#ECEAE2]">
+        <header className="bg-[#FAFAF7] border-b border-[#ECEAE2]">
           <div className={`px-6 py-5 max-w-[1400px] mx-auto flex items-end justify-between gap-6 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div dir={isRtl ? 'rtl' : 'ltr'}>
               <div className="eyebrow mb-1">
@@ -416,14 +416,14 @@ export default function Admin() {
             <div className={`flex items-center gap-2 shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
               {/* Quick Actions */}
               <button
-                className="h-8 px-3 text-[13px] inline-flex items-center gap-1.5 bg-white text-[#141A24] ring-1 ring-inset ring-[#E2E0D6] rounded-lg hover:bg-[#FBFAF4] transition-colors"
+                className="h-8 px-3 text-[13px] inline-flex items-center gap-1.5 bg-[#FAFAF7] text-[#141A24] ring-1 ring-inset ring-[#E2E0D6] rounded-lg hover:bg-[#FBFAF4] transition-colors"
                 onClick={() => {}}
               >
                 <Search className="w-3.5 h-3.5" />
                 {t('dash_quick_search')}
               </button>
               <button
-                className="h-8 px-3 text-[13px] inline-flex items-center gap-1.5 bg-white text-[#141A24] ring-1 ring-inset ring-[#E2E0D6] rounded-lg hover:bg-[#FBFAF4] transition-colors"
+                className="h-8 px-3 text-[13px] inline-flex items-center gap-1.5 bg-[#FAFAF7] text-[#141A24] ring-1 ring-inset ring-[#E2E0D6] rounded-lg hover:bg-[#FBFAF4] transition-colors"
                 onClick={() => window.print()}
               >
                 <Calendar className="w-3.5 h-3.5" />
@@ -647,7 +647,7 @@ export default function Admin() {
                                       value={row.status}
                                       disabled={updatingId === row.id}
                                       onChange={e => updateStatus(row.id, e.target.value)}
-                                      className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                                      className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-slate-100 text-slate-600 border-[#ECEAE2]'}`}
                                     >
                                       {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
@@ -1041,7 +1041,7 @@ export default function Admin() {
                   <div>
                     <label className="block text-sm font-medium text-[#0F1020] mb-1.5">{t('admin_history_project')} *</label>
                     <div className="relative">
-                      <select value={newReq.projectName} onChange={e => setNewReq(p => ({ ...p, projectName: e.target.value }))} className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40">
+                      <select value={newReq.projectName} onChange={e => setNewReq(p => ({ ...p, projectName: e.target.value }))} className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-[#FAFAF7] appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40">
                         <option value="">{t('admin_select_project')}</option>
                         {projects.map(p => <option key={p} value={p}>{p}</option>)}
                       </select>

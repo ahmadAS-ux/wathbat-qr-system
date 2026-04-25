@@ -90,7 +90,7 @@ export default function ErpPayments() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => navigate('/erp/projects')}
-            className="p-2 rounded-xl text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-[#1B2A4A] hover:bg-[#FAFAF7] transition-colors"
           >
             <BackIcon className="w-5 h-5" />
           </button>
@@ -167,7 +167,7 @@ export default function ErpPayments() {
                             </span>
                             <a
                               href={`${API_BASE}/api/erp/projects/${m.project_id}/files/${m.qoyod_doc_file_id}`}
-                              className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors shrink-0"
+                              className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-[#FAFAF7] transition-colors shrink-0"
                               title={t('erp_file_download')}
                             >
                               <Download className="w-3.5 h-3.5" />

@@ -137,7 +137,7 @@ export default function AdminRequests() {
             </div>
             <button
               onClick={exportExcel}
-              className={`flex items-center gap-2 bg-[#141A24] hover:bg-[#0B1019] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
+              className={`flex items-center gap-2 bg-[#141A24] hover:bg-[#0B1019] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Download className="w-4 h-4" />
               {t('admin_export')}
@@ -155,7 +155,7 @@ export default function AdminRequests() {
                 onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
                 placeholder={t('search_placeholder')}
                 dir={isRtl ? 'rtl' : 'ltr'}
-                className={`w-72 border border-[#ECEAE2] rounded-xl py-2.5 text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 shadow-sm ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
+                className={`w-72 border border-[#ECEAE2] rounded-xl py-2.5 text-sm bg-[#FAFAF7] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
               />
             </div>
 
@@ -167,7 +167,7 @@ export default function AdminRequests() {
                   onClick={() => { setStatusFilter(f.key); setVisible(PAGE_SIZE); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     statusFilter === f.key
-                      ? 'bg-white text-slate-900 shadow-sm'
+                      ? 'bg-[#FAFAF7] text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
@@ -282,7 +282,7 @@ export default function AdminRequests() {
               <div className="flex justify-center p-4 border-t border-[#ECEAE2] bg-[#F4F2EB]">
                 <button
                   onClick={() => setVisible(v => v + PAGE_SIZE)}
-                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-full hover:bg-white hover:border-slate-300 transition-colors shadow-sm"
+                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-full hover:bg-[#FAFAF7] hover:border-slate-300 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                 >
                   {t('show_more')}
                 </button>

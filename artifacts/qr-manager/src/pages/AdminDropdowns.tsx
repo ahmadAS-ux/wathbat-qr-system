@@ -82,7 +82,7 @@ export default function AdminDropdowns() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#F0F2F5]">
+      <div className="min-h-screen bg-[#F4F2EB]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
           {/* Header */}
@@ -97,7 +97,7 @@ export default function AdminDropdowns() {
           </div>
 
           {/* Dropdown Editor */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
             <div className="divide-y divide-slate-100">
               {DROPDOWN_CATEGORIES.map(({ key, labelKey }) => {
                 const catOptions = optionsFor(key);
@@ -107,7 +107,7 @@ export default function AdminDropdowns() {
                   <div key={key}>
                     <button
                       onClick={() => setExpandedCat(isOpen ? null : key)}
-                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors"
+                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F4F2EB] transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <span className="font-medium text-slate-700 text-sm">{t(labelKey)}</span>
@@ -119,7 +119,7 @@ export default function AdminDropdowns() {
                     {isOpen && (
                       <div className="px-5 pb-4 space-y-2" dir={isRtl ? 'rtl' : 'ltr'}>
                         {catOptions.length > 0 && (
-                          <div className="rounded-xl border border-slate-100 overflow-hidden mb-3">
+                          <div className="rounded-xl border border-[#ECEAE2] overflow-hidden mb-3">
                             {catOptions.map((opt, idx) => (
                               <div key={opt.id} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${idx !== 0 ? 'border-t border-slate-50' : ''}`}>
                                 <span className="flex-1 font-medium text-slate-700">{opt.labelAr}</span>
@@ -137,14 +137,14 @@ export default function AdminDropdowns() {
                         )}
                         <div className="flex items-center gap-2">
                           <input
-                            className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                            className="flex-1 border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
                             placeholder={t('dropdown_label_ar')}
                             dir="rtl"
                             value={addForm.labelAr}
                             onChange={e => setAddForms(p => ({ ...p, [key]: { ...addForm, labelAr: e.target.value } }))}
                           />
                           <input
-                            className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                            className="flex-1 border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
                             placeholder={t('dropdown_label_en')}
                             dir="ltr"
                             value={addForm.labelEn}

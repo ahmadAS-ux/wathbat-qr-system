@@ -82,7 +82,7 @@ function DetectDialog({ orgadataName, orgadataPerson, matches, onSelect, onCreat
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden"
+      className="rounded-xl border border-border bg-[#FAFAF7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden"
       dir={isRtl ? 'rtl' : 'ltr'}
     >
       {/* Header */}
@@ -205,7 +205,7 @@ function DetectDialog({ orgadataName, orgadataPerson, matches, onSelect, onCreat
                 <select
                   value={form.buildingType}
                   onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}
-                  className={`rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20 bg-white ${isRtl ? 'font-[Tajawal]' : ''}`}
+                  className={`rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20 bg-[#FAFAF7] ${isRtl ? 'font-[Tajawal]' : ''}`}
                 >
                   <option value="">{isRtl ? '-- اختر --' : '-- Select --'}</option>
                   {buildingTypes.map(opt => (
@@ -224,7 +224,7 @@ function DetectDialog({ orgadataName, orgadataPerson, matches, onSelect, onCreat
                 <select
                   value={form.productInterest}
                   onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}
-                  className={`rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20 bg-white ${isRtl ? 'font-[Tajawal]' : ''}`}
+                  className={`rounded-xl border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20 bg-[#FAFAF7] ${isRtl ? 'font-[Tajawal]' : ''}`}
                 >
                   <option value="">{isRtl ? '-- اختر --' : '-- Select --'}</option>
                   {productInterests.map(opt => (
@@ -512,7 +512,7 @@ export default function Home() {
 
                 {/* Admin-only banner */}
                 <div
-                  className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium ${isRtl ? 'flex-row-reverse' : ''}`}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium ${isRtl ? 'flex-row-reverse' : ''}`}
                   dir={isRtl ? 'rtl' : 'ltr'}
                 >
                   <Info className="w-4 h-4 text-amber-500 shrink-0" />
@@ -532,7 +532,7 @@ export default function Home() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className={`flex items-center gap-3 p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 ${isRtl ? 'flex-row-reverse' : ''}`}
+                      className={`flex items-center gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 ${isRtl ? 'flex-row-reverse' : ''}`}
                       dir={isRtl ? 'rtl' : 'ltr'}
                     >
                       <Loader2 className="w-5 h-5 text-blue-500 shrink-0 animate-spin" />
@@ -551,7 +551,7 @@ export default function Home() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className={`flex items-center gap-3 p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 ${isRtl ? 'flex-row-reverse' : ''}`}
+                      className={`flex items-center gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 ${isRtl ? 'flex-row-reverse' : ''}`}
                       dir={isRtl ? 'rtl' : 'ltr'}
                     >
                       <Loader2 className="w-5 h-5 text-blue-500 shrink-0 animate-spin" />
@@ -586,7 +586,7 @@ export default function Home() {
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0 }}
-                      className={`flex items-center gap-3 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 ${isRtl ? 'flex-row-reverse' : ''}`}
+                      className={`flex items-center gap-3 p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 ${isRtl ? 'flex-row-reverse' : ''}`}
                       dir={isRtl ? 'rtl' : 'ltr'}
                     >
                       <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
@@ -605,7 +605,7 @@ export default function Home() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className={`flex items-start gap-3 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 ${isRtl ? 'flex-row-reverse' : ''}`}
+                      className={`flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 ${isRtl ? 'flex-row-reverse' : ''}`}
                       dir={isRtl ? 'rtl' : 'ltr'}
                     >
                       <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />

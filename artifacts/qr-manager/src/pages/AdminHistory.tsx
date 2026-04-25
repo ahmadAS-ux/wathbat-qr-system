@@ -100,7 +100,7 @@ export default function AdminHistory() {
               onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
               placeholder={t('search_placeholder')}
               dir={isRtl ? 'rtl' : 'ltr'}
-              className={`w-full border border-[#ECEAE2] rounded-xl py-2.5 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 shadow-sm ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
+              className={`w-full border border-[#ECEAE2] rounded-xl py-2.5 text-sm text-slate-800 bg-[#FAFAF7] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
             />
           </div>
 
@@ -154,7 +154,7 @@ export default function AdminHistory() {
                         <td className="px-5 py-3.5">
                           <button
                             onClick={() => downloadFile(`${BASE}/api/qr/download/${row.id}`, row.reportFilename)}
-                            className="inline-flex items-center gap-1.5 bg-[#141A24] hover:bg-[#0B1019] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                            className="inline-flex items-center gap-1.5 bg-[#141A24] hover:bg-[#0B1019] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                           >
                             <Download className="w-3 h-3" />
                             {t('download_report')}
@@ -163,7 +163,7 @@ export default function AdminHistory() {
                         <td className="px-5 py-3.5">
                           <button
                             onClick={() => downloadFile(`${BASE}/api/qr/download/${row.id}/original`, row.originalFilename)}
-                            className="inline-flex items-center gap-1.5 bg-white hover:bg-[#F4F2EB] text-[#141A24] border border-[#4A6FA5]/30 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                            className="inline-flex items-center gap-1.5 bg-[#FAFAF7] hover:bg-[#F4F2EB] text-[#141A24] border border-[#4A6FA5]/30 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
                           >
                             <Download className="w-3 h-3" />
                             {t('download_original')}
@@ -190,7 +190,7 @@ export default function AdminHistory() {
               <div className="flex justify-center p-4 border-t border-[#ECEAE2] bg-[#F4F2EB]">
                 <button
                   onClick={() => setVisible(v => v + PAGE_SIZE)}
-                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-full hover:bg-white hover:border-slate-300 transition-colors shadow-sm"
+                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-full hover:bg-[#FAFAF7] hover:border-slate-300 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                 >
                   {t('show_more')}
                 </button>
