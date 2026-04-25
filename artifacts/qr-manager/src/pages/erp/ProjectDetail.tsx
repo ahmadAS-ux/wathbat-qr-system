@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
+import type { TranslationKey } from '@/lib/i18n';
 import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
@@ -945,7 +946,7 @@ export default function ErpProjectDetail() {
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
 
   // Tab navigation state
-  const [activeTab, setActiveTab] = useState<string>('files');
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
@@ -1380,37 +1381,40 @@ export default function ErpProjectDetail() {
               </p>
             )}
           </div>
-        </div>
 
-        {/* ── 15-Segment Stage Progress Bar ── */}
-        <div className="bg-white rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-3">
-          <div className="eyebrow mb-3">
-            STAGE PROGRESS — مرحلة {project.stageInternal + 1} من 15
+          {/* ── 15-Segment Stage Progress Bar (inside header card) ── */}
+          <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
+            <div className="eyebrow mb-3">
+              {t('stage_progress_eyebrow')} — <span dir="ltr" className="ltr">{project.stageInternal + 1}</span> {t('stage_progress_of')}
+            </div>
+            <div className="flex gap-[3px]" dir="ltr">
+              {INTERNAL_STAGES.map(stage => {
+                const done = project.stageInternal > stage.n;
+                const current = project.stageInternal === stage.n;
+                return (
+                  <div
+                    key={stage.n}
+                    className="flex-1 h-1.5 rounded-full transition-all duration-300"
+                    style={{ backgroundColor: done ? '#141A24' : current ? '#B8860B' : '#ECEAE2' }}
+                    title={`${stage.n + 1}: ${t(`stage_${String(stage.n + 1).padStart(2, '0')}` as TranslationKey)}`}
+                  />
+                );
+              })}
+            </div>
+            {/* Label markers at positions 01, 04, 08, 15 — always LTR so 01 is on left */}
+            <div className="flex mt-2" dir="ltr">
+              <span className="text-[10px] text-[#6B6A60]">01</span>
+              <span className="text-[10px] text-[#6B6A60]" style={{ marginInlineStart: '17.5%' }}>04</span>
+              <span className="text-[10px] text-[#6B6A60]" style={{ marginInlineStart: '27%' }}>08</span>
+              <span className="text-[10px] text-[#6B6A60] ms-auto">15</span>
+            </div>
+            <p className="text-xs text-[#6B6A60] mt-2" dir={isRtl ? 'rtl' : 'ltr'}>
+              {t('stage_progress_current')}{' '}
+              <span className="font-semibold text-[#141A24]">
+                {t(`stage_${String(project.stageInternal + 1).padStart(2, '0')}` as TranslationKey)}
+              </span>
+            </p>
           </div>
-          <div className="flex gap-[3px]" dir={isRtl ? 'rtl' : 'ltr'}>
-            {INTERNAL_STAGES.map(stage => {
-              const done = project.stageInternal > stage.n;
-              const current = project.stageInternal === stage.n;
-              return (
-                <div
-                  key={stage.n}
-                  className="flex-1 h-1.5 rounded-full transition-all duration-300"
-                  style={{ backgroundColor: done ? '#141A24' : current ? '#B8860B' : '#ECEAE2' }}
-                  title={`${stage.n + 1}: ${stage.labelAr}`}
-                />
-              );
-            })}
-          </div>
-          {/* Label markers at positions 01, 04, 08, 15 */}
-          <div className="flex mt-2" dir={isRtl ? 'rtl' : 'ltr'}>
-            <span className="text-[10px] text-slate-400">01</span>
-            <span className="text-[10px] text-slate-400" style={{ marginInlineStart: '17.5%' }}>04</span>
-            <span className="text-[10px] text-slate-400" style={{ marginInlineStart: '27%' }}>08</span>
-            <span className="text-[10px] text-slate-400 ms-auto">15</span>
-          </div>
-          <p className="text-xs text-[#6B6A60] mt-2 text-end" dir="rtl">
-            المسار الحالي: <span className="font-semibold text-[#141A24]">{INTERNAL_STAGES[project.stageInternal]?.labelAr ?? '—'}</span>
-          </p>
         </div>
 
         {/* ── Tab Navigation ── */}
@@ -1450,11 +1454,12 @@ export default function ErpProjectDetail() {
         {/* ── Timeline Tab Content: 5×3 Stage Grid ── */}
         {activeTab === 'timeline' && (
           <div className="bg-white rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-            <div className="eyebrow mb-4">TIMELINE · المراحل</div>
+            <div className="eyebrow mb-4">{t('timeline_lifecycle_title')}</div>
             <div className="grid grid-cols-5 gap-2" dir={isRtl ? 'rtl' : 'ltr'}>
               {INTERNAL_STAGES.map(stage => {
                 const done = project.stageInternal > stage.n;
                 const current = project.stageInternal === stage.n;
+                const stageKey = `stage_${String(stage.n + 1).padStart(2, '0')}`;
                 return (
                   <div
                     key={stage.n}
@@ -1466,11 +1471,11 @@ export default function ErpProjectDetail() {
                           : 'bg-[#F1EFE7]'
                     }`}
                   >
-                    <div className="text-[10px] font-semibold text-[#6B6A60] num tabular-nums">
+                    <div className="text-[10px] font-semibold text-[#6B6A60] num tabular-nums" dir="ltr">
                       {String(stage.n + 1).padStart(2, '0')}
                     </div>
-                    <div className="text-[11px] font-medium text-[#141A24] leading-tight" dir="rtl">
-                      {stage.labelAr}
+                    <div className="text-[11px] font-medium text-[#141A24] leading-tight" dir={isRtl ? 'rtl' : 'ltr'}>
+                      {t(stageKey as TranslationKey)}
                     </div>
                     <div className="mt-auto pt-1.5">
                       {done ? (
@@ -1481,16 +1486,16 @@ export default function ErpProjectDetail() {
                         <Circle className="w-3.5 h-3.5 text-[#ECEAE2]" />
                       )}
                     </div>
-                    {/* Iterative annotation on middle iterative stage */}
-                    {stage.n === 3 && (
+                    {/* Iterative loop annotation (stages 02–04, centred on stage 03 = n=2) */}
+                    {stage.n === 2 && (
                       <span className="text-[9px] bg-[#FBF0D6] text-[#7A5A07] px-1 py-0.5 rounded border border-[#EEDDB0] leading-none mt-1 text-center">
-                        ↔ حلقة
+                        ↔ {t('loop_badge')}
                       </span>
                     )}
-                    {/* Parallel annotation on first parallel stage */}
-                    {stage.n === 7 && (
+                    {/* Parallel annotation (stages 07–08, shown on stage 07 = n=6) */}
+                    {stage.n === 6 && (
                       <span className="text-[9px] bg-[#E1ECF7] text-[#1E508C] px-1 py-0.5 rounded border border-[#CFDEEF] leading-none mt-1 text-center">
-                        ⇄ متوازي
+                        ⇄ {t('parallel_badge')}
                       </span>
                     )}
                   </div>
@@ -1517,9 +1522,6 @@ export default function ErpProjectDetail() {
             )}
           </div>
 
-          {/* Hidden file inputs */}
-          <input ref={fileInputRef} type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
-          <input ref={batchInputRef} type="file" className="hidden" accept=".docx" multiple onChange={handleBatchSelect} />
 
           {/* Batch detection summary */}
           {detectionItems.length > 0 && (
@@ -2180,6 +2182,12 @@ export default function ErpProjectDetail() {
         )} {/* end activeTab === 'files' (QR Orders) */}
 
       </div>
+
+      {/* CRITICAL: these must never be inside tab conditionals — see FILE_UPLOAD_GUIDE.md
+          Moving them here ensures fileInputRef and batchInputRef are always mounted,
+          so triggerUpload() can always call .click() regardless of active tab. */}
+      <input ref={fileInputRef} type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
+      <input ref={batchInputRef} type="file" className="hidden" accept=".docx" multiple onChange={handleBatchSelect} />
 
       {/* Quotation Name Mismatch Modal */}
       {nameMismatch && (
