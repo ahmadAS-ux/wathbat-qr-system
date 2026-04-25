@@ -150,6 +150,8 @@ export const translations = {
     dropdown_label_en: "English Label",
     dropdown_add_btn: "Add",
     dropdown_delete_confirm: "Delete this option?",
+    // Sidebar sections
+    admin_section_label: "Administration",
     // ERP — Leads
     erp_section_label: "Manufacturing System",
     erp_leads_nav: "Clients & Projects",
@@ -717,6 +719,8 @@ export const translations = {
     dropdown_label_en: "التسمية بالإنجليزية",
     dropdown_add_btn: "إضافة",
     dropdown_delete_confirm: "حذف هذا الخيار؟",
+    // Sidebar sections
+    admin_section_label: "الإدارة",
     // ERP — Leads
     erp_section_label: "نظام التصنيع",
     erp_leads_nav: "العملاء والمشاريع",

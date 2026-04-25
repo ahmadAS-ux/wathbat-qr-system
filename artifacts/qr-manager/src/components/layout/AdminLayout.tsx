@@ -25,6 +25,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [searchResults, setSearchResults] = useState<{ type: string; id: number; name: string; subtitle: string; url: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [adminCollapsed, setAdminCollapsed] = useState(false);
   const [mfgCollapsed, setMfgCollapsed] = useState(false);
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
 
@@ -96,6 +97,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (active) {
       window.location.href = href;
     }
+  };
+
+  const toggleAdmin = () => {
+    const next = !adminCollapsed;
+    setAdminCollapsed(next);
+    localStorage.setItem('sidebar_admin_collapsed', String(next));
   };
 
   const toggleMfg = () => {
@@ -194,21 +201,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
-          {/* Dashboard — always first */}
-          <Link href="/admin">
-            <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))} style={navItemStyle(isActive('/admin', true))}>
-              <LayoutDashboard className={navIcon(isActive('/admin', true))} />
-              <span className="flex-1">{t('admin_nav')}</span>
-            </div>
-          </Link>
-
-          {/* Service Requests — second, standalone */}
-          <Link href="/admin/requests">
-            <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
-              <FileText className={navIcon(isActive('/admin/requests', false))} />
-              <span className="flex-1">{t('requests_title')}</span>
-            </div>
-          </Link>
+          {/* ── ADMINISTRATION ── */}
+          <>
+            <button onClick={toggleAdmin} className={sectionBtn}>
+              <span className="flex-1 text-start">{t('admin_section_label')}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${adminCollapsed ? '-rotate-90' : ''}`} />
+            </button>
+            {!adminCollapsed && (
+              <div className="space-y-0.5">
+                <Link href="/admin">
+                  <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))} style={navItemStyle(isActive('/admin', true))}>
+                    <LayoutDashboard className={navIcon(isActive('/admin', true))} />
+                    <span className="flex-1">{t('admin_nav')}</span>
+                  </div>
+                </Link>
+                <Link href="/admin/requests">
+                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
+                    <FileText className={navIcon(isActive('/admin/requests', false))} />
+                    <span className="flex-1">{t('requests_title')}</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </>
 
           {/* ── MANUFACTURING SYSTEM ── */}
           {(isErpUser || isPaymentsUser) && (
