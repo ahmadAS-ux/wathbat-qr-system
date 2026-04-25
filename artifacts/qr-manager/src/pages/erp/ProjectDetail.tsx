@@ -944,6 +944,9 @@ export default function ErpProjectDetail() {
   // Which single-file slots have their version history expanded
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
 
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState<string>('files');
+
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
 
@@ -1379,42 +1382,126 @@ export default function ErpProjectDetail() {
           </div>
         </div>
 
-        {/* Stage Timeline */}
-        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-          <h2 className="font-semibold text-[#141A24] mb-4">{t('erp_stage_timeline')}</h2>
-          <ol className="space-y-2">
+        {/* ── 15-Segment Stage Progress Bar ── */}
+        <div className="bg-white rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-3">
+          <div className="eyebrow mb-3">
+            STAGE PROGRESS — مرحلة {project.stageInternal + 1} من 15
+          </div>
+          <div className="flex gap-[3px]" dir={isRtl ? 'rtl' : 'ltr'}>
             {INTERNAL_STAGES.map(stage => {
               const done = project.stageInternal > stage.n;
               const current = project.stageInternal === stage.n;
               return (
-                <li key={stage.n} className={`flex items-center gap-3 text-sm py-1.5 px-3 rounded-xl transition-colors ${current ? 'bg-[#141A24]/5 font-semibold' : ''}`}>
-                  {done ? (
-                    <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
-                  ) : current ? (
-                    <div className="w-4 h-4 rounded-full border-2 border-[#C89B3C] bg-[#C89B3C]/20 shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-slate-200 shrink-0" />
-                  )}
-                  <span className={done ? 'text-slate-400 line-through' : current ? 'text-[#141A24]' : 'text-slate-400'}>
-                    {isRtl ? stage.labelAr : stage.labelEn}
-                  </span>
-                  {stage.type === 'iterative' && (
-                    <RotateCcw className="w-3 h-3 text-amber-400 shrink-0" />
-                  )}
-                  {stage.type === 'parallel' && (
-                    <ArrowLeftRight className="w-3 h-3 text-blue-400 shrink-0" />
-                  )}
-                  {stage.type === 'continuous' && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-500 border border-purple-100 shrink-0">مستمر</span>
-                  )}
-                  <span className="ms-auto text-slate-300 text-xs">{stage.n}</span>
-                </li>
+                <div
+                  key={stage.n}
+                  className="flex-1 h-1.5 rounded-full transition-all duration-300"
+                  style={{ backgroundColor: done ? '#141A24' : current ? '#B8860B' : '#ECEAE2' }}
+                  title={`${stage.n + 1}: ${stage.labelAr}`}
+                />
               );
             })}
-          </ol>
+          </div>
+          {/* Label markers at positions 01, 04, 08, 15 */}
+          <div className="flex mt-2" dir={isRtl ? 'rtl' : 'ltr'}>
+            <span className="text-[10px] text-slate-400">01</span>
+            <span className="text-[10px] text-slate-400" style={{ marginInlineStart: '17.5%' }}>04</span>
+            <span className="text-[10px] text-slate-400" style={{ marginInlineStart: '27%' }}>08</span>
+            <span className="text-[10px] text-slate-400 ms-auto">15</span>
+          </div>
+          <p className="text-xs text-[#6B6A60] mt-2 text-end" dir="rtl">
+            المسار الحالي: <span className="font-semibold text-[#141A24]">{INTERNAL_STAGES[project.stageInternal]?.labelAr ?? '—'}</span>
+          </p>
         </div>
 
-        {/* Files Section */}
+        {/* ── Tab Navigation ── */}
+        <div className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-[#ECEAE2] px-2 mb-4 flex overflow-x-auto" dir={isRtl ? 'rtl' : 'ltr'}>
+          {([
+            { key: 'files',       label: t('tab_files'),       badge: `${allFiles.filter(f => f.isActive).length}/${FILE_SLOTS.length}`, showBadge: true },
+            { key: 'payments',    label: t('tab_payments'),    badge: `${milestones.filter(m => m.status === 'paid').length}/${milestones.length}`, showBadge: milestones.length > 0 },
+            { key: 'procurement', label: t('tab_procurement'), badge: null, showBadge: false },
+            { key: 'production',  label: t('tab_production'),  badge: null, showBadge: false },
+            { key: 'contract',    label: t('tab_contract'),    badge: null, showBadge: false },
+            { key: 'overview',    label: t('tab_overview'),    badge: null, showBadge: false },
+            { key: 'timeline',    label: t('tab_timeline'),    badge: null, showBadge: false },
+          ] as { key: string; label: string; badge: string | null; showBadge: boolean }[]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-sm transition-colors whitespace-nowrap shrink-0 ${
+                activeTab === tab.key
+                  ? 'text-[#141A24] font-semibold border-b-2 border-[#141A24]'
+                  : 'text-[#6B6A60] hover:text-[#141A24] font-medium'
+              }`}
+            >
+              {tab.label}
+              {tab.showBadge && tab.badge && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                  activeTab === tab.key
+                    ? 'bg-[#FBF0D6] text-[#7A5A07]'
+                    : 'bg-[#F1EFE7] text-[#6B6A60]'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Timeline Tab Content: 5×3 Stage Grid ── */}
+        {activeTab === 'timeline' && (
+          <div className="bg-white rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
+            <div className="eyebrow mb-4">TIMELINE · المراحل</div>
+            <div className="grid grid-cols-5 gap-2" dir={isRtl ? 'rtl' : 'ltr'}>
+              {INTERNAL_STAGES.map(stage => {
+                const done = project.stageInternal > stage.n;
+                const current = project.stageInternal === stage.n;
+                return (
+                  <div
+                    key={stage.n}
+                    className={`rounded-xl p-3 flex flex-col gap-1 ${
+                      current
+                        ? 'bg-[#FDFBF4] ring-2 ring-[#B8860B] shadow-[0_0_8px_rgba(184,134,11,0.15)]'
+                        : done
+                          ? 'bg-[#E4F1E8]'
+                          : 'bg-[#F1EFE7]'
+                    }`}
+                  >
+                    <div className="text-[10px] font-semibold text-[#6B6A60] num tabular-nums">
+                      {String(stage.n + 1).padStart(2, '0')}
+                    </div>
+                    <div className="text-[11px] font-medium text-[#141A24] leading-tight" dir="rtl">
+                      {stage.labelAr}
+                    </div>
+                    <div className="mt-auto pt-1.5">
+                      {done ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#1F7A4D]" />
+                      ) : current ? (
+                        <div className="w-3 h-3 rounded-full bg-[#B8860B] animate-pulse" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-[#ECEAE2]" />
+                      )}
+                    </div>
+                    {/* Iterative annotation on middle iterative stage */}
+                    {stage.n === 3 && (
+                      <span className="text-[9px] bg-[#FBF0D6] text-[#7A5A07] px-1 py-0.5 rounded border border-[#EEDDB0] leading-none mt-1 text-center">
+                        ↔ حلقة
+                      </span>
+                    )}
+                    {/* Parallel annotation on first parallel stage */}
+                    {stage.n === 7 && (
+                      <span className="text-[9px] bg-[#E1ECF7] text-[#1E508C] px-1 py-0.5 rounded border border-[#CFDEEF] leading-none mt-1 text-center">
+                        ⇄ متوازي
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Files Tab ── */}
+        {activeTab === 'files' && (
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-[#141A24]">{t('erp_project_files')}</h2>
@@ -1780,9 +1867,10 @@ export default function ErpProjectDetail() {
             </div>
           </div>
         </div>
+        )} {/* end activeTab === 'files' */}
 
-        {/* Generate Contract — Stage 4 — visible to Admin, FactoryManager, SalesAgent */}
-        {(user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent') && (
+        {/* ── Contract Tab ── */}
+        {activeTab === 'contract' && (user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent') && (
           <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
             <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div>
@@ -1807,7 +1895,8 @@ export default function ErpProjectDetail() {
           </div>
         )}
 
-        {/* Payment Milestones Section */}
+        {/* ── Payments Tab ── */}
+        {activeTab === 'payments' && (
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="font-semibold text-[#141A24]">{t('erp_payment_milestones_title')}</h2>
@@ -2031,20 +2120,28 @@ export default function ErpProjectDetail() {
             </div>
           )}
         </div>
+        )} {/* end activeTab === 'payments' */}
 
-        {/* Procurement Section */}
-        <ProcurementSection projectId={id} isRtl={isRtl} t={t} user={user} />
+        {/* ── Procurement Tab ── */}
+        {activeTab === 'procurement' && (
+          <ProcurementSection projectId={id} isRtl={isRtl} t={t} user={user} />
+        )}
 
-        {/* Manufacturing Section */}
-        <ManufacturingSection projectId={id} isRtl={isRtl} t={t} user={user} />
+        {/* ── Production Tab ── */}
+        {activeTab === 'production' && (
+          <>
+            <ManufacturingSection projectId={id} isRtl={isRtl} t={t} user={user} />
+            <PhasesSection projectId={id} isRtl={isRtl} t={t} user={user} />
+          </>
+        )}
 
-        {/* Phases Section */}
-        <PhasesSection projectId={id} isRtl={isRtl} t={t} user={user} />
+        {/* ── Overview Tab ── */}
+        {activeTab === 'overview' && (
+          <WarrantySection project={project} isRtl={isRtl} t={t} />
+        )}
 
-        {/* Warranty Section */}
-        <WarrantySection project={project} isRtl={isRtl} t={t} />
-
-        {/* QR Orders Section */}
+        {/* ── QR Orders — shown in files tab ── */}
+        {activeTab === 'files' && (
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
           <div className="flex items-center gap-2 mb-4">
             <QrCode className="w-4 h-4 text-[#C89B3C]" />
@@ -2080,6 +2177,7 @@ export default function ErpProjectDetail() {
             </div>
           )}
         </div>
+        )} {/* end activeTab === 'files' (QR Orders) */}
 
       </div>
 
