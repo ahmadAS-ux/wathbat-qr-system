@@ -343,27 +343,16 @@ export default function Admin() {
     (v / divisor).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
   const kpiCards = [
-    {
-      eyebrow: 'QR CODES ISSUED',
-      label: t('dash_qr_issued'),
-      value: loading ? '…' : String(metrics?.totalQRsGenerated ?? 0),
-      unit: isRtl ? 'رمز' : 'codes',
+    ...(isErpUser ? [{
+      eyebrow: 'ACTIVE PROJECTS',
+      label: t('dash_active_projects'),
+      value: totalProjectsCount > 0 || !erpLoading ? String(totalProjectsCount) : '…',
+      unit: isRtl ? 'مشروع' : 'projects',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [2,3,4,5,4,6,7,8,9,11],
+      sparkPoints: [4,6,5,8,7,9,11,10,12,14],
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
-      loading,
-    },
-    ...(isPaymentsUser ? [{
-      eyebrow: 'OUTSTANDING',
-      label: t('dash_outstanding_kpi'),
-      value: cashflowLoading ? '…' : fmtSar(cashflow?.outstanding ?? 0, 1000),
-      unit: isRtl ? 'ألف ر.س' : 'K SAR',
-      delta: null as string | null,
-      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [14,13,12,11,12,10,9,8,8,7],
-      sparkTone: 'mute' as 'ok' | 'danger' | 'mute',
-      loading: cashflowLoading,
+      loading: erpLoading,
     }] : []),
     ...(isPaymentsUser ? [{
       eyebrow: 'REVENUE · MTD',
@@ -376,17 +365,28 @@ export default function Admin() {
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
       loading: cashflowLoading,
     }] : []),
-    ...(isErpUser ? [{
-      eyebrow: 'ACTIVE PROJECTS',
-      label: t('dash_active_projects'),
-      value: totalProjectsCount > 0 || !erpLoading ? String(totalProjectsCount) : '…',
-      unit: isRtl ? 'مشروع' : 'projects',
+    ...(isPaymentsUser ? [{
+      eyebrow: 'OUTSTANDING',
+      label: t('dash_outstanding_kpi'),
+      value: cashflowLoading ? '…' : fmtSar(cashflow?.outstanding ?? 0, 1000),
+      unit: isRtl ? 'ألف ر.س' : 'K SAR',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [4,6,5,8,7,9,11,10,12,14],
-      sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
-      loading: erpLoading,
+      sparkPoints: [14,13,12,11,12,10,9,8,8,7],
+      sparkTone: 'mute' as 'ok' | 'danger' | 'mute',
+      loading: cashflowLoading,
     }] : []),
+    {
+      eyebrow: 'QR CODES ISSUED',
+      label: t('dash_qr_issued'),
+      value: loading ? '…' : String(metrics?.totalQRsGenerated ?? 0),
+      unit: isRtl ? 'رمز' : 'codes',
+      delta: null as string | null,
+      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
+      sparkPoints: [2,3,4,5,4,6,7,8,9,11],
+      sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
+      loading,
+    },
   ];
 
   const funnelMax = Math.max(1, ...FUNNEL_STAGES.map(s => stageDist[s.n] ?? 0));
