@@ -162,7 +162,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             {searchOpen && (
               <div className="absolute start-3 end-3 top-full mt-1 bg-[#FAFAF7] rounded-xl shadow-2xl border border-[#ECEAE2] overflow-hidden z-50">
                 {searchResults.length === 0 ? (
-                  <p className={`px-4 py-3 text-xs text-slate-400 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('search_no_results')}</p>
+                  <p className={`px-4 py-3 text-xs text-[#6B6A60] ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('search_no_results')}</p>
                 ) : (
                   <ul>
                     {searchResults.map(r => (
@@ -172,13 +172,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                           onClick={() => { navigate(r.url); setSearchOpen(false); setSearchQ(''); setMobileOpen(false); }}
                         >
                           <div className="w-6 h-6 rounded-md bg-[#ECEAE2] flex items-center justify-center shrink-0">
-                            {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-slate-500" /> : <FolderOpen className="w-3.5 h-3.5 text-slate-500" />}
+                            {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-[#6B6A60]" /> : <FolderOpen className="w-3.5 h-3.5 text-[#6B6A60]" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-semibold text-slate-800 truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.name}</p>
-                            <p className={`text-[10px] text-slate-400 truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.subtitle}</p>
+                            <p className={`text-xs font-semibold text-[#141A24] truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.name}</p>
+                            <p className={`text-[10px] text-[#6B6A60] truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.subtitle}</p>
                           </div>
-                          <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-blue-50 text-blue-600' : 'bg-teal-50 text-teal-600'}`}>
+                          <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]' : 'bg-amber-50 text-amber-700'}`}>
                             {r.type === 'lead' ? t('search_type_lead') : t('search_type_project')}
                           </span>
                         </button>

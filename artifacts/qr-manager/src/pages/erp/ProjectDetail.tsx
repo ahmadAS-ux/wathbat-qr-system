@@ -1217,7 +1217,7 @@ export default function ErpProjectDetail() {
     setDetectingBatch(true);
     try {
       const fd = new FormData();
-      files.forEach(f => fd.append('files[]', f));
+      files.forEach(f => fd.append('files', f));
       const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files/detect`, {
         method: 'POST',
         body: fd,
@@ -1456,13 +1456,13 @@ export default function ErpProjectDetail() {
           </div>
 
           {/* Hidden file inputs */}
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
-          <input ref={batchInputRef} type="file" className="hidden" multiple onChange={handleBatchSelect} />
+          <input ref={fileInputRef} type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
+          <input ref={batchInputRef} type="file" className="hidden" accept=".docx" multiple onChange={handleBatchSelect} />
 
           {/* Batch detection summary */}
           {detectionItems.length > 0 && (
-            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-blue-100">
+            <div className="mb-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ECEAE2]">
                 <span className="text-sm font-semibold text-[#141A24]">
                   {t('files_detect_summary').replace('{count}', String(detectionItems.length))}
                 </span>
@@ -1480,9 +1480,9 @@ export default function ErpProjectDetail() {
                   </button>
                 </div>
               </div>
-              <div className="divide-y divide-blue-50">
+              <div className="divide-y divide-[#ECEAE2]">
                 {detectionItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-white/60">
+                  <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-[#FAFAF7]">
                     <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="flex-1 min-w-0 text-xs text-slate-700 truncate" dir="ltr">{item.filename}</span>
                     {item.confidence === 'high' && (
