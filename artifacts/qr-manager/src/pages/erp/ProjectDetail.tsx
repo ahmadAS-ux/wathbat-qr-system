@@ -1080,6 +1080,10 @@ export default function ErpProjectDetail() {
   };
 
   const triggerUpload = (fileType: string) => {
+    if (fileInputRef.current) {
+      const isMulti = ['vendor_order', 'qoyod', 'other'].includes(fileType);
+      fileInputRef.current.accept = isMulti ? '*/*' : '.docx';
+    }
     setPendingFileType(fileType);
     fileInputRef.current?.click();
   };
@@ -1106,6 +1110,7 @@ export default function ErpProjectDetail() {
       }
       if (fileType === 'glass_order') {
         await loadQrOrders();
+        await loadProject();
       } else {
         await loadProject();
         if (fileType === 'assembly_list' || fileType === 'cut_optimisation') {
@@ -1160,6 +1165,8 @@ export default function ErpProjectDetail() {
     try {
       await fetch(`${API_BASE}/api/erp/projects/${id}/files/${fileId}`, { method: 'DELETE' });
       await loadProject();
+      await loadAllFiles();
+      await loadExpectedFiles();
     } finally {
       setDeletingFileId(null);
     }
