@@ -647,7 +647,7 @@ export default function Admin() {
                                       value={row.status}
                                       disabled={updatingId === row.id}
                                       onChange={e => updateStatus(row.id, e.target.value)}
-                                      className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-slate-100 text-slate-600 border-[#ECEAE2]'}`}
+                                      className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-[#ECEAE2] text-[#6B7280] border-[#ECEAE2]'}`}
                                     >
                                       {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>

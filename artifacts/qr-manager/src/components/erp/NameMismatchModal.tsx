@@ -32,7 +32,7 @@ export function NameMismatchModal({ nameInFile, nameInSystem, onChoice }: Props)
           </div>
           <button
             onClick={() => onChoice('cancel')}
-            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-[#ECEAE2] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

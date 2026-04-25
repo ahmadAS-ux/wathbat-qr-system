@@ -254,7 +254,7 @@ export default function ContractPage() {
 
       {/* Top bar — hidden on print */}
       <div
-        className="no-print sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm"
+        className="no-print sticky top-0 z-40 bg-[#FAFAF7] border-b border-[#ECEAE2] px-4 py-3 shadow-sm"
         dir={isRtl ? 'rtl' : 'ltr'}
       >
         <div className={`flex items-center gap-3 max-w-[230mm] mx-auto ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -365,7 +365,7 @@ export default function ContractPage() {
               </button>
               <button
                 onClick={() => setShowOverrideModal(false)}
-                className={`flex-1 px-4 py-2.5 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                className={`flex-1 px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#ECEAE2] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
               >
                 {t('erp_cancel')}
               </button>

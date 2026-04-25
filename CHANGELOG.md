@@ -4,6 +4,19 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.3.0] - April 2026
+
+### Changed — Stabilization Release
+- Dashboard redesigned (design reference aligned)
+- Global design palette applied to all pages
+- File upload system audited and fixed (3 upload flows separated)
+- File upload preserves scroll position after upload
+- Sidebar: Manufacturing System expanded by default, Service Requests moved to top
+- Added TEST_CHECKLIST.md and Session Start Protocol
+- Quality Gates expanded to 14 gates
+
+---
+
 ## [3.2.0] - April 2026
 
 ### Added — Phase 4: Delivery, Installation, Sign-off, Warranty
