@@ -449,7 +449,7 @@ export default function Home() {
   const isBusy = detecting || uploading;
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#F4F2EB] flex flex-col relative overflow-hidden">
       <main className="flex-1 w-full flex flex-col">
         <AnimatePresence mode="wait">
 
@@ -465,7 +465,7 @@ export default function Home() {
             >
               {/* Compact hero */}
               <div className="relative pattern-bg overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-[#1B2A4A]/[0.02] via-transparent to-[#F8F9FB] pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-[#1B2A4A]/[0.02] via-transparent to-[#F4F2EB] pointer-events-none" />
 
                 <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-5 pb-4 flex flex-col items-center text-center gap-3">
 

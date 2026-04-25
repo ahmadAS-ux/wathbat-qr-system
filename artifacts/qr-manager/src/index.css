@@ -31,9 +31,9 @@
 }
 
 :root {
-  /* White/Off-white Backgrounds */
-  --background: 210 20% 98%;
-  --foreground: 211 56% 15%;
+  /* ── Design palette (warm off-white) ── */
+  --background: 46 29% 94%;   /* #F4F2EB */
+  --foreground: 228 29% 11%;  /* #141A24 */
   /* Design system tokens */
   --ds-bg: #F4F2EB;
   --ds-card: #FAFAF7;
@@ -41,10 +41,10 @@
   --ds-ink: #141A24;
   --ds-ink-dark: #0B1019;
   --ds-mute: #6B6A60;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 211 56% 15%;
-  --card-border: 214 32% 91%;
+
+  --card: 60 24% 97%;          /* #FAFAF7 */
+  --card-foreground: 228 29% 11%;
+  --card-border: 48 21% 91%;   /* #ECEAE2 */
 
   /* Wathbat Navy Blue (#1a3a5c) */
   --primary: 211 56% 23%;
@@ -68,9 +68,9 @@
   --popover-border: 214 32% 91%;
 
   /* Input */
-  --input: 214 32% 91%;
+  --input: 48 21% 91%;         /* #ECEAE2 */
 
-  --border: 214 32% 91%;
+  --border: 48 21% 91%;        /* #ECEAE2 */
   --ring: 41 65% 47%;
 
   --destructive: 0 84% 60%;
@@ -219,13 +219,54 @@ textarea::placeholder {
   color: #6B6A60;
   font-weight: 600;
 }
+
+/* Card — shared across all admin pages */
 .dash-card {
   background: #FAFAF7;
   border: 1px solid #ECEAE2;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
+
 .num {
   font-family: 'DM Sans', system-ui, sans-serif;
   font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* ── Global palette rules ── */
+
+/* Table headers */
+thead tr {
+  background-color: #F4F2EB;
+}
+
+/* Form inputs & selects — design border + warm white fill */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+select,
+textarea {
+  background-color: #FAFAF7;
+  border-color: #ECEAE2;
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: #B8860B;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  background-color: #9A7009;
+}
+
+/* Secondary button */
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid #ECEAE2;
+  border-radius: 10px;
+  color: #141A24;
+}
+.btn-secondary:hover {
+  background-color: #F4F2EB;
 }
