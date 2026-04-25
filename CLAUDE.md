@@ -13,8 +13,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 6. `UI_UX_CHECKLIST.md` — read before modifying any frontend component
 7. `SECURITY_BASELINE.md` — read before modifying any backend route
 8. `QOYOD_INTEGRATION_PLAN.md` — future enhancement: Qoyod API integration plan (read before touching payments)
+9. `TEST_CHECKLIST.md` — mandatory pre-commit verification (check items related to your change)
 
 **Golden rule:** Claude Code runs fully autonomously — no confirmation steps, commits and pushes all changes automatically.
+
+**Session Start Protocol:**
+1. Read: CLAUDE.md → SYSTEM_DESIGN_v3.md → CODE_STRUCTURE.md
+2. Run `pnpm run typecheck` — fix errors before starting task
+3. Run `pnpm run build` — fix errors before starting task
+4. Read TEST_CHECKLIST.md — understand what must pass
+5. Do the requested task
+6. Before commit: verify TEST_CHECKLIST.md items related to your change
+7. Verify all 14 gates in QUALITY_GATES.md
+8. Commit and push
 
 **Version rule:** Every commit that changes behavior bumps version in all 3 package.json files + CHANGELOG + git tag. See QUALITY_GATES.md Gate 12.
 
