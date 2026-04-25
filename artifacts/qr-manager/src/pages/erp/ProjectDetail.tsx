@@ -288,7 +288,7 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
   return (
     <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('phases_title')}</h2>
+        <h2 className={`font-semibold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('phases_title')}</h2>
         {canManage && (
           <button onClick={() => setShowAdd(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
             <Plus className="w-3.5 h-3.5" /> {t('phases_add')}
@@ -328,11 +328,11 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
               {/* Phase header */}
               <div className={`flex items-start gap-3 px-4 py-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-lg bg-[#141A24]/8 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[#1B2A4A] font-bold text-sm">{ph.phaseNumber}</span>
+                  <span className="text-[#141A24] font-bold text-sm">{ph.phaseNumber}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className={`flex items-center gap-2 flex-wrap mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <span className={`font-semibold text-[#1B2A4A] text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    <span className={`font-semibold text-[#141A24] text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
                       {ph.label || `${t('phase_label')} ${ph.phaseNumber}`}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${phaseStatusColor(ph.status)}`}>
@@ -408,7 +408,7 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
                 )}
                 <button
                   onClick={() => copyLink(ph.id)}
-                  className={`ms-auto flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-500 hover:text-[#1B2A4A] border border-[#ECEAE2] rounded-lg hover:border-[#1B2A4A]/30 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                  className={`ms-auto flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-500 hover:text-[#141A24] border border-[#ECEAE2] rounded-lg hover:border-[#1B2A4A]/30 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
                 >
                   {copiedId === ph.id ? (
                     <CheckCircle2 className="w-3 h-3 text-teal-500" />
@@ -441,7 +441,7 @@ function WarrantySection({ project, isRtl, t }: { project: { warrantyStartDate?:
 
   return (
     <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-      <h2 className={`font-semibold text-[#1B2A4A] mb-3 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('warranty_title')}</h2>
+      <h2 className={`font-semibold text-[#141A24] mb-3 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('warranty_title')}</h2>
       <div className="space-y-2">
         <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
           <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]'}`}>
@@ -644,7 +644,7 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
   return (
     <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('procurement_title')}</h2>
+        <h2 className={`font-semibold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('procurement_title')}</h2>
         {canManage && vendors.length > 0 && (
           <button onClick={() => setShowCreate(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
             <Plus className="w-3.5 h-3.5" /> {t('po_create')}
@@ -691,7 +691,7 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
               <div className={`flex items-center gap-3 px-4 py-3 bg-[#F4F2EB] ${isRtl ? 'flex-row-reverse' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <span className={`text-sm font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{po.vendorName ?? `#${po.id}`}</span>
+                    <span className={`text-sm font-semibold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{po.vendorName ?? `#${po.id}`}</span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${poStatusColor(po.status)}`}>{poStatusLabel(po.status)}</span>
                   </div>
                   {po.totalAmount != null && (
@@ -699,7 +699,7 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
                   )}
                 </div>
                 <div className={`flex items-center gap-1 shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                  <button onClick={() => toggleExpand(po.id)} className={`flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 hover:text-[#1B2A4A] hover:bg-white rounded-lg transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  <button onClick={() => toggleExpand(po.id)} className={`flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 hover:text-[#141A24] hover:bg-white rounded-lg transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                     {t('po_expand_items')} {expandedPo === po.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
                   {canDelete && (
@@ -786,7 +786,7 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
                       </div>
                     </div>
                   ) : canManage && (
-                    <button onClick={() => setShowAddItem(po.id)} className={`mt-2 flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#1B2A4A] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+                    <button onClick={() => setShowAddItem(po.id)} className={`mt-2 flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#141A24] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
                       <Plus className="w-3.5 h-3.5" /> {t('po_add_item')}
                     </button>
                   )}
@@ -848,7 +848,7 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
 
   return (
     <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-      <h2 className={`font-semibold text-[#1B2A4A] mb-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('manufacturing_title')}</h2>
+      <h2 className={`font-semibold text-[#141A24] mb-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('manufacturing_title')}</h2>
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
       ) : order ? (
@@ -1293,7 +1293,7 @@ export default function ErpProjectDetail() {
         {/* Back */}
         <button
           onClick={() => navigate('/erp/projects')}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#1B2A4A] mb-4 transition-colors"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#141A24] mb-4 transition-colors"
         >
           <BackIcon className="w-4 h-4" />
           {t('erp_projects_title')}
@@ -1303,7 +1303,7 @@ export default function ErpProjectDetail() {
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 mb-4">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-[#1B2A4A]">{project.name}</h1>
+              <h1 className="text-xl font-bold text-[#141A24]">{project.name}</h1>
               <p className="text-slate-500 text-sm mt-0.5">{project.customerName}</p>
               {project.phone && <p className="text-slate-400 text-xs mt-0.5" dir="ltr">{project.phone}</p>}
             </div>
@@ -1375,7 +1375,7 @@ export default function ErpProjectDetail() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600">{t('erp_project_notes')}</span>
               {!editingNotes && (
-                <button onClick={() => setEditingNotes(true)} className="text-xs text-[#1B2A4A] hover:underline">
+                <button onClick={() => setEditingNotes(true)} className="text-xs text-[#141A24] hover:underline">
                   {t('erp_save')}
                 </button>
               )}
@@ -1406,7 +1406,7 @@ export default function ErpProjectDetail() {
 
         {/* Stage Timeline */}
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-          <h2 className="font-semibold text-[#1B2A4A] mb-4">{t('erp_stage_timeline')}</h2>
+          <h2 className="font-semibold text-[#141A24] mb-4">{t('erp_stage_timeline')}</h2>
           <ol className="space-y-2">
             {INTERNAL_STAGES.map(stage => {
               const done = project.stageInternal > stage.n;
@@ -1420,7 +1420,7 @@ export default function ErpProjectDetail() {
                   ) : (
                     <Circle className="w-4 h-4 text-slate-200 shrink-0" />
                   )}
-                  <span className={done ? 'text-slate-400 line-through' : current ? 'text-[#1B2A4A]' : 'text-slate-400'}>
+                  <span className={done ? 'text-slate-400 line-through' : current ? 'text-[#141A24]' : 'text-slate-400'}>
                     {isRtl ? stage.labelAr : stage.labelEn}
                   </span>
                   {stage.type === 'iterative' && (
@@ -1442,12 +1442,12 @@ export default function ErpProjectDetail() {
         {/* Files Section */}
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-[#1B2A4A]">{t('erp_project_files')}</h2>
+            <h2 className="font-semibold text-[#141A24]">{t('erp_project_files')}</h2>
             {canUpload && (
               <button
                 onClick={() => batchInputRef.current?.click()}
                 disabled={detectingBatch || uploadingBatch}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors disabled:opacity-40"
               >
                 {detectingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />}
                 {t('files_batch_select')}
@@ -1463,7 +1463,7 @@ export default function ErpProjectDetail() {
           {detectionItems.length > 0 && (
             <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-blue-100">
-                <span className="text-sm font-semibold text-[#1B2A4A]">
+                <span className="text-sm font-semibold text-[#141A24]">
                   {t('files_detect_summary').replace('{count}', String(detectionItems.length))}
                 </span>
                 <div className="flex items-center gap-2">
@@ -1528,13 +1528,13 @@ export default function ErpProjectDetail() {
                       <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                       <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
                       {slotFiles.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#141A24]/8 text-[#1B2A4A]">{slotFiles.length}</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#141A24]/8 text-[#141A24]">{slotFiles.length}</span>
                       )}
                       {canUpload && (
                         <button
                           onClick={() => triggerUpload(slot.fileType)}
                           disabled={isUploading}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#1B2A4A] hover:bg-white border border-[#ECEAE2] transition-colors disabled:opacity-40 shrink-0"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#141A24] hover:bg-white border border-[#ECEAE2] transition-colors disabled:opacity-40 shrink-0"
                         >
                           {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                           {t('project_file_add_file')}
@@ -1553,7 +1553,7 @@ export default function ErpProjectDetail() {
                               </p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors" title={t('erp_file_download')}>
+                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#ECEAE2] transition-colors" title={t('erp_file_download')}>
                                 <Download className="w-3.5 h-3.5" />
                               </button>
                               {canDelete && (
@@ -1592,7 +1592,7 @@ export default function ErpProjectDetail() {
                         <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                         <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
                         {canUpload && (
-                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
                             {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                           </button>
                         )}
@@ -1602,11 +1602,11 @@ export default function ErpProjectDetail() {
                           {hasOriginal && (
                             <div className="rounded-lg border border-[#ECEAE2] p-2.5">
                               <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#141A24]/8 text-[#1B2A4A] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#141A24]/8 text-[#141A24] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
                               </div>
                               <p className="text-xs text-slate-600 truncate" dir="ltr">{existing!.originalFilename}</p>
                               <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(existing!.uploadedAt).toLocaleDateString()}</p>
-                              <button onClick={() => downloadFile(existing!.id, existing!.originalFilename)} className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 hover:text-[#1B2A4A] transition-colors">
+                              <button onClick={() => downloadFile(existing!.id, existing!.originalFilename)} className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 hover:text-[#141A24] transition-colors">
                                 <Download className="w-3 h-3" />{t('erp_file_download')}
                               </button>
                             </div>
@@ -1684,7 +1684,7 @@ export default function ErpProjectDetail() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {existing && (
-                        <button onClick={() => downloadFile(existing.id, existing.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors" title={t('erp_file_download')}>
+                        <button onClick={() => downloadFile(existing.id, existing.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-white transition-colors" title={t('erp_file_download')}>
                           <Download className="w-4 h-4" />
                         </button>
                       )}
@@ -1694,7 +1694,7 @@ export default function ErpProjectDetail() {
                         </button>
                       )}
                       {canUpload && (
-                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
+                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading || isDetecting} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-white transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
                           {(isUploading || isDetecting) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                         </button>
                       )}
@@ -1731,7 +1731,7 @@ export default function ErpProjectDetail() {
                       <div className="space-y-1.5">
                         {parsedAssemblyList.positions.map((pos, i) => (
                           <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                            <span className="font-semibold text-[#1B2A4A] shrink-0" dir="ltr">{pos.positionCode}</span>
+                            <span className="font-semibold text-[#141A24] shrink-0" dir="ltr">{pos.positionCode}</span>
                             <span className="text-slate-400 shrink-0">{pos.quantity} {t('assembly_list_pcs')}</span>
                             {pos.widthMm && pos.heightMm && (
                               <span className="text-slate-400 shrink-0" dir="ltr">{pos.widthMm} × {pos.heightMm} mm</span>
@@ -1762,7 +1762,7 @@ export default function ErpProjectDetail() {
                           <tbody>
                             {parsedCutOptimisation.profiles.slice(0, 10).map((p, i) => (
                               <tr key={i} className="border-b border-teal-50 last:border-0">
-                                <td className="py-0.5 font-medium text-[#1B2A4A]">{p.number}</td>
+                                <td className="py-0.5 font-medium text-[#141A24]">{p.number}</td>
                                 <td className="py-0.5 truncate max-w-[120px]">{p.description}</td>
                                 <td className="py-0.5 text-end">{p.quantity}</td>
                                 <td className="py-0.5 text-end">{p.wastagePercent}%</td>
@@ -1802,7 +1802,7 @@ export default function ErpProjectDetail() {
           <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
             <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div>
-                <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                <h2 className={`font-semibold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>
                   {t('contract_stage_label')}
                 </h2>
                 {!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation') && (
@@ -1826,11 +1826,11 @@ export default function ErpProjectDetail() {
         {/* Payment Milestones Section */}
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="font-semibold text-[#1B2A4A]">{t('erp_payment_milestones_title')}</h2>
+            <h2 className="font-semibold text-[#141A24]">{t('erp_payment_milestones_title')}</h2>
             {canCreateMilestone && (
               <button
                 onClick={() => setShowAddMilestone(v => !v)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 {t('erp_payment_add')}
@@ -1933,7 +1933,7 @@ export default function ErpProjectDetail() {
                   <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-[#ECEAE2] bg-[#F4F2EB]/30'}`}>
                     {/* Milestone header */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-[#1B2A4A] flex-1 min-w-0">{m.label}</span>
+                      <span className="font-semibold text-sm text-[#141A24] flex-1 min-w-0">{m.label}</span>
                       {m.percentage != null && (
                         <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.percentage}%</span>
                       )}
@@ -1964,7 +1964,7 @@ export default function ErpProjectDetail() {
                           )}
                           <button
                             onClick={() => downloadFile(attachedFile.id, attachedFile.originalFilename)}
-                            className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors shrink-0"
+                            className="p-1 rounded text-slate-400 hover:text-[#141A24] hover:bg-[#ECEAE2] transition-colors shrink-0"
                             title={t('erp_file_download')}
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -2010,7 +2010,7 @@ export default function ErpProjectDetail() {
                             />
                             <button
                               onClick={() => payFileInputRef.current?.click()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#1B2A4A] transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#141A24] transition-colors"
                             >
                               <Upload className="w-3 h-3" />
                               {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : t('choose_file')}
@@ -2064,7 +2064,7 @@ export default function ErpProjectDetail() {
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
           <div className="flex items-center gap-2 mb-4">
             <QrCode className="w-4 h-4 text-[#C89B3C]" />
-            <h2 className="font-semibold text-[#1B2A4A]">{t('qr_orders_title')}</h2>
+            <h2 className="font-semibold text-[#141A24]">{t('qr_orders_title')}</h2>
           </div>
           {loadingQrOrders ? (
             <div className="text-center py-6 text-slate-400 text-sm">...</div>
@@ -2086,7 +2086,7 @@ export default function ErpProjectDetail() {
                     href={`${API_BASE}/api/qr/download/${order.reportFileId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] hover:bg-[#141A24]/8 transition-colors shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] hover:bg-[#141A24]/8 transition-colors shrink-0"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     {t('qr_orders_view_report')}
@@ -2115,7 +2115,7 @@ export default function ErpProjectDetail() {
           onClick={() => setGlassDetect(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#ECEAE2] overflow-hidden"
+            className="bg-[#FAFAF7] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] w-full max-w-md border border-[#ECEAE2] overflow-hidden"
             dir={isRtl ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
@@ -2147,7 +2147,7 @@ export default function ErpProjectDetail() {
                   {t('detect_orgadata_label')}:
                 </span>
                 <span
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#141A24]/8 border border-[#1B2A4A]/12 text-[#1B2A4A] text-xs font-semibold"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#141A24]/8 border border-[#1B2A4A]/12 text-[#141A24] text-xs font-semibold"
                   dir="ltr"
                 >
                   {glassDetect.orgadataName}
@@ -2162,7 +2162,7 @@ export default function ErpProjectDetail() {
                 <div className="rounded-xl bg-[#F4F2EB] border border-[#ECEAE2] p-4 space-y-3 text-sm">
                   <div>
                     <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
-                    <p className="font-semibold text-[#1B2A4A]">"{project.name}"</p>
+                    <p className="font-semibold text-[#141A24]">"{project.name}"</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_orgadata_name')}</p>
@@ -2224,7 +2224,7 @@ export default function ErpProjectDetail() {
               <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-red-600" />
               </div>
-              <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_project_title')}</h2>
+              <h2 className={`font-bold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_project_title')}</h2>
             </div>
             <div className="mb-1 ms-12">
               <p className={`font-semibold text-slate-800 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>{project.name}</p>
@@ -2257,7 +2257,7 @@ export default function ErpProjectDetail() {
               <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-red-600" />
               </div>
-              <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_file_title')}</h2>
+              <h2 className={`font-bold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_file_title')}</h2>
             </div>
             <div className={`flex gap-3 justify-end ${isRtl ? 'flex-row-reverse' : ''}`}>
               <button onClick={() => setConfirmDeleteFileId(null)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-[#ECEAE2] rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
