@@ -1,6 +1,6 @@
 # CODE_AUDIT.md — What the code ACTUALLY does (not what we planned)
 
-> Updated: April 25, 2026
+> Updated: April 25, 2026 (scroll fix applied)
 > Claude Code: UPDATE this file after every bug fix or feature change.
 
 ---
@@ -26,9 +26,10 @@
   - Optional query string appended for glass_order/quotation conflict scenarios
 - **FormData field names:** `'file'` (the binary) + `'fileType'` (the string type)
 - **After success:**
+  - Saves `scrollY = window.scrollY` immediately before load calls
   - `glass_order`: `loadQrOrders()` then `loadProject()`
   - `assembly_list` or `cut_optimisation`: `loadProject()` then `loadParsedData()`
-  - All types always: `loadAllFiles()` and `loadExpectedFiles()` at the end
+  - All types always: `loadAllFiles()` then `requestAnimationFrame(() => window.scrollTo(0, scrollY))`
 - **After 409:**
   - `price_quotation` / `quotation` type → `setNameMismatch({ nameInFile, nameInSystem, pendingFile, fileType })` → opens `NameMismatchModal`
   - `glass_order` type → `setGlassDetect({ orgadataName, orgadataPerson: null, pendingFile, nameMatches: false })` → opens glass conflict dialog
@@ -40,7 +41,7 @@
 
 - Uses the **same** `fileInputRef` and `handleFileChange` as Flow A
 - `triggerUpload(fileType)` sets `accept='*/*'` for `vendor_order`, `qoyod`, `other`
-- Same `uploadFile()` call path — no detection runs
+- Same `uploadFile()` call path — scroll preservation inherited from Flow A
 - `pendingFileType` is set to the slot's `fileType` before click — filename is never inspected
 - **TESTED:** April 2026 — PASS (v3.2.0 deploy)
 
@@ -56,8 +57,9 @@
 - **Detection:** `file-detector.ts` `detectFileType(filename)` runs server-side; returns `[{ filename, size, detectedType, confidence }]`
 - **Summary dialog:** Shows count via `t('files_detect_summary').replace('{count}', ...)`, then for each file: filename, size, `detectedType`, `confidence`, and an editable `assignedType` dropdown
 - **Upload:** `handleUploadAll` — line 1212
-  - Iterates `detectionItems`; calls `await uploadFile(item.file, item.assignedType)` per file (line 1217)
-  - After all done: `setDetectionItems([])` (line 1219) then `loadAllFiles()` (line 1220)
+  - Saves `scrollY = window.scrollY` before the loop
+  - Iterates `detectionItems`; calls `await uploadFile(item.file, item.assignedType)` per file
+  - After all done: `setDetectionItems([])` then `loadAllFiles()` then `requestAnimationFrame(() => window.scrollTo(0, scrollY))`
 - **TESTED:** April 2026 — PASS (v3.2.0 deploy)
 
 ---
@@ -72,7 +74,7 @@
 - **Updates when:**
   - Any upload succeeds (Flow A/B/C all call `loadAllFiles()` on success)
   - `glass_order` upload also calls `loadQrOrders()`
-  - Any file delete calls `loadProject()` + `loadAllFiles()` + `loadExpectedFiles()`
+  - Any file delete calls `loadProject()` + `loadAllFiles()` — scroll preserved via `requestAnimationFrame`
   - Component mount `useEffect` (line 1247)
 - **TESTED:** April 2026 — PASS (v3.2.0 deploy)
 

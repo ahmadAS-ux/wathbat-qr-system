@@ -1097,6 +1097,7 @@ export default function ErpProjectDetail() {
         setGlassDetect({ orgadataName: conflict.orgadataName ?? '', orgadataPerson: null, pendingFile: file, nameMatches: false });
         return;
       }
+      const scrollY = window.scrollY;
       if (fileType === 'glass_order') {
         await loadQrOrders();
         await loadProject();
@@ -1107,6 +1108,7 @@ export default function ErpProjectDetail() {
         }
       }
       await loadAllFiles();
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
     } finally {
       setUploadingFor(null);
       setPendingFileType('');
@@ -1137,7 +1139,11 @@ export default function ErpProjectDetail() {
     const { pendingFile } = glassDetect;
     setGlassDetect(null);
     await uploadFile(pendingFile, 'glass_order', `?confirm=true&updateName=${updateName}`);
-    if (updateName) await loadProject();
+    if (updateName) {
+      const scrollY = window.scrollY;
+      await loadProject();
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    }
   };
 
   const downloadFile = (fileId: number, filename: string) => {
@@ -1152,8 +1158,10 @@ export default function ErpProjectDetail() {
     setDeletingFileId(fileId);
     try {
       await fetch(`${API_BASE}/api/erp/projects/${id}/files/${fileId}`, { method: 'DELETE' });
+      const scrollY = window.scrollY;
       await loadProject();
       await loadAllFiles();
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
     } finally {
       setDeletingFileId(null);
     }
@@ -1212,12 +1220,14 @@ export default function ErpProjectDetail() {
   const handleUploadAll = async () => {
     if (!detectionItems.length) return;
     setUploadingBatch(true);
+    const scrollY = window.scrollY;
     try {
       for (const item of detectionItems) {
         await uploadFile(item.file, item.assignedType);
       }
       setDetectionItems([]);
       await loadAllFiles();
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
     } finally {
       setUploadingBatch(false);
     }
