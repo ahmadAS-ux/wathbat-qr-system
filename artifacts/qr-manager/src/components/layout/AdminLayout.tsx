@@ -202,6 +202,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           </Link>
 
+          {/* Service Requests — second, standalone */}
+          <Link href="/admin/requests">
+            <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
+              <FileText className={navIcon(isActive('/admin/requests', false))} />
+              <span className="flex-1">{t('requests_title')}</span>
+            </div>
+          </Link>
+
           {/* ── MANUFACTURING SYSTEM ── */}
           {(isErpUser || isPaymentsUser) && (
             <>
@@ -306,12 +314,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
                     <Archive className={navIcon(isActive('/admin/history', false))} />
                     <span className="flex-1">{t('archive_title')}</span>
-                  </div>
-                </Link>
-                <Link href="/admin/requests">
-                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
-                    <FileText className={navIcon(isActive('/admin/requests', false))} />
-                    <span className="flex-1">{t('requests_title')}</span>
                   </div>
                 </Link>
                 {isAdmin && (
