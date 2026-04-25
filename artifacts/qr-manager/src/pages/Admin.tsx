@@ -60,12 +60,7 @@ interface Lead {
   createdAt: string;
 }
 
-interface StageDist {
-  new: number;
-  in_study: number;
-  in_production: number;
-  complete: number;
-}
+type StageDist = Record<number, number>;
 
 // ─── Design-system stage pill config ────────────────────────────────────────
 const STAGE_DESIGN: Record<string, { num: string; cls: string }> = {
@@ -82,11 +77,22 @@ const REQ_STATUS: Record<string, string> = {
   Done: 'bg-[#E4F1E8] text-[#1F7A4D] border border-[#CFE4D6]',
 };
 
-const FUNNEL_STAGES = [
-  { key: 'new' as const,           num: '01' },
-  { key: 'in_study' as const,      num: '04' },
-  { key: 'in_production' as const, num: '07' },
-  { key: 'complete' as const,      num: '13' },
+const FUNNEL_STAGES: Array<{ n: number; ar: string; en: string }> = [
+  { n: 1,  ar: 'عميل محتمل',    en: 'Prospect' },
+  { n: 2,  ar: 'اتصال أولي',    en: 'First Contact' },
+  { n: 3,  ar: 'زيارة الموقع',  en: 'Site Visit' },
+  { n: 4,  ar: 'استفسار',       en: 'Inquiry' },
+  { n: 5,  ar: 'عرض السعر',     en: 'Quotation' },
+  { n: 6,  ar: 'توقيع العقد',   en: 'Contract' },
+  { n: 7,  ar: 'أوامر الشراء',  en: 'Purchase Orders' },
+  { n: 8,  ar: 'التصنيع',       en: 'Manufacturing' },
+  { n: 9,  ar: 'ضبط الجودة',    en: 'Quality Control' },
+  { n: 10, ar: 'الشحن',         en: 'Shipping' },
+  { n: 11, ar: 'تسليم الموقع',  en: 'Site Delivery' },
+  { n: 12, ar: 'التركيب',       en: 'Installation' },
+  { n: 13, ar: "تسلّم العميل",  en: 'Client Handover' },
+  { n: 14, ar: 'تسوية مالية',   en: 'Settlement' },
+  { n: 15, ar: 'ضمان وصيانة',   en: 'Warranty' },
 ];
 
 const PREVIEW_COUNT = 5;
@@ -168,7 +174,7 @@ export default function Admin() {
   const [overdueLeads, setOverdueLeads] = useState<Lead[]>([]);
   const [overdueLeadsCount, setOverdueLeadsCount] = useState(0);
   const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
-  const [stageDist, setStageDist] = useState<StageDist>({ new: 0, in_study: 0, in_production: 0, complete: 0 });
+  const [stageDist, setStageDist] = useState<StageDist>({});
 
   const [loading, setLoading] = useState(true);
   const [erpLoading, setErpLoading] = useState(true);
@@ -378,18 +384,8 @@ export default function Admin() {
     },
   ];
 
-  // ── Stage funnel label helper ──
-  const stageFunnelLabel = (key: string) => {
-    if (isRtl) {
-      const map: Record<string, string> = { new: t('dash_stage_new'), in_study: t('dash_stage_in_study'), in_production: t('dash_stage_in_production'), complete: t('dash_stage_complete') };
-      return map[key] ?? key;
-    }
-    const map: Record<string, string> = { new: 'New Lead', in_study: 'Study & Quote', in_production: 'Production', complete: 'Complete' };
-    return map[key] ?? key;
-  };
-
-  const funnelMax = Math.max(1, ...FUNNEL_STAGES.map(s => stageDist[s.key] ?? 0));
-  const funnelTotal = FUNNEL_STAGES.reduce((a, s) => a + (stageDist[s.key] ?? 0), 0);
+  const funnelMax = Math.max(1, ...FUNNEL_STAGES.map(s => stageDist[s.n] ?? 0));
+  const funnelTotal = FUNNEL_STAGES.reduce((a, s) => a + (stageDist[s.n] ?? 0), 0);
 
   // ── Stage pill label helper ──
   const stagePillLabel = (stageDisplay: string) => {
@@ -697,21 +693,21 @@ export default function Admin() {
                           )}{isRtl ? ` مشروع على ${FUNNEL_STAGES.length} مراحل` : ` projects across ${FUNNEL_STAGES.length} stages`}
                         </div>
                       </div>
-                      <div className="px-5 py-4 space-y-2.5" dir={isRtl ? 'rtl' : 'ltr'}>
+                      <div className="px-5 py-4 space-y-1.5" dir={isRtl ? 'rtl' : 'ltr'}>
                         {FUNNEL_STAGES.map(s => {
-                          const count = stageDist[s.key] ?? 0;
+                          const count = stageDist[s.n] ?? 0;
                           const pct = erpLoading ? 0 : funnelMax ? (count / funnelMax) * 100 : 0;
                           return (
-                            <div key={s.key} className={`flex items-center gap-3 text-[12.5px] ${isRtl ? 'flex-row-reverse' : ''}`}>
-                              <span className="num text-[10.5px] text-[#6B6A60] w-5 text-start tabular-nums shrink-0">{s.num}</span>
-                              <span className="text-[#0F1020] flex-1 truncate">{stageFunnelLabel(s.key)}</span>
-                              <div className="w-20 h-1.5 rounded-full bg-[#F1EFE7] overflow-hidden shrink-0">
-                                {!erpLoading && (
-                                  <div className="h-full rounded-full bg-[#141A24]" style={{ width: `${pct}%` }} />
-                                )}
-                                {erpLoading && <div className="h-full w-full bg-[#ECEAE2] animate-pulse rounded-full" />}
+                            <div key={s.n} className="flex items-center gap-3 text-[12.5px]">
+                              <span className="num text-[10.5px] text-[#6B6A60] w-5 text-left tabular-nums shrink-0">{String(s.n).padStart(2, '0')}</span>
+                              <span className="text-[#0F1020] flex-1 truncate">{isRtl ? s.ar : s.en}</span>
+                              <div className="flex-1 h-1.5 rounded-full bg-[#F1EFE7] overflow-hidden">
+                                {erpLoading
+                                  ? <div className="h-full w-full bg-[#ECEAE2] animate-pulse rounded-full" />
+                                  : <div className="h-full rounded-full bg-[#141A24]" style={{ width: `${pct}%` }} />
+                                }
                               </div>
-                              <span className="num text-[#0F1020] font-medium w-4 text-start tabular-nums shrink-0">
+                              <span className="num text-[#0F1020] font-medium w-5 text-left tabular-nums shrink-0">
                                 {erpLoading ? <span className="inline-block w-3 h-3 bg-[#ECEAE2] rounded animate-pulse" /> : count}
                               </span>
                             </div>

@@ -348,7 +348,7 @@ export const translations = {
     erp_payments_all_projects: "All Projects",
     erp_payments_no_data: "No payment milestones found.",
     // Sidebar section labels
-    qr_section_label: "QR System",
+    qr_section_label: "Document System",
     erp_settings_nav: "Settings",
     erp_view_project: "View Project →",
     erp_view_lead: "View Lead →",
@@ -906,7 +906,7 @@ export const translations = {
     erp_payments_all_projects: "جميع المشاريع",
     erp_payments_no_data: "لا توجد دفعات مسجلة.",
     // Sidebar section labels
-    qr_section_label: "نظام QR",
+    qr_section_label: "نظام المستندات",
     erp_settings_nav: "الإعدادات",
     erp_view_project: "← عرض المشروع",
     erp_view_lead: "← عرض العميل",

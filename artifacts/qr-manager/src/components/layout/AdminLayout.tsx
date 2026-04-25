@@ -111,19 +111,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const navItem = (active: boolean) =>
-    `flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer group border-s-[3px] ${
+    `flex items-center gap-3 px-3 h-10 rounded-lg text-[13.5px] font-medium transition cursor-pointer group ${
       active
-        ? 'text-white border-[#B8860B]'
-        : 'text-white/55 hover:text-white/90 hover:bg-white/[0.05] border-transparent'
+        ? 'bg-[#28303F] text-white'
+        : 'text-white/70 hover:text-white hover:bg-[#1E2532]'
     }`;
 
   const navItemStyle = (active: boolean): React.CSSProperties =>
-    active ? { backgroundColor: 'rgba(184,134,11,0.10)' } : {};
+    active ? {} : {};
 
   const navIcon = (active: boolean) =>
-    `w-5 h-5 shrink-0 transition-colors ${active ? 'text-[#B8860B]' : 'text-white/40 group-hover:text-white/70'}`;
+    `w-5 h-5 shrink-0 transition-colors ${active ? 'text-white' : 'text-white/40 group-hover:text-white/70'}`;
 
-  const sectionBtn = 'w-full flex items-center gap-1 px-3 mt-4 mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors cursor-pointer';
+  const sectionBtn = 'w-full flex items-center gap-2 px-3 pt-2 pb-1 text-[10.5px] tracking-[.14em] text-white/40 font-bold hover:text-white/60 transition-colors cursor-pointer';
 
   function SidebarContent() {
     return (
@@ -382,7 +382,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#141A24] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <aside className="hidden md:flex flex-col w-[260px] shrink-0 bg-[#141A24] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <SidebarContent />
       </aside>
 

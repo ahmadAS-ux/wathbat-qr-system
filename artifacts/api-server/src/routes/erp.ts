@@ -628,16 +628,17 @@ router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reques
   }
 });
 
-// GET /erp/projects/stage-distribution — count projects grouped by stageDisplay
+// GET /erp/projects/stage-distribution — count projects grouped by stageInternal (1-15)
 router.get("/erp/projects/stage-distribution", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const rows = await db
-      .select({ stage: projectsTable.stageDisplay, count: sql<number>`count(*)::int` })
+      .select({ stage: projectsTable.stageInternal, count: sql<number>`count(*)::int` })
       .from(projectsTable)
-      .groupBy(projectsTable.stageDisplay);
-    const dist: Record<string, number> = { new: 0, in_study: 0, in_production: 0, complete: 0 };
+      .groupBy(projectsTable.stageInternal);
+    const dist: Record<number, number> = {};
+    for (let i = 1; i <= 15; i++) dist[i] = 0;
     for (const r of rows) {
-      if (r.stage && r.stage in dist) dist[r.stage] = r.count;
+      if (r.stage && r.stage >= 1 && r.stage <= 15) dist[r.stage] = r.count;
     }
     res.json(dist);
   } catch (err) {
