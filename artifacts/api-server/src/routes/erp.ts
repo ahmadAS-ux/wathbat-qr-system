@@ -2377,6 +2377,75 @@ router.get("/erp/payments/cashflow-summary", requireRole("Admin", "Accountant"),
   }
 });
 
+// GET /erp/stats/cashflow — collected, outstanding, total, percentage, revenueMtd (wider role access than /payments/cashflow-summary)
+router.get("/erp/stats/cashflow", requireRole("Admin", "Accountant", "FactoryManager"), async (req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(CASE WHEN paid_amount IS NOT NULL THEN paid_amount ELSE 0 END), 0)::int AS collected,
+        COALESCE(SUM(CASE WHEN status != 'paid' THEN COALESCE(amount, 0) - COALESCE(paid_amount, 0) ELSE 0 END), 0)::int AS outstanding,
+        COALESCE(SUM(CASE WHEN date_trunc('month', paid_at) = date_trunc('month', NOW()) THEN COALESCE(paid_amount, 0) ELSE 0 END), 0)::int AS revenue_mtd
+      FROM payment_milestones
+    `);
+    const row = result.rows[0] as any;
+    const collected = Number(row?.collected ?? 0);
+    const outstanding = Number(row?.outstanding ?? 0);
+    const revenueMtd = Number(row?.revenue_mtd ?? 0);
+    const total = collected + outstanding;
+    const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
+    res.json({ collected, outstanding, total, percentage, revenueMtd });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/stats/cashflow failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/activity — enriched activity feed with user attribution
+router.get("/erp/activity", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const rawLimit = parseInt(String(req.query.limit ?? "10"), 10);
+    const limit = isNaN(rawLimit) || rawLimit < 1 ? 10 : Math.min(rawLimit, 50);
+    const result = await db.execute(sql`
+      SELECT action, target, "user", timestamp FROM (
+        SELECT 'project_created' AS action, p.name AS target,
+          u.username AS "user", p.created_at AS timestamp
+        FROM projects p JOIN users u ON p.created_by = u.id
+        ORDER BY p.created_at DESC LIMIT 5
+      ) proj
+      UNION ALL
+      SELECT action, target, "user", timestamp FROM (
+        SELECT 'payment_paid' AS action,
+          p.name || ' · ' || pm.label AS target,
+          COALESCE(a.username, 'system') AS "user",
+          pm.paid_at AS timestamp
+        FROM payment_milestones pm
+        JOIN projects p ON pm.project_id = p.id
+        LEFT JOIN users a ON p.assigned_to = a.id
+        WHERE pm.paid_at IS NOT NULL
+        ORDER BY pm.paid_at DESC LIMIT 5
+      ) pay
+      UNION ALL
+      SELECT action, target, "user", timestamp FROM (
+        SELECT 'file_uploaded' AS action,
+          pf.file_type || ' · ' || p.name AS target,
+          u.username AS "user",
+          pf.created_at AS timestamp
+        FROM project_files pf
+        JOIN projects p ON pf.project_id = p.id
+        JOIN users u ON pf.uploaded_by = u.id
+        WHERE pf.is_active = true
+        ORDER BY pf.created_at DESC LIMIT 5
+      ) files
+      ORDER BY timestamp DESC
+      LIMIT ${limit}
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/activity failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // GET /erp/activity-feed — recent events from projects + paid milestones
 router.get("/erp/activity-feed", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {

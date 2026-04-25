@@ -569,6 +569,10 @@ export const translations = {
     dash_activity_title: "Activity Log",
     dash_activity_full_log: "Full Log",
     dash_cashflow_status_ok: "Healthy",
+    activity_project_created: "Project created",
+    activity_payment_paid: "Payment recorded",
+    activity_file_uploaded: "File uploaded",
+    activity_empty: "No activity yet",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1138,6 +1142,10 @@ export const translations = {
     dash_activity_title: "سجل النشاط",
     dash_activity_full_log: "السجل الكامل",
     dash_cashflow_status_ok: "سليم",
+    activity_project_created: "مشروع جديد",
+    activity_payment_paid: "دفعة مسجّلة",
+    activity_file_uploaded: "ملف مرفوع",
+    activity_empty: "لا يوجد نشاط حتى الآن",
   }
 };
 

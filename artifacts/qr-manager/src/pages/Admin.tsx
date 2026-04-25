@@ -62,8 +62,8 @@ interface Lead {
 
 type StageDist = Record<number, number>;
 
-interface CashflowSummary { collected: number; outstanding: number; revenueMtd: number; }
-interface ActivityItem { type: string; name: string; detail: string; time: string; }
+interface CashflowSummary { collected: number; outstanding: number; total: number; percentage: number; revenueMtd: number; }
+interface ActivityItem { action: string; target: string; user: string; timestamp: string; }
 
 // Stage pill tone by stageInternal range
 function stagePillCls(n: number): string {
@@ -165,7 +165,7 @@ export default function Admin() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
   const isErpUser = user?.role !== 'Accountant';
-  const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
+  const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant' || user?.role === 'FactoryManager';
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -219,8 +219,8 @@ export default function Admin() {
         fetch(`${BASE}/api/erp/leads`),
         fetch(`${BASE}/api/erp/leads/overdue-count`),
         fetch(`${BASE}/api/erp/projects/stage-distribution`),
-        fetch(`${BASE}/api/erp/activity-feed`),
-        isPaymentsUser ? fetch(`${BASE}/api/erp/payments/cashflow-summary`) : Promise.resolve(null),
+        fetch(`${BASE}/api/erp/activity`),
+        isPaymentsUser ? fetch(`${BASE}/api/erp/stats/cashflow`) : Promise.resolve(null),
       ]);
       if (projRes.ok) {
         const all: Project[] = await projRes.json();
@@ -978,33 +978,50 @@ export default function Admin() {
                     </li>
                   ))
                 ) : activity.length === 0 ? (
-                  <li className="px-5 py-8 text-center text-[#6B6A60] text-sm">{isRtl ? 'لا يوجد نشاط حتى الآن' : 'No activity yet'}</li>
+                  <li className="px-5 py-8 text-center text-[#6B6A60] text-sm">{t('activity_empty')}</li>
                 ) : (
-                  activity.map((item, i) => (
-                    <motion.li
-                      key={i}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.04 }}
-                      className="px-5 py-3.5 hover:bg-[#F4F2EB] transition-colors"
-                    >
-                      <div className={`flex items-start gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'payment' ? 'bg-[#E4F1E8]' : 'bg-[#E1ECF7]'}`}>
-                          {item.type === 'payment'
-                            ? <CreditCard className={`w-3.5 h-3.5 ${item.type === 'payment' ? 'text-[#1F7A4D]' : 'text-[#1E508C]'}`} />
-                            : <FolderOpen className="w-3.5 h-3.5 text-[#1E508C]" />
-                          }
+                  activity.map((item, i) => {
+                    const isPayment = item.action === 'payment_paid';
+                    const isFile = item.action === 'file_uploaded';
+                    const iconBg = isPayment ? 'bg-[#E4F1E8]' : isFile ? 'bg-[#F1EFE7]' : 'bg-[#E1ECF7]';
+                    const iconColor = isPayment ? 'text-[#1F7A4D]' : isFile ? 'text-[#6B6A60]' : 'text-[#1E508C]';
+                    const actionLabel = isPayment ? t('activity_payment_paid') : isFile ? t('activity_file_uploaded') : t('activity_project_created');
+                    return (
+                      <motion.li
+                        key={i}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.04 }}
+                        className="px-5 py-3.5 hover:bg-[#F4F2EB] transition-colors"
+                      >
+                        <div className={`flex items-start gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+                            {isPayment
+                              ? <CreditCard className={`w-3.5 h-3.5 ${iconColor}`} />
+                              : isFile
+                                ? <FileText className={`w-3.5 h-3.5 ${iconColor}`} />
+                                : <FolderOpen className={`w-3.5 h-3.5 ${iconColor}`} />
+                            }
+                          </div>
+                          <div className={`flex-1 min-w-0 ${isRtl ? 'text-end' : ''}`}>
+                            <p className="text-[13px] font-medium text-[#0F1020] truncate">{item.target}</p>
+                            <p className="text-[11.5px] text-[#6B6A60] mt-0.5">
+                              <span className="font-medium">{actionLabel}</span>
+                              {item.user && item.user !== 'system' && (
+                                <span className="mx-1 opacity-50">·</span>
+                              )}
+                              {item.user && item.user !== 'system' && (
+                                <span dir="ltr" className="ltr">{item.user}</span>
+                              )}
+                            </p>
+                          </div>
+                          <span className="text-[11px] text-[#6B6A60] num shrink-0 mt-0.5" dir="ltr">
+                            {relativeTime(item.timestamp, isRtl)}
+                          </span>
                         </div>
-                        <div className={`flex-1 min-w-0 ${isRtl ? 'text-end' : ''}`}>
-                          <p className="text-[13px] font-medium text-[#0F1020] truncate">{item.name}</p>
-                          <p className="text-[11.5px] text-[#6B6A60] mt-0.5 truncate">{item.detail}</p>
-                        </div>
-                        <span className="text-[11px] text-[#6B6A60] num shrink-0 mt-0.5" dir="ltr">
-                          {relativeTime(item.time, isRtl)}
-                        </span>
-                      </div>
-                    </motion.li>
-                  ))
+                      </motion.li>
+                    );
+                  })
                 )}
               </ul>
             </SectionCard>
