@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
@@ -196,4 +196,24 @@ textarea::placeholder {
   .space-y-6 > * {
     page-break-inside: avoid;
   }
+}
+
+/* ── Dashboard design system ── */
+.eyebrow {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6B6A60;
+  font-weight: 600;
+}
+.dash-card {
+  background: #FAFAF7;
+  border: 1px solid #ECEAE2;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.num {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
