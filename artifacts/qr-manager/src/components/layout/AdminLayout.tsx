@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package,
+  Menu, X, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -382,7 +382,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <aside className="hidden md:flex flex-col min-w-[220px] w-56 shrink-0 bg-[#1B2A4A] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <SidebarContent />
       </aside>
 
@@ -395,7 +395,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
@@ -403,8 +403,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               animate={{ x: 0 }}
               exit={{ x: isRtl ? '100%' : '-100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className={`fixed top-0 ${isRtl ? 'end-0' : 'start-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl lg:hidden [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
+              className={`fixed top-0 ${isRtl ? 'end-0' : 'start-0'} z-50 h-full w-60 bg-[#1B2A4A] shadow-2xl md:hidden [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
             >
+              <button
+                onClick={() => setMobileOpen(false)}
+                className={`absolute top-4 ${isRtl ? 'start-4' : 'end-4'} z-10 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.08] transition-colors`}
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
               <SidebarContent />
             </motion.aside>
           </>
@@ -414,7 +421,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="md:hidden sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
           <button
             onClick={() => setMobileOpen(true)}
             className="p-2 rounded-xl text-[#1B2A4A] hover:bg-slate-100 transition-colors"
