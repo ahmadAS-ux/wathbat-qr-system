@@ -27,14 +27,6 @@ interface DetectionItem {
   assignedType: string;
 }
 
-interface ExpectedFile {
-  value: string;
-  labelEn: string;
-  labelAr: string;
-  multi: boolean;
-  uploaded: boolean;
-}
-
 interface QROrder {
   id: number;
   originalFilename: string;
@@ -946,9 +938,6 @@ export default function ErpProjectDetail() {
   const [detectingBatch, setDetectingBatch] = useState(false);
   const [uploadingBatch, setUploadingBatch] = useState(false);
 
-  // Expected files checklist
-  const [expectedFiles, setExpectedFiles] = useState<ExpectedFile[]>([]);
-
   // All files including inactive (for version history)
   const [allFiles, setAllFiles] = useState<ProjectFile[]>([]);
 
@@ -1010,7 +999,7 @@ export default function ErpProjectDetail() {
     } catch {}
   };
 
-  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadExpectedFiles(); loadAllFiles(); }, [id]);
+  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadAllFiles(); }, [id]);
 
   const completionPct = (m: PaymentMilestone): number | null => {
     if (!m.paidAmount || !m.amount || m.amount === 0) return null;
@@ -1117,7 +1106,6 @@ export default function ErpProjectDetail() {
           await loadParsedData();
         }
       }
-      await loadExpectedFiles();
       await loadAllFiles();
     } finally {
       setUploadingFor(null);
@@ -1166,7 +1154,6 @@ export default function ErpProjectDetail() {
       await fetch(`${API_BASE}/api/erp/projects/${id}/files/${fileId}`, { method: 'DELETE' });
       await loadProject();
       await loadAllFiles();
-      await loadExpectedFiles();
     } finally {
       setDeletingFileId(null);
     }
@@ -1180,13 +1167,6 @@ export default function ErpProjectDetail() {
     } finally {
       setDeletingProject(false);
     }
-  };
-
-  const loadExpectedFiles = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files/expected`);
-      if (res.ok) setExpectedFiles(await res.json());
-    } catch {}
   };
 
   const loadAllFiles = async () => {
@@ -1237,7 +1217,6 @@ export default function ErpProjectDetail() {
         await uploadFile(item.file, item.assignedType);
       }
       setDetectionItems([]);
-      await loadExpectedFiles();
       await loadAllFiles();
     } finally {
       setUploadingBatch(false);
@@ -1766,20 +1745,30 @@ export default function ErpProjectDetail() {
             })}
           </div>
 
-          {/* Expected files checklist */}
-          {expectedFiles.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
-              <p className="text-xs font-semibold text-slate-500 mb-2">{t('files_expected_title')}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                {expectedFiles.map(ef => (
-                  <div key={ef.value} className={`flex items-center gap-2 text-xs py-0.5 ${ef.uploaded ? 'text-teal-600' : 'text-slate-400'}`}>
-                    {ef.uploaded ? <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" /> : <Circle className="w-3 h-3 text-slate-300 shrink-0" />}
-                    <span>{isRtl ? ef.labelAr : ef.labelEn}</span>
+          {/* Required files checklist — reads from same state as the slots above */}
+          <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
+            <p className="text-xs font-semibold text-[#6B6A60] mb-2">{t('files_expected_title')}</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              {FILE_SLOTS.map(slot => {
+                let checked: boolean;
+                if (slot.fileType === 'glass_order') {
+                  checked = fileFor('glass_order') !== null || qrOrders.length > 0;
+                } else if (slot.multiFile) {
+                  checked = allFiles.some(f => f.fileType === slot.fileType && f.isActive);
+                } else {
+                  checked = fileFor(slot.fileType) !== null;
+                }
+                return (
+                  <div key={slot.fileType} className={`flex items-center gap-2 text-xs py-0.5 ${checked ? 'text-teal-600' : 'text-[#6B6A60]'}`}>
+                    {checked
+                      ? <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" />
+                      : <Circle className="w-3 h-3 text-[#ECEAE2] shrink-0" />}
+                    <span>{isRtl ? slot.labelAr : slot.labelEn}</span>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Generate Contract — Stage 4 — visible to Admin, FactoryManager, SalesAgent */}
