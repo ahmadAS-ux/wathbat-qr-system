@@ -62,13 +62,16 @@ interface Lead {
 
 type StageDist = Record<number, number>;
 
-// ─── Design-system stage pill config ────────────────────────────────────────
-const STAGE_DESIGN: Record<string, { num: string; cls: string }> = {
-  new:           { num: '01', cls: 'bg-[#F1EFE7] text-[#3a3a3a] ring-1 ring-inset ring-[#E2E0D6]' },
-  in_study:      { num: '04', cls: 'bg-[#FBF0D6] text-[#9A6B0E] ring-1 ring-inset ring-[#EEDDB0]' },
-  in_production: { num: '07', cls: 'bg-[#E1ECF7] text-[#1E508C] ring-1 ring-inset ring-[#CFDEEF]' },
-  complete:      { num: '13', cls: 'bg-[#E4F1E8] text-[#1F7A4D] ring-1 ring-inset ring-[#CFE4D6]' },
-};
+interface CashflowSummary { collected: number; outstanding: number; revenueMtd: number; }
+interface ActivityItem { type: string; name: string; detail: string; time: string; }
+
+// Stage pill tone by stageInternal range
+function stagePillCls(n: number): string {
+  if (n <= 3)  return 'bg-[#F1EFE7] text-[#3a3a3a] ring-1 ring-inset ring-[#E2E0D6]';
+  if (n <= 6)  return 'bg-[#FBF0D6] text-[#9A6B0E] ring-1 ring-inset ring-[#EEDDB0]';
+  if (n <= 12) return 'bg-[#E1ECF7] text-[#1E508C] ring-1 ring-inset ring-[#CFDEEF]';
+  return 'bg-[#E4F1E8] text-[#1F7A4D] ring-1 ring-inset ring-[#CFE4D6]';
+}
 
 const REQ_STATUS: Record<string, string> = {
   New: 'bg-blue-50 text-[#1E508C] border border-blue-100',
@@ -164,8 +167,6 @@ export default function Admin() {
   const isErpUser = user?.role !== 'Accountant';
   const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'requests'>('dashboard');
-
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -173,8 +174,10 @@ export default function Admin() {
   const [totalProjectsCount, setTotalProjectsCount] = useState(0);
   const [overdueLeads, setOverdueLeads] = useState<Lead[]>([]);
   const [overdueLeadsCount, setOverdueLeadsCount] = useState(0);
-  const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
   const [stageDist, setStageDist] = useState<StageDist>({});
+  const [cashflow, setCashflow] = useState<CashflowSummary | null>(null);
+  const [cashflowLoading, setCashflowLoading] = useState(true);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [erpLoading, setErpLoading] = useState(true);
@@ -209,13 +212,15 @@ export default function Admin() {
   const fetchErpData = async () => {
     if (!isErpUser) return;
     setErpLoading(true);
+    setCashflowLoading(true);
     try {
-      const [projRes, leadsRes, overdueLeadsRes, overduePayRes, stageRes] = await Promise.all([
+      const [projRes, leadsRes, overdueLeadsRes, stageRes, activityRes, cashflowRes] = await Promise.all([
         fetch(`${BASE}/api/erp/projects`),
         fetch(`${BASE}/api/erp/leads`),
         fetch(`${BASE}/api/erp/leads/overdue-count`),
-        isPaymentsUser ? fetch(`${BASE}/api/erp/payments/overdue-count`) : Promise.resolve(null),
         fetch(`${BASE}/api/erp/projects/stage-distribution`),
+        fetch(`${BASE}/api/erp/activity-feed`),
+        isPaymentsUser ? fetch(`${BASE}/api/erp/payments/cashflow-summary`) : Promise.resolve(null),
       ]);
       if (projRes.ok) {
         const all: Project[] = await projRes.json();
@@ -233,15 +238,12 @@ export default function Admin() {
         const d = await overdueLeadsRes.json();
         setOverdueLeadsCount(d.count ?? 0);
       }
-      if (overduePayRes && overduePayRes.ok) {
-        const d = await overduePayRes.json();
-        setOverduePaymentsCount(d.count ?? 0);
-      }
-      if (stageRes.ok) {
-        setStageDist(await stageRes.json());
-      }
+      if (stageRes.ok) setStageDist(await stageRes.json());
+      if (activityRes.ok) setActivity(await activityRes.json());
+      if (cashflowRes && cashflowRes.ok) setCashflow(await cashflowRes.json());
     } finally {
       setErpLoading(false);
+      setCashflowLoading(false);
     }
   };
 
@@ -336,8 +338,44 @@ export default function Admin() {
   const fmtValue = (v: number | null) => v ? v.toLocaleString() : '—';
   const statusOptions = ['New', 'In Progress', 'Done'];
 
-  // ── KPI card definitions ──
+  // ── KPI card definitions (matches design: QR Issued, Outstanding, Revenue MTD, Active Projects) ──
+  const fmtSar = (v: number, divisor: number, decimals = 2) =>
+    (v / divisor).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
   const kpiCards = [
+    {
+      eyebrow: 'QR CODES ISSUED',
+      label: t('dash_qr_issued'),
+      value: loading ? '…' : String(metrics?.totalQRsGenerated ?? 0),
+      unit: isRtl ? 'رمز' : 'codes',
+      delta: null as string | null,
+      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
+      sparkPoints: [2,3,4,5,4,6,7,8,9,11],
+      sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
+      loading,
+    },
+    ...(isPaymentsUser ? [{
+      eyebrow: 'OUTSTANDING',
+      label: t('dash_outstanding_kpi'),
+      value: cashflowLoading ? '…' : fmtSar(cashflow?.outstanding ?? 0, 1000),
+      unit: isRtl ? 'ألف ر.س' : 'K SAR',
+      delta: null as string | null,
+      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
+      sparkPoints: [14,13,12,11,12,10,9,8,8,7],
+      sparkTone: 'mute' as 'ok' | 'danger' | 'mute',
+      loading: cashflowLoading,
+    }] : []),
+    ...(isPaymentsUser ? [{
+      eyebrow: 'REVENUE · MTD',
+      label: t('dash_revenue_mtd'),
+      value: cashflowLoading ? '…' : fmtSar(cashflow?.revenueMtd ?? 0, 1000000),
+      unit: isRtl ? 'مليون ر.س' : 'M SAR',
+      delta: null as string | null,
+      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
+      sparkPoints: [6,5,7,8,7,10,12,11,14,16],
+      sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
+      loading: cashflowLoading,
+    }] : []),
     ...(isErpUser ? [{
       eyebrow: 'ACTIVE PROJECTS',
       label: t('dash_active_projects'),
@@ -349,53 +387,10 @@ export default function Admin() {
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
       loading: erpLoading,
     }] : []),
-    ...(isErpUser ? [{
-      eyebrow: 'OVERDUE FOLLOW-UPS',
-      label: t('dash_overdue_leads'),
-      value: erpLoading ? '…' : String(overdueLeadsCount),
-      unit: isRtl ? 'متابعة' : 'leads',
-      delta: overdueLeadsCount > 0 ? `+${overdueLeadsCount}` : null,
-      deltaTone: (overdueLeadsCount > 0 ? 'danger' : 'ok') as 'ok' | 'danger' | 'mute',
-      sparkPoints: overdueLeadsCount > 0 ? [3,5,4,7,6,8,9,10,11,12] : [8,7,6,5,6,4,3,2,2,1],
-      sparkTone: (overdueLeadsCount > 0 ? 'danger' : 'ok') as 'ok' | 'danger' | 'mute',
-      loading: erpLoading,
-    }] : []),
-    ...(isPaymentsUser ? [{
-      eyebrow: 'OVERDUE PAYMENTS',
-      label: t('dash_pending_payments'),
-      value: erpLoading ? '…' : String(overduePaymentsCount),
-      unit: isRtl ? 'دفعة' : 'payments',
-      delta: overduePaymentsCount > 0 ? `+${overduePaymentsCount}` : null,
-      deltaTone: (overduePaymentsCount > 0 ? 'danger' : 'ok') as 'ok' | 'danger' | 'mute',
-      sparkPoints: [14,13,12,11,12,10,9,8,8,7],
-      sparkTone: (overduePaymentsCount > 0 ? 'danger' : 'ok') as 'ok' | 'danger' | 'mute',
-      loading: erpLoading,
-    }] : []),
-    {
-      eyebrow: 'DOCUMENTS PROCESSED',
-      label: t('dash_docs_processed'),
-      value: loading ? '…' : String(metrics?.totalDocsProcessed ?? 0),
-      unit: isRtl ? 'مستند' : 'docs',
-      delta: null as string | null,
-      deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [2,3,4,5,4,6,7,8,9,11],
-      sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
-      loading,
-    },
   ];
 
   const funnelMax = Math.max(1, ...FUNNEL_STAGES.map(s => stageDist[s.n] ?? 0));
   const funnelTotal = FUNNEL_STAGES.reduce((a, s) => a + (stageDist[s.n] ?? 0), 0);
-
-  // ── Stage pill label helper ──
-  const stagePillLabel = (stageDisplay: string) => {
-    if (isRtl) {
-      const map: Record<string, string> = { new: t('dash_stage_new'), in_study: t('dash_stage_in_study'), in_production: t('dash_stage_in_production'), complete: t('dash_stage_complete') };
-      return map[stageDisplay] ?? stageDisplay;
-    }
-    const map: Record<string, string> = { new: 'New', in_study: 'Study', in_production: 'Production', complete: 'Complete' };
-    return map[stageDisplay] ?? stageDisplay;
-  };
 
   return (
     <AdminLayout>
@@ -453,33 +448,8 @@ export default function Admin() {
           </div>
         </header>
 
-        {/* ── Tabs ── */}
-        <div className="bg-white border-b border-[#ECEAE2]" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="max-w-[1400px] mx-auto px-6 flex items-center gap-0">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-5 py-3.5 text-[13.5px] font-medium border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-[#141A24] text-[#141A24]' : 'border-transparent text-[#6B6A60] hover:text-[#141A24]'}`}
-            >
-              {t('dash_tab_dashboard')}
-            </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`px-5 py-3.5 text-[13.5px] font-medium border-b-2 transition-colors inline-flex items-center gap-2 ${activeTab === 'requests' ? 'border-[#141A24] text-[#141A24]' : 'border-transparent text-[#6B6A60] hover:text-[#141A24]'}`}
-            >
-              {t('dash_tab_requests')}
-              {requests.length > 0 && (
-                <span className="num text-[11px] bg-[#ECEAE2] text-[#6B6A60] px-1.5 py-0.5 rounded-full">
-                  {requests.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
         <div className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
 
-          {activeTab === 'dashboard' && (
-            <>
               {/* ── KPI Row ── */}
               <div className={`grid gap-5 ${kpiCards.length === 4 ? 'grid-cols-2 lg:grid-cols-4' : kpiCards.length === 3 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'}`}>
                 {kpiCards.map((card, i) => (
@@ -569,7 +539,7 @@ export default function Admin() {
                               </tr>
                             ) : (
                               recentProjects.map((p, i) => {
-                                const pill = STAGE_DESIGN[p.stageDisplay] ?? STAGE_DESIGN.new;
+                                const stageInfo = FUNNEL_STAGES.find(s => s.n === p.stageInternal) ?? FUNNEL_STAGES[0];
                                 return (
                                   <motion.tr
                                     key={p.id}
@@ -586,9 +556,9 @@ export default function Admin() {
                                     </td>
                                     {/* Stage pill */}
                                     <td className="px-3 py-3.5">
-                                      <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${pill.cls}`}>
-                                        <span className="num text-[10.5px] opacity-70">{pill.num}</span>
-                                        {stagePillLabel(p.stageDisplay)}
+                                      <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${stagePillCls(p.stageInternal)}`}>
+                                        <span className="num text-[10.5px] opacity-70">{String(p.stageInternal).padStart(2, '0')}</span>
+                                        {isRtl ? stageInfo.ar : stageInfo.en}
                                       </span>
                                     </td>
                                     {/* Value */}
@@ -610,6 +580,87 @@ export default function Admin() {
                                   </motion.tr>
                                 );
                               })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </SectionCard>
+                  )}
+
+                  {/* Maintenance Requests — inline below Recent Projects (ERP users) */}
+                  {isErpUser && (
+                    <SectionCard>
+                      <SectionHeader
+                        eyebrow="MAINTENANCE REQUESTS"
+                        title={t('dash_recent_requests')}
+                        isRtl={isRtl}
+                        action={
+                          <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                            <button
+                              onClick={openNewReq}
+                              className={`flex items-center gap-1.5 text-[12.5px] font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3 py-1.5 rounded-lg transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              {t('admin_new_request')}
+                            </button>
+                            <Link href="/admin/requests">
+                              <button className={`flex items-center gap-1 text-[12.5px] font-medium text-[#141A24] hover:underline underline-offset-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                {t('view_all')}
+                                {isRtl ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                              </button>
+                            </Link>
+                          </div>
+                        }
+                      />
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[13px]" dir={isRtl ? 'rtl' : 'ltr'}>
+                          <thead>
+                            <tr className="border-b border-[#ECEAE2] bg-[#F4F2EB]">
+                              {[t('admin_col_id'), t('admin_col_position'), t('admin_history_project'), t('admin_col_message'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, idx) => (
+                                <th key={idx} className="px-5 py-2.5 text-[11px] font-semibold text-[#6B6A60] uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loading ? (
+                              <tr><td colSpan={isAdmin ? 7 : 6} className="px-5 py-10 text-center text-[#6B6A60]"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
+                            ) : requests.length === 0 ? (
+                              <tr><td colSpan={isAdmin ? 7 : 6} className="px-5 py-10 text-center text-[#6B6A60] text-sm">{t('admin_no_requests')}</td></tr>
+                            ) : (
+                              requests.map((row, i) => (
+                                <motion.tr
+                                  key={row.id}
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  transition={{ delay: i * 0.03 }}
+                                  className="border-b border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
+                                >
+                                  <td className="px-5 py-3.5 num text-[11px] text-[#6B6A60]">#{row.id}</td>
+                                  <td className="px-5 py-3.5 font-semibold text-[#0F1020]">{row.positionId}</td>
+                                  <td className="px-5 py-3.5 text-[#6B6A60]">{row.projectName || '—'}</td>
+                                  <td className="px-5 py-3.5 text-[#0F1020] max-w-[160px]">
+                                    {row.message ? <span className="block truncate" title={row.message}>{row.message}</span> : <span className="text-[#6B6A60]">—</span>}
+                                  </td>
+                                  <td className="px-5 py-3.5 num text-[#6B6A60] whitespace-nowrap text-[12px]">{fmtDate(row.createdAt)}</td>
+                                  <td className="px-5 py-3.5">
+                                    <select
+                                      value={row.status}
+                                      disabled={updatingId === row.id}
+                                      onChange={e => updateStatus(row.id, e.target.value)}
+                                      className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                                    >
+                                      {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                  </td>
+                                  {isAdmin && (
+                                    <td className="px-5 py-3.5">
+                                      <button onClick={() => deleteRequest(row.id)} disabled={deletingReqId === row.id} className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-[#6B6A60] hover:text-[#A0312A] hover:bg-[#F7E2DF] disabled:opacity-40 transition-colors" title="Delete">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  )}
+                                </motion.tr>
+                              ))
                             )}
                           </tbody>
                         </table>
@@ -715,6 +766,59 @@ export default function Admin() {
                         })}
                       </div>
                     </SectionCard>
+
+                    {/* Cashflow widget — التدفق النقدي */}
+                    {isPaymentsUser && (
+                      <SectionCard>
+                        <div className="px-5 py-4 border-b border-[#ECEAE2]" dir={isRtl ? 'rtl' : 'ltr'}>
+                          <div className="eyebrow">CASHFLOW · MTD</div>
+                          <h3 className="text-[15px] font-bold text-[#0F1020] mt-0.5">{t('dash_cashflow_title')}</h3>
+                        </div>
+                        <div className="px-5 py-4 space-y-4" dir={isRtl ? 'rtl' : 'ltr'}>
+                          {cashflowLoading ? (
+                            <div className="space-y-3">
+                              <div className="h-2.5 bg-[#ECEAE2] rounded-full animate-pulse" />
+                              <div className="h-8 bg-[#ECEAE2] rounded animate-pulse" />
+                              <div className="h-8 bg-[#ECEAE2] rounded animate-pulse" />
+                            </div>
+                          ) : (
+                            <>
+                              {/* Progress bar: collected vs outstanding */}
+                              {(() => {
+                                const total = (cashflow?.collected ?? 0) + (cashflow?.outstanding ?? 0);
+                                const collectedPct = total > 0 ? ((cashflow?.collected ?? 0) / total) * 100 : 0;
+                                return (
+                                  <div className="h-2 rounded-full bg-[#F1EFE7] overflow-hidden flex">
+                                    <div className="h-full rounded-full bg-[#1F7A4D] transition-all" style={{ width: `${collectedPct}%` }} />
+                                    <div className="h-full flex-1 bg-[#EEDDB0]" />
+                                  </div>
+                                );
+                              })()}
+                              {/* Collected */}
+                              <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                  <span className="w-2.5 h-2.5 rounded-full bg-[#1F7A4D] shrink-0" />
+                                  <span className="text-[12.5px] text-[#6B6A60]">{t('dash_cashflow_collected')}</span>
+                                </div>
+                                <span className="num text-[13px] font-semibold text-[#0F1020]" dir="ltr">
+                                  {fmtSar(cashflow?.collected ?? 0, 1000, 1)} K
+                                </span>
+                              </div>
+                              {/* Outstanding */}
+                              <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                  <span className="w-2.5 h-2.5 rounded-full bg-[#EEDDB0] ring-1 ring-[#9A6B0E]/30 shrink-0" />
+                                  <span className="text-[12.5px] text-[#6B6A60]">{t('dash_cashflow_outstanding_label')}</span>
+                                </div>
+                                <span className="num text-[13px] font-semibold text-[#9A6B0E]" dir="ltr">
+                                  {fmtSar(cashflow?.outstanding ?? 0, 1000, 1)} K
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </SectionCard>
+                    )}
 
                     {/* Needs Attention (overdue leads) */}
                     <SectionCard>
@@ -845,87 +949,64 @@ export default function Admin() {
                   </div>
                 )}
               </div>
-            </>
-          )}
 
-          {/* ── Tab 2: Maintenance Requests ── */}
-          {activeTab === 'requests' && (
-            <SectionCard>
+          {/* ── Activity Feed — سجل النشاط ── */}
+          {isErpUser && (
+            <SectionCard className="mt-6">
               <SectionHeader
-                eyebrow="MAINTENANCE REQUESTS"
-                title={t('dash_recent_requests')}
+                eyebrow="ACTIVITY · LIVE"
+                title={t('dash_activity_title')}
                 isRtl={isRtl}
                 action={
-                  <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <button
-                      onClick={openNewReq}
-                      className={`flex items-center gap-1.5 text-[12.5px] font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3 py-1.5 rounded-lg transition-colors ${isRtl ? 'flex-row-reverse' : ''}`}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      {t('admin_new_request')}
+                  <Link href="/erp/projects">
+                    <button className={`flex items-center gap-1 text-[12.5px] font-medium text-[#141A24] hover:underline underline-offset-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      {t('dash_activity_full_log')}
+                      {isRtl ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
                     </button>
-                    <Link href="/admin/requests">
-                      <button className={`flex items-center gap-1 text-[12.5px] font-medium text-[#141A24] hover:underline underline-offset-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        {t('view_all')}
-                        {isRtl ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                      </button>
-                    </Link>
-                  </div>
+                  </Link>
                 }
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px]" dir={isRtl ? 'rtl' : 'ltr'}>
-                  <thead>
-                    <tr className="border-b border-[#ECEAE2] bg-[#F4F2EB]">
-                      {[t('admin_col_id'), t('admin_col_position'), t('admin_history_project'), t('admin_col_message'), t('admin_col_date'), t('admin_col_status'), ...(isAdmin ? [''] : [])].map((h, idx) => (
-                        <th key={idx} className="px-5 py-2.5 text-[11px] font-semibold text-[#6B6A60] uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td colSpan={isAdmin ? 7 : 6} className="px-5 py-10 text-center text-[#6B6A60]"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></td></tr>
-                    ) : requests.length === 0 ? (
-                      <tr><td colSpan={isAdmin ? 7 : 6} className="px-5 py-10 text-center text-[#6B6A60] text-sm">{t('admin_no_requests')}</td></tr>
-                    ) : (
-                      requests.map((row, i) => (
-                        <motion.tr
-                          key={row.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: i * 0.03 }}
-                          className="border-b border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
-                        >
-                          <td className="px-5 py-3.5 num text-[11px] text-[#6B6A60]">#{row.id}</td>
-                          <td className="px-5 py-3.5 font-semibold text-[#0F1020]">{row.positionId}</td>
-                          <td className="px-5 py-3.5 text-[#6B6A60]">{row.projectName || '—'}</td>
-                          <td className="px-5 py-3.5 text-[#0F1020] max-w-[160px]">
-                            {row.message ? <span className="block truncate" title={row.message}>{row.message}</span> : <span className="text-[#6B6A60]">—</span>}
-                          </td>
-                          <td className="px-5 py-3.5 num text-[#6B6A60] whitespace-nowrap text-[12px]">{fmtDate(row.createdAt)}</td>
-                          <td className="px-5 py-3.5">
-                            <select
-                              value={row.status}
-                              disabled={updatingId === row.id}
-                              onChange={e => updateStatus(row.id, e.target.value)}
-                              className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full cursor-pointer outline-none transition-all border ${REQ_STATUS[row.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
-                            >
-                              {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </td>
-                          {isAdmin && (
-                            <td className="px-5 py-3.5">
-                              <button onClick={() => deleteRequest(row.id)} disabled={deletingReqId === row.id} className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-[#6B6A60] hover:text-[#A0312A] hover:bg-[#F7E2DF] disabled:opacity-40 transition-colors" title="Delete">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          )}
-                        </motion.tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="divide-y divide-[#ECEAE2]" dir={isRtl ? 'rtl' : 'ltr'}>
+                {erpLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <li key={i} className="px-5 py-3.5 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#ECEAE2] animate-pulse shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 bg-[#ECEAE2] rounded animate-pulse w-3/4" />
+                        <div className="h-2.5 bg-[#ECEAE2] rounded animate-pulse w-1/2" />
+                      </div>
+                    </li>
+                  ))
+                ) : activity.length === 0 ? (
+                  <li className="px-5 py-8 text-center text-[#6B6A60] text-sm">{isRtl ? 'لا يوجد نشاط حتى الآن' : 'No activity yet'}</li>
+                ) : (
+                  activity.map((item, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.04 }}
+                      className="px-5 py-3.5 hover:bg-[#F4F2EB] transition-colors"
+                    >
+                      <div className={`flex items-start gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'payment' ? 'bg-[#E4F1E8]' : 'bg-[#E1ECF7]'}`}>
+                          {item.type === 'payment'
+                            ? <CreditCard className={`w-3.5 h-3.5 ${item.type === 'payment' ? 'text-[#1F7A4D]' : 'text-[#1E508C]'}`} />
+                            : <FolderOpen className="w-3.5 h-3.5 text-[#1E508C]" />
+                          }
+                        </div>
+                        <div className={`flex-1 min-w-0 ${isRtl ? 'text-end' : ''}`}>
+                          <p className="text-[13px] font-medium text-[#0F1020] truncate">{item.name}</p>
+                          <p className="text-[11.5px] text-[#6B6A60] mt-0.5 truncate">{item.detail}</p>
+                        </div>
+                        <span className="text-[11px] text-[#6B6A60] num shrink-0 mt-0.5" dir="ltr">
+                          {relativeTime(item.time, isRtl)}
+                        </span>
+                      </div>
+                    </motion.li>
+                  ))
+                )}
+              </ul>
             </SectionCard>
           )}
 

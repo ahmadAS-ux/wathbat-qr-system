@@ -2355,4 +2355,52 @@ router.get("/erp/payments/all", requireRole("Admin", "Accountant"), async (req: 
   }
 });
 
+// GET /erp/payments/cashflow-summary — collected, outstanding, revenue MTD
+router.get("/erp/payments/cashflow-summary", requireRole("Admin", "Accountant"), async (req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(CASE WHEN paid_amount IS NOT NULL THEN paid_amount ELSE 0 END), 0)::int AS collected,
+        COALESCE(SUM(CASE WHEN status != 'paid' THEN COALESCE(amount, 0) - COALESCE(paid_amount, 0) ELSE 0 END), 0)::int AS outstanding,
+        COALESCE(SUM(CASE WHEN date_trunc('month', paid_at) = date_trunc('month', NOW()) THEN COALESCE(paid_amount, 0) ELSE 0 END), 0)::int AS revenue_mtd
+      FROM payment_milestones
+    `);
+    const row = result.rows[0] as any;
+    res.json({
+      collected: Number(row?.collected ?? 0),
+      outstanding: Number(row?.outstanding ?? 0),
+      revenueMtd: Number(row?.revenue_mtd ?? 0),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/payments/cashflow-summary failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/activity-feed — recent events from projects + paid milestones
+router.get("/erp/activity-feed", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT type, name, detail, time FROM (
+        SELECT 'project' AS type, name, customer_name AS detail, created_at AS time
+        FROM projects ORDER BY created_at DESC LIMIT 4
+      ) proj
+      UNION ALL
+      SELECT type, name, detail, time FROM (
+        SELECT 'payment' AS type, p.name AS name,
+          pm.label || ' · ' || pm.paid_amount::text || ' ر.س' AS detail,
+          pm.paid_at AS time
+        FROM payment_milestones pm
+        JOIN projects p ON pm.project_id = p.id
+        WHERE pm.paid_at IS NOT NULL ORDER BY pm.paid_at DESC LIMIT 4
+      ) pay
+      ORDER BY time DESC LIMIT 6
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/activity-feed failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 export default router;

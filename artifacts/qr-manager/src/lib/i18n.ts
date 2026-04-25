@@ -558,6 +558,15 @@ export const translations = {
     dash_trend_last_month: "vs last month",
     dash_last_updated: "Last Updated",
     dash_project_code: "Project No.",
+    dash_cashflow_title: "Cash Flow",
+    dash_cashflow_collected: "Collected",
+    dash_cashflow_outstanding_label: "Outstanding",
+    dash_revenue_mtd: "Revenue · MTD",
+    dash_outstanding_kpi: "Outstanding",
+    dash_qr_issued: "QR Codes Issued",
+    dash_activity_title: "Activity Log",
+    dash_activity_full_log: "Full Log",
+    dash_cashflow_status_ok: "Healthy",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1116,6 +1125,15 @@ export const translations = {
     dash_trend_last_month: "عن الشهر الماضي",
     dash_last_updated: "آخر تحديث",
     dash_project_code: "رقم المشروع",
+    dash_cashflow_title: "التدفق النقدي",
+    dash_cashflow_collected: "محصّل",
+    dash_cashflow_outstanding_label: "معلّق",
+    dash_revenue_mtd: "الإيرادات هذا الشهر",
+    dash_outstanding_kpi: "مستحقات معلّقة",
+    dash_qr_issued: "رموز QR صادرة",
+    dash_activity_title: "سجل النشاط",
+    dash_activity_full_log: "السجل الكامل",
+    dash_cashflow_status_ok: "سليم",
   }
 };
 
