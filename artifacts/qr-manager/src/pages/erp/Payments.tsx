@@ -102,16 +102,16 @@ export default function ErpPayments() {
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-slate-300" /></div>
         ) : milestones.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-8 text-center">
             <p className="text-sm text-slate-400">{t('erp_payments_no_data')}</p>
           </div>
         ) : (
           <div className="space-y-6">
             {Object.entries(grouped).map(([projectId, group]) => (
-              <div key={projectId} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div key={projectId} className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
                 {/* Project header */}
                 <div
-                  className="px-5 py-3 bg-[#1B2A4A]/3 border-b border-slate-100 flex items-center justify-between gap-2 cursor-pointer hover:bg-[#1B2A4A]/5 transition-colors"
+                  className="px-5 py-3 bg-[#141A24]/3 border-b border-[#ECEAE2] flex items-center justify-between gap-2 cursor-pointer hover:bg-[#141A24]/5 transition-colors"
                   onClick={() => navigate(`/erp/projects/${projectId}`)}
                 >
                   <div>
@@ -129,7 +129,7 @@ export default function ErpPayments() {
                       ? 'bg-teal-50 text-teal-600 border-teal-100'
                       : m.status === 'overdue'
                       ? 'bg-red-50 text-red-600 border-red-100'
-                      : 'bg-slate-100 text-slate-500 border-slate-200';
+                      : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]';
                     const statusLabel = m.status === 'paid'
                       ? t('erp_payment_status_paid')
                       : m.status === 'overdue'
@@ -159,7 +159,7 @@ export default function ErpPayments() {
 
                         {/* Attachment row with completion badge */}
                         {m.qoyod_doc_file_id != null && pct !== null && (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F4F2EB] border border-[#ECEAE2]">
                             <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="text-xs text-slate-500 flex-1">{t('erp_payment_proof')}</span>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${pct >= 100 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
@@ -185,7 +185,7 @@ export default function ErpPayments() {
                                   <input
                                     type="number"
                                     min="0"
-                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                                     value={payForm.paidAmount}
                                     onChange={e => setPayForm(f => ({ ...f, paidAmount: e.target.value }))}
                                     dir="ltr"
@@ -195,7 +195,7 @@ export default function ErpPayments() {
                                 <div>
                                   <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
                                   <input
-                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                                     value={payForm.notes}
                                     onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
                                   />
@@ -228,7 +228,7 @@ export default function ErpPayments() {
                                 </button>
                                 <button
                                   onClick={() => { setPayingId(null); setPayForm({ paidAmount: '', notes: '', file: null }); }}
-                                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
                                 >
                                   {t('erp_cancel')}
                                 </button>

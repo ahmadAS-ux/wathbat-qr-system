@@ -175,14 +175,14 @@ export default function ErpLeadDetail() {
         </button>
 
         {/* Lead Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 mb-4">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <h1 className="text-xl font-bold text-[#1B2A4A]">{lead.customerName}</h1>
               <p className="text-slate-500 text-sm mt-0.5" dir="ltr">{lead.phone}</p>
             </div>
             <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
                 {statusLabel[lead.status] ?? lead.status}
               </span>
               {canDelete && (
@@ -253,7 +253,7 @@ export default function ErpLeadDetail() {
 
           {/* Action Buttons */}
           {isActive && (
-            <div className="flex gap-3 mt-5 pt-4 border-t border-slate-100">
+            <div className="flex gap-3 mt-5 pt-4 border-t border-[#ECEAE2]">
               {canConvert && (
                 <button
                   onClick={convertToProject}
@@ -277,11 +277,11 @@ export default function ErpLeadDetail() {
 
         {/* Add Log Form */}
         {isActive && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
             <h2 className="font-semibold text-[#1B2A4A] mb-3">{t('erp_add_log')}</h2>
             <form onSubmit={addLog} className="space-y-3">
               <textarea
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                 rows={3}
                 placeholder={t('erp_log_note')}
                 value={note}
@@ -293,7 +293,7 @@ export default function ErpLeadDetail() {
                   <input
                     type="date"
                     dir="ltr"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                    className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={nextDate}
                     onChange={e => setNextDate(e.target.value)}
                   />
@@ -301,7 +301,7 @@ export default function ErpLeadDetail() {
                 <button
                   type="submit"
                   disabled={savingLog || !note.trim()}
-                  className="px-5 py-2 bg-[#1B2A4A] text-white rounded-xl text-sm font-semibold hover:bg-[#1B2A4A]/90 disabled:opacity-50 transition-colors mt-4"
+                  className="px-5 py-2 bg-[#141A24] text-white rounded-xl text-sm font-semibold hover:bg-[#0B1019] disabled:opacity-50 transition-colors mt-4"
                 >
                   {savingLog ? '...' : t('erp_log_save')}
                 </button>
@@ -311,15 +311,15 @@ export default function ErpLeadDetail() {
         )}
 
         {/* Contact Log Timeline */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
           <h2 className="font-semibold text-[#1B2A4A] mb-4">{t('erp_contact_log')}</h2>
           {lead.logs.length === 0 ? (
             <p className="text-slate-400 text-sm">{t('erp_no_leads')}</p>
           ) : (
-            <ol className="relative border-s border-slate-200 space-y-4 ms-3">
+            <ol className="relative border-s border-[#ECEAE2] space-y-4 ms-3">
               {[...lead.logs].reverse().map(log => (
                 <li key={log.id} className="ms-4">
-                  <span className="absolute -start-1.5 mt-1 w-3 h-3 rounded-full bg-[#1B2A4A]/20 border-2 border-[#1B2A4A]/40" />
+                  <span className="absolute -start-1.5 mt-1 w-3 h-3 rounded-full bg-[#141A24]/20 border-2 border-[#1B2A4A]/40" />
                   <p className="text-sm text-slate-700 leading-relaxed">{log.note}</p>
                   <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
                     <span dir="ltr">{new Date(log.createdAt).toLocaleDateString()}</span>
@@ -340,7 +340,7 @@ export default function ErpLeadDetail() {
       {/* Lose Modal */}
       {showLoseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-5 h-5 text-red-500" />
               <h2 className="font-bold text-[#1B2A4A]">{t('erp_lose_btn')}</h2>
@@ -348,7 +348,7 @@ export default function ErpLeadDetail() {
             <div className="mb-4">
               <label className="block text-sm text-slate-600 mb-2">{t('erp_lose_reason')}</label>
               <textarea
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
                 rows={3}
                 placeholder={t('ph_lose_reason')}
                 value={loseReason}
@@ -356,7 +356,7 @@ export default function ErpLeadDetail() {
               />
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowLoseModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+              <button onClick={() => setShowLoseModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-[#ECEAE2] rounded-xl transition-colors">
                 {t('erp_cancel')}
               </button>
               <button
@@ -374,7 +374,7 @@ export default function ErpLeadDetail() {
       {/* Delete Lead Modal */}
       {showDeleteLead && lead && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -391,13 +391,13 @@ export default function ErpLeadDetail() {
                 </p>
                 <ul className="space-y-1">
                   {linkedProjects.map(p => (
-                    <li key={p.id} className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-1.5 border border-slate-100">{p.name}</li>
+                    <li key={p.id} className="text-sm text-slate-700 bg-[#F4F2EB] rounded-lg px-3 py-1.5 border border-[#ECEAE2]">{p.name}</li>
                   ))}
                 </ul>
               </div>
             )}
             <div className={`flex gap-3 justify-end mt-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button onClick={() => setShowDeleteLead(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              <button onClick={() => setShowDeleteLead(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-[#ECEAE2] rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                 {t('erp_cancel')}
               </button>
               <button

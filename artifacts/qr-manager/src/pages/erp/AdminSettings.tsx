@@ -70,7 +70,7 @@ export default function AdminSettings() {
   };
 
   const textareaClass = (dir: 'rtl' | 'ltr') =>
-    `w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20 focus:border-[#1B2A4A]/40 transition-colors bg-white ${
+    `w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 transition-colors bg-white ${
       dir === 'rtl' ? 'font-[Tajawal]' : 'font-[DM_Sans,sans-serif]'
     }`;
 
@@ -143,7 +143,7 @@ export default function AdminSettings() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className={`flex items-center gap-2 px-5 py-2.5 bg-[#1B2A4A] text-white text-sm font-semibold rounded-xl hover:bg-[#243860] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                className={`flex items-center gap-2 px-5 py-2.5 bg-[#141A24] text-white text-sm font-semibold rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
               >
                 <Save className="w-4 h-4" />
                 {saving ? t('saving_text') : t('contract_settings_save')}

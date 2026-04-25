@@ -135,7 +135,7 @@ interface Project {
 }
 
 const STAGE_DISPLAY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  new:           { bg: 'bg-slate-100',  text: 'text-slate-600',  border: 'border-slate-200',  dot: 'bg-slate-400'   },
+  new:           { bg: 'bg-[#ECEAE2]',  text: 'text-slate-600',  border: 'border-[#ECEAE2]',  dot: 'bg-slate-400'   },
   in_study:      { bg: 'bg-blue-50',    text: 'text-[#185FA5]',  border: 'border-blue-200',   dot: 'bg-[#185FA5]'   },
   in_production: { bg: 'bg-amber-50',   text: 'text-[#B8860B]',  border: 'border-amber-200',  dot: 'bg-[#B8860B]'   },
   complete:      { bg: 'bg-teal-50',    text: 'text-[#0F6E56]',  border: 'border-teal-200',   dot: 'bg-[#0F6E56]'   },
@@ -193,7 +193,7 @@ function phaseStatusColor(s: string): string {
   if (s === 'installed') return 'bg-blue-50 text-blue-700 border-blue-200';
   if (s === 'delivered') return 'bg-amber-50 text-amber-700 border-amber-200';
   if (s === 'manufacturing') return 'bg-purple-50 text-purple-700 border-purple-200';
-  return 'bg-slate-100 text-slate-600 border-slate-200';
+  return 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]';
 }
 
 function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl: boolean; t: (k: string) => string; user: { role: string } | null }) {
@@ -286,30 +286,30 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
   const isActing = (phaseId: number, action: string) => actionLoading === `${phaseId}-${action}`;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+    <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
         <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('phases_title')}</h2>
         {canManage && (
-          <button onClick={() => setShowAdd(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+          <button onClick={() => setShowAdd(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
             <Plus className="w-3.5 h-3.5" /> {t('phases_add')}
           </button>
         )}
       </div>
 
       {showAdd && (
-        <div className="mb-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+        <div className="mb-4 p-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('phase_number')}</label>
-              <input type="number" value={addForm.phaseNumber} onChange={e => setAddForm(f => ({ ...f, phaseNumber: e.target.value }))} placeholder={String(phases.length + 1)} min={1} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+              <input type="number" value={addForm.phaseNumber} onChange={e => setAddForm(f => ({ ...f, phaseNumber: e.target.value }))} placeholder={String(phases.length + 1)} min={1} className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
             </div>
             <div>
               <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('phase_label')}</label>
-              <input type="text" value={addForm.label} onChange={e => setAddForm(f => ({ ...f, label: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+              <input type="text" value={addForm.label} onChange={e => setAddForm(f => ({ ...f, label: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
             </div>
           </div>
           <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-            <button onClick={handleAdd} disabled={adding} className={`px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+            <button onClick={handleAdd} disabled={adding} className={`px-4 py-2 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
               {adding ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
             </button>
             <button onClick={() => setShowAdd(false)} className={`px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-white transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
@@ -324,10 +324,10 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
       ) : (
         <div className="space-y-3">
           {phases.map(ph => (
-            <div key={ph.id} className="rounded-xl border border-slate-200 overflow-hidden">
+            <div key={ph.id} className="rounded-xl border border-[#ECEAE2] overflow-hidden">
               {/* Phase header */}
               <div className={`flex items-start gap-3 px-4 py-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <div className="w-8 h-8 rounded-lg bg-[#1B2A4A]/8 flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-lg bg-[#141A24]/8 flex items-center justify-center shrink-0 mt-0.5">
                   <span className="text-[#1B2A4A] font-bold text-sm">{ph.phaseNumber}</span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -343,7 +343,7 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
                         ✓ {t('phase_customer_confirmed')}
                       </span>
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 border border-slate-200">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F4F2EB] text-slate-400 border border-[#ECEAE2]">
                         {t('phase_awaiting_confirmation')}
                       </span>
                     )}
@@ -391,12 +391,12 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
                       type="text"
                       value={notesVal}
                       onChange={e => setNotesVal(e.target.value)}
-                      className={`flex-1 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+                      className={`flex-1 px-2 py-1 text-xs border border-[#ECEAE2] rounded-lg focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
                     />
-                    <button onClick={() => saveNotes(ph.id)} disabled={savingNotes} className="px-2 py-1 text-xs bg-[#1B2A4A] text-white rounded-lg hover:bg-[#142240] disabled:opacity-50">
+                    <button onClick={() => saveNotes(ph.id)} disabled={savingNotes} className="px-2 py-1 text-xs bg-[#141A24] text-white rounded-lg hover:bg-[#0B1019] disabled:opacity-50">
                       {savingNotes ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '✓'}
                     </button>
-                    <button onClick={() => setEditingNotesId(null)} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-slate-100">✕</button>
+                    <button onClick={() => setEditingNotesId(null)} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-[#ECEAE2]">✕</button>
                   </div>
                 ) : (
                   <button
@@ -408,7 +408,7 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
                 )}
                 <button
                   onClick={() => copyLink(ph.id)}
-                  className={`ms-auto flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-500 hover:text-[#1B2A4A] border border-slate-200 rounded-lg hover:border-[#1B2A4A]/30 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                  className={`ms-auto flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-500 hover:text-[#1B2A4A] border border-[#ECEAE2] rounded-lg hover:border-[#1B2A4A]/30 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
                 >
                   {copiedId === ph.id ? (
                     <CheckCircle2 className="w-3 h-3 text-teal-500" />
@@ -440,11 +440,11 @@ function WarrantySection({ project, isRtl, t }: { project: { warrantyStartDate?:
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+    <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <h2 className={`font-semibold text-[#1B2A4A] mb-3 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('warranty_title')}</h2>
       <div className="space-y-2">
         <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+          <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]'}`}>
             {isActive ? t('warranty_active') : t('warranty_expired')}
           </span>
         </div>
@@ -510,12 +510,12 @@ function poStatusColor(s: string) {
   if (s === 'received') return 'bg-teal-50 text-teal-700 border-teal-200';
   if (s === 'partial') return 'bg-amber-50 text-amber-700 border-amber-200';
   if (s === 'sent') return 'bg-blue-50 text-blue-700 border-blue-200';
-  return 'bg-slate-100 text-slate-600 border-slate-200';
+  return 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]';
 }
 function mfgStatusColor(s: string) {
   if (s === 'ready') return 'bg-teal-50 text-teal-700 border-teal-200';
   if (s === 'in_progress') return 'bg-amber-50 text-amber-700 border-amber-200';
-  return 'bg-slate-100 text-slate-600 border-slate-200';
+  return 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]';
 }
 
 function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; isRtl: boolean; t: (k: string) => string; user: { role: string } | null }) {
@@ -642,11 +642,11 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
   const poStatusLabel = (s: string) => ({ pending: t('po_status_pending'), sent: t('po_status_sent'), partial: t('po_status_partial'), received: t('po_status_received') }[s] ?? s);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+    <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
         <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('procurement_title')}</h2>
         {canManage && vendors.length > 0 && (
-          <button onClick={() => setShowCreate(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+          <button onClick={() => setShowCreate(v => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
             <Plus className="w-3.5 h-3.5" /> {t('po_create')}
           </button>
         )}
@@ -654,13 +654,13 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
 
       {/* Create PO form */}
       {showCreate && (
-        <div className="mb-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+        <div className="mb-4 p-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] space-y-3">
           <div>
             <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('po_vendor')} *</label>
             <select
               value={createForm.vendorId}
               onChange={e => setCreateForm(f => ({ ...f, vendorId: e.target.value }))}
-              className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
+              className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl bg-white focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}
             >
               <option value="">{t('po_select_vendor')}</option>
               {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -668,10 +668,10 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
           </div>
           <div>
             <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('po_notes')}</label>
-            <input type="text" value={createForm.notes} onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+            <input type="text" value={createForm.notes} onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))} className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
           </div>
           <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-            <button onClick={handleCreate} disabled={creating || !createForm.vendorId} className={`px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+            <button onClick={handleCreate} disabled={creating || !createForm.vendorId} className={`px-4 py-2 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
               {creating ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
             </button>
             <button onClick={() => setShowCreate(false)} className={`px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-white transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
@@ -686,9 +686,9 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
       ) : (
         <div className="space-y-3">
           {pos.map(po => (
-            <div key={po.id} className="rounded-xl border border-slate-200 overflow-hidden">
+            <div key={po.id} className="rounded-xl border border-[#ECEAE2] overflow-hidden">
               {/* PO header row */}
-              <div className={`flex items-center gap-3 px-4 py-3 bg-slate-50/60 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex items-center gap-3 px-4 py-3 bg-[#F4F2EB] ${isRtl ? 'flex-row-reverse' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
                     <span className={`text-sm font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{po.vendorName ?? `#${po.id}`}</span>
@@ -712,7 +712,7 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
 
               {/* PO items */}
               {expandedPo === po.id && (
-                <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+                <div className="border-t border-[#ECEAE2] px-4 py-3 space-y-2">
                   {loadingItems === po.id ? (
                     <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-slate-400" /></div>
                   ) : (poItems[po.id] ?? []).length === 0 ? (
@@ -738,13 +738,13 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
                                   onChange={e => setReceiveQty(e.target.value)}
                                   min={1}
                                   max={item.quantity - item.receivedQuantity}
-                                  className="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-[#1B2A4A]/40"
+                                  className="w-14 px-2 py-1 text-xs border border-[#ECEAE2] rounded-lg focus:outline-none focus:border-[#141A24]/40"
                                   dir="ltr"
                                 />
                                 <button onClick={() => handleReceive(item.id, po.id)} className="px-2 py-1 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
                                   ✓
                                 </button>
-                                <button onClick={() => { setReceivingItem(null); setReceiveQty(''); }} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-slate-100 transition-colors">
+                                <button onClick={() => { setReceivingItem(null); setReceiveQty(''); }} className="px-2 py-1 text-xs text-slate-400 rounded-lg hover:bg-[#ECEAE2] transition-colors">
                                   ✕
                                 </button>
                               </div>
@@ -766,23 +766,23 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
 
                   {/* Add item form */}
                   {canManage && showAddItem === po.id ? (
-                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                    <div className="mt-3 pt-3 border-t border-[#ECEAE2] space-y-2">
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} placeholder={t('po_item_description')} className={`col-span-2 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
-                        <select value={itemForm.category} onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))} className={`px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                        <input type="text" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} placeholder={t('po_item_description')} className={`col-span-2 px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+                        <select value={itemForm.category} onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))} className={`px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl bg-white focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
                           {['Aluminum','Glass','Accessories','Special Parts'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <select value={itemForm.unit} onChange={e => setItemForm(f => ({ ...f, unit: e.target.value }))} className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr">
+                        <select value={itemForm.unit} onChange={e => setItemForm(f => ({ ...f, unit: e.target.value }))} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl bg-white focus:outline-none focus:border-[#141A24]/40" dir="ltr">
                           {['pcs','m²','kg','m'].map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
-                        <input type="number" value={itemForm.quantity} onChange={e => setItemForm(f => ({ ...f, quantity: e.target.value }))} placeholder={t('po_item_qty')} min={1} className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
-                        <input type="number" value={itemForm.unitPrice} onChange={e => setItemForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder={t('po_item_unit_price')} className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+                        <input type="number" value={itemForm.quantity} onChange={e => setItemForm(f => ({ ...f, quantity: e.target.value }))} placeholder={t('po_item_qty')} min={1} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
+                        <input type="number" value={itemForm.unitPrice} onChange={e => setItemForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder={t('po_item_unit_price')} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
                       </div>
                       <div className={`flex gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <button onClick={() => handleAddItem(po.id)} disabled={addingItem || !itemForm.description.trim()} className={`px-3 py-1.5 text-xs font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                        <button onClick={() => handleAddItem(po.id)} disabled={addingItem || !itemForm.description.trim()} className={`px-3 py-1.5 text-xs font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                           {addingItem ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_save')}
                         </button>
-                        <button onClick={() => setShowAddItem(null)} className={`px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
+                        <button onClick={() => setShowAddItem(null)} className={`px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#ECEAE2] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('erp_cancel')}</button>
                       </div>
                     </div>
                   ) : canManage && (
@@ -847,7 +847,7 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
   const mfgStatusLabel = (s: string) => ({ pending: t('manufacturing_status_pending'), in_progress: t('manufacturing_status_in_progress'), ready: t('manufacturing_status_ready') }[s] ?? s);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+    <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
       <h2 className={`font-semibold text-[#1B2A4A] mb-4 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('manufacturing_title')}</h2>
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
@@ -865,7 +865,7 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
             )}
           </div>
           {order.notes && (
-            <p className={`text-sm text-slate-600 bg-slate-50 rounded-xl p-3 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{order.notes}</p>
+            <p className={`text-sm text-slate-600 bg-[#F4F2EB] rounded-xl p-3 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{order.notes}</p>
           )}
           {canManage && (
             <div className={`flex gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -887,14 +887,14 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
               <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('manufacturing_deadline')}</label>
-              <input type="date" value={sendForm.deliveryDeadline} onChange={e => setSendForm(f => ({ ...f, deliveryDeadline: e.target.value }))} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40" dir="ltr" />
+              <input type="date" value={sendForm.deliveryDeadline} onChange={e => setSendForm(f => ({ ...f, deliveryDeadline: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
             </div>
           </div>
           <div>
             <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('manufacturing_notes')}</label>
-            <textarea value={sendForm.notes} onChange={e => setSendForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[#1B2A4A]/40 resize-none ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
+            <textarea value={sendForm.notes} onChange={e => setSendForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 resize-none ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
           </div>
-          <button onClick={handleSend} disabled={sending} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
+          <button onClick={handleSend} disabled={sending} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}>
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {t('send_to_manufacturing')}
           </button>
@@ -1300,7 +1300,7 @@ export default function ErpProjectDetail() {
         </button>
 
         {/* Project Header Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 mb-4">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <h1 className="text-xl font-bold text-[#1B2A4A]">{project.name}</h1>
@@ -1371,7 +1371,7 @@ export default function ErpProjectDetail() {
           </dl>
 
           {/* Notes */}
-          <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600">{t('erp_project_notes')}</span>
               {!editingNotes && (
@@ -1383,14 +1383,14 @@ export default function ErpProjectDetail() {
             {editingNotes ? (
               <div className="space-y-2">
                 <textarea
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                   rows={3}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                 />
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => { setEditingNotes(false); setNotes(project.notes ?? ''); }} className="px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100 rounded-lg">{t('erp_cancel')}</button>
-                  <button onClick={saveNotes} disabled={savingNotes} className="px-4 py-1.5 text-sm font-semibold bg-[#1B2A4A] text-white rounded-lg hover:bg-[#1B2A4A]/90 disabled:opacity-50">{savingNotes ? '...' : t('erp_save')}</button>
+                  <button onClick={() => { setEditingNotes(false); setNotes(project.notes ?? ''); }} className="px-3 py-1.5 text-sm text-slate-500 hover:bg-[#ECEAE2] rounded-lg">{t('erp_cancel')}</button>
+                  <button onClick={saveNotes} disabled={savingNotes} className="px-4 py-1.5 text-sm font-semibold bg-[#141A24] text-white rounded-lg hover:bg-[#0B1019] disabled:opacity-50">{savingNotes ? '...' : t('erp_save')}</button>
                 </div>
               </div>
             ) : (
@@ -1405,14 +1405,14 @@ export default function ErpProjectDetail() {
         </div>
 
         {/* Stage Timeline */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <h2 className="font-semibold text-[#1B2A4A] mb-4">{t('erp_stage_timeline')}</h2>
           <ol className="space-y-2">
             {INTERNAL_STAGES.map(stage => {
               const done = project.stageInternal > stage.n;
               const current = project.stageInternal === stage.n;
               return (
-                <li key={stage.n} className={`flex items-center gap-3 text-sm py-1.5 px-3 rounded-xl transition-colors ${current ? 'bg-[#1B2A4A]/5 font-semibold' : ''}`}>
+                <li key={stage.n} className={`flex items-center gap-3 text-sm py-1.5 px-3 rounded-xl transition-colors ${current ? 'bg-[#141A24]/5 font-semibold' : ''}`}>
                   {done ? (
                     <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
                   ) : current ? (
@@ -1440,14 +1440,14 @@ export default function ErpProjectDetail() {
         </div>
 
         {/* Files Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-[#1B2A4A]">{t('erp_project_files')}</h2>
             {canUpload && (
               <button
                 onClick={() => batchInputRef.current?.click()}
                 disabled={detectingBatch || uploadingBatch}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors disabled:opacity-40"
               >
                 {detectingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />}
                 {t('files_batch_select')}
@@ -1473,7 +1473,7 @@ export default function ErpProjectDetail() {
                   <button
                     onClick={handleUploadAll}
                     disabled={uploadingBatch}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
                   >
                     {uploadingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                     {t('files_upload_all')}
@@ -1493,7 +1493,7 @@ export default function ErpProjectDetail() {
                     <select
                       value={item.assignedType}
                       onChange={e => updateDetectionItem(idx, e.target.value)}
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#1B2A4A]/30 shrink-0"
+                      className="text-xs border border-[#ECEAE2] rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#141A24]/20 shrink-0"
                       dir="ltr"
                     >
                       {FILE_SLOTS.map(s => (
@@ -1523,18 +1523,18 @@ export default function ErpProjectDetail() {
               if (slot.multiFile) {
                 const slotFiles = project?.files.filter(f => f.fileType === slot.fileType) ?? [];
                 return (
-                  <div key={slot.fileType} className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+                  <div key={slot.fileType} className="rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
                     <div className="flex items-center gap-3 p-3">
                       <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                       <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
                       {slotFiles.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#1B2A4A]/8 text-[#1B2A4A]">{slotFiles.length}</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#141A24]/8 text-[#1B2A4A]">{slotFiles.length}</span>
                       )}
                       {canUpload && (
                         <button
                           onClick={() => triggerUpload(slot.fileType)}
                           disabled={isUploading}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#1B2A4A] hover:bg-white border border-slate-200 transition-colors disabled:opacity-40 shrink-0"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[#1B2A4A] hover:bg-white border border-[#ECEAE2] transition-colors disabled:opacity-40 shrink-0"
                         >
                           {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                           {t('project_file_add_file')}
@@ -1542,7 +1542,7 @@ export default function ErpProjectDetail() {
                       )}
                     </div>
                     {slotFiles.length > 0 ? (
-                      <div className="border-t border-slate-100 divide-y divide-slate-100">
+                      <div className="border-t border-[#ECEAE2] divide-y divide-slate-100">
                         {slotFiles.map(f => (
                           <div key={f.id} className="flex items-center gap-3 px-3 py-2.5 bg-white">
                             <div className="flex-1 min-w-0">
@@ -1553,7 +1553,7 @@ export default function ErpProjectDetail() {
                               </p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors" title={t('erp_file_download')}>
+                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors" title={t('erp_file_download')}>
                                 <Download className="w-3.5 h-3.5" />
                               </button>
                               {canDelete && (
@@ -1566,10 +1566,10 @@ export default function ErpProjectDetail() {
                         ))}
                       </div>
                     ) : (
-                      <div className="border-t border-slate-100 px-3 py-4 text-center bg-white">
+                      <div className="border-t border-[#ECEAE2] px-3 py-4 text-center bg-white">
                         <p className="text-xs text-slate-300 mb-2">{t('project_file_no_files')}</p>
                         {canUpload && (
-                          <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1B2A4A] text-white hover:bg-[#142240] transition-colors disabled:opacity-40">
+                          <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] transition-colors disabled:opacity-40">
                             {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                             {t('erp_file_upload')}
                           </button>
@@ -1587,7 +1587,7 @@ export default function ErpProjectDetail() {
                 const hasQr = qrOrders.length > 0;
                 return (
                   <div key="glass_order" className="space-y-1">
-                    <div className="rounded-xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+                    <div className="rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
                       <div className="flex items-center gap-3 p-3">
                         <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                         <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
@@ -1598,11 +1598,11 @@ export default function ErpProjectDetail() {
                         )}
                       </div>
                       {(hasOriginal || hasQr) && (
-                        <div className={`border-t border-slate-100 p-3 bg-white ${hasOriginal && hasQr ? 'grid grid-cols-2 gap-3' : ''}`}>
+                        <div className={`border-t border-[#ECEAE2] p-3 bg-white ${hasOriginal && hasQr ? 'grid grid-cols-2 gap-3' : ''}`}>
                           {hasOriginal && (
-                            <div className="rounded-lg border border-slate-100 p-2.5">
+                            <div className="rounded-lg border border-[#ECEAE2] p-2.5">
                               <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1B2A4A]/8 text-[#1B2A4A] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#141A24]/8 text-[#1B2A4A] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
                               </div>
                               <p className="text-xs text-slate-600 truncate" dir="ltr">{existing!.originalFilename}</p>
                               <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(existing!.uploadedAt).toLocaleDateString()}</p>
@@ -1627,7 +1627,7 @@ export default function ErpProjectDetail() {
                         </div>
                       )}
                       {!hasOriginal && !hasQr && (
-                        <div className="border-t border-slate-100 px-3 py-2 bg-white">
+                        <div className="border-t border-[#ECEAE2] px-3 py-2 bg-white">
                           <p className="text-xs text-slate-300">{t('project_file_no_upload')}</p>
                         </div>
                       )}
@@ -1639,14 +1639,14 @@ export default function ErpProjectDetail() {
                       </button>
                     )}
                     {versionsExpanded && inactive.length > 0 && (
-                      <div className="rounded-xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                      <div className="rounded-xl border border-[#ECEAE2] divide-y divide-slate-50 overflow-hidden">
                         {inactive.map(f => (
-                          <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/50">
+                          <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-[#F4F2EB]">
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
                               <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
                             </div>
-                            <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                            <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-[#ECEAE2] transition-colors">
                               <Download className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -1667,7 +1667,7 @@ export default function ErpProjectDetail() {
 
               return (
                 <div key={slot.fileType} className="space-y-1">
-                  <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
                     <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -1709,14 +1709,14 @@ export default function ErpProjectDetail() {
                     </button>
                   )}
                   {versionsExpanded && inactive.length > 0 && (
-                    <div className="rounded-xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                    <div className="rounded-xl border border-[#ECEAE2] divide-y divide-slate-50 overflow-hidden">
                       {inactive.map(f => (
-                        <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-slate-50/50">
+                        <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-[#F4F2EB]">
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
                             <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
                           </div>
-                          <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                          <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-[#ECEAE2] transition-colors">
                             <Download className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -1783,7 +1783,7 @@ export default function ErpProjectDetail() {
 
           {/* Expected files checklist */}
           {expectedFiles.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
               <p className="text-xs font-semibold text-slate-500 mb-2">{t('files_expected_title')}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {expectedFiles.map(ef => (
@@ -1799,7 +1799,7 @@ export default function ErpProjectDetail() {
 
         {/* Generate Contract — Stage 4 — visible to Admin, FactoryManager, SalesAgent */}
         {(user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent') && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
             <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div>
                 <h2 className={`font-semibold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>
@@ -1814,7 +1814,7 @@ export default function ErpProjectDetail() {
               <button
                 onClick={() => navigate(`/erp/projects/${id}/contract`)}
                 disabled={!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#243860] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
               >
                 <FileText className="w-4 h-4" />
                 {t('contract_generate_button')}
@@ -1824,13 +1824,13 @@ export default function ErpProjectDetail() {
         )}
 
         {/* Payment Milestones Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="font-semibold text-[#1B2A4A]">{t('erp_payment_milestones_title')}</h2>
             {canCreateMilestone && (
               <button
                 onClick={() => setShowAddMilestone(v => !v)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-slate-200 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 {t('erp_payment_add')}
@@ -1840,12 +1840,12 @@ export default function ErpProjectDetail() {
 
           {/* Add Milestone Form */}
           {showAddMilestone && canCreateMilestone && (
-            <div className="mb-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3">
+            <div className="mb-4 p-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_label')} *</label>
                   <input
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={milestoneForm.label}
                     onChange={e => setMilestoneForm(f => ({ ...f, label: e.target.value }))}
                     placeholder={t('erp_payment_label_placeholder')}
@@ -1857,7 +1857,7 @@ export default function ErpProjectDetail() {
                     type="number"
                     min="0"
                     max="100"
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={milestoneForm.percentage}
                     onChange={e => setMilestoneForm(f => ({ ...f, percentage: e.target.value }))}
                     dir="ltr"
@@ -1868,7 +1868,7 @@ export default function ErpProjectDetail() {
                   <input
                     type="number"
                     min="0"
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={milestoneForm.amount}
                     onChange={e => setMilestoneForm(f => ({ ...f, amount: e.target.value }))}
                     dir="ltr"
@@ -1878,7 +1878,7 @@ export default function ErpProjectDetail() {
                   <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_due_date')}</label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={milestoneForm.dueDate}
                     onChange={e => setMilestoneForm(f => ({ ...f, dueDate: e.target.value }))}
                     dir="ltr"
@@ -1887,7 +1887,7 @@ export default function ErpProjectDetail() {
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
                   <input
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                     value={milestoneForm.notes}
                     onChange={e => setMilestoneForm(f => ({ ...f, notes: e.target.value }))}
                   />
@@ -1897,13 +1897,13 @@ export default function ErpProjectDetail() {
                 <button
                   onClick={handleAddMilestone}
                   disabled={savingMilestone || !milestoneForm.label.trim()}
-                  className="px-4 py-2 text-xs font-semibold bg-[#1B2A4A] text-white rounded-lg hover:bg-[#142240] disabled:opacity-40 transition-colors"
+                  className="px-4 py-2 text-xs font-semibold bg-[#141A24] text-white rounded-lg hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
                 >
                   {savingMilestone ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
                 </button>
                 <button
                   onClick={() => setShowAddMilestone(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
                 >
                   {t('erp_cancel')}
                 </button>
@@ -1922,7 +1922,7 @@ export default function ErpProjectDetail() {
                   ? 'bg-teal-50 text-teal-600 border-teal-100'
                   : m.status === 'overdue'
                   ? 'bg-red-50 text-red-600 border-red-100'
-                  : 'bg-slate-100 text-slate-500 border-slate-200';
+                  : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]';
                 const statusLabel = m.status === 'paid'
                   ? t('erp_payment_status_paid')
                   : m.status === 'overdue'
@@ -1930,7 +1930,7 @@ export default function ErpProjectDetail() {
                   : t('erp_payment_status_pending');
 
                 return (
-                  <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-slate-100 bg-slate-50/30'}`}>
+                  <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-[#ECEAE2] bg-[#F4F2EB]/30'}`}>
                     {/* Milestone header */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-[#1B2A4A] flex-1 min-w-0">{m.label}</span>
@@ -1954,7 +1954,7 @@ export default function ErpProjectDetail() {
                     {m.qoyodDocFileId != null && (() => {
                       const attachedFile = project?.files.find(f => f.id === m.qoyodDocFileId);
                       return attachedFile ? (
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-100">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#ECEAE2]">
                           <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span className="text-xs text-slate-600 truncate flex-1 min-w-0" dir="ltr">{attachedFile.originalFilename}</span>
                           {pct !== null && (
@@ -1964,7 +1964,7 @@ export default function ErpProjectDetail() {
                           )}
                           <button
                             onClick={() => downloadFile(attachedFile.id, attachedFile.originalFilename)}
-                            className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-slate-100 transition-colors shrink-0"
+                            className="p-1 rounded text-slate-400 hover:text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors shrink-0"
                             title={t('erp_file_download')}
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -1983,7 +1983,7 @@ export default function ErpProjectDetail() {
                               <input
                                 type="number"
                                 min="0"
-                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                                 value={payForm.paidAmount}
                                 onChange={e => setPayForm(f => ({ ...f, paidAmount: e.target.value }))}
                                 dir="ltr"
@@ -1993,7 +1993,7 @@ export default function ErpProjectDetail() {
                             <div>
                               <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
                               <input
-                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/20"
+                                className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                                 value={payForm.notes}
                                 onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
                               />
@@ -2026,7 +2026,7 @@ export default function ErpProjectDetail() {
                             </button>
                             <button
                               onClick={() => { setPayingMilestoneId(null); setPayForm({ paidAmount: '', notes: '', file: null }); }}
-                              className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                              className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
                             >
                               {t('erp_cancel')}
                             </button>
@@ -2061,7 +2061,7 @@ export default function ErpProjectDetail() {
         <WarrantySection project={project} isRtl={isRtl} t={t} />
 
         {/* QR Orders Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
           <div className="flex items-center gap-2 mb-4">
             <QrCode className="w-4 h-4 text-[#C89B3C]" />
             <h2 className="font-semibold text-[#1B2A4A]">{t('qr_orders_title')}</h2>
@@ -2073,7 +2073,7 @@ export default function ErpProjectDetail() {
           ) : (
             <div className="space-y-2">
               {qrOrders.map(order => (
-                <div key={order.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                <div key={order.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
                   <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-700 truncate">{order.originalFilename}</p>
@@ -2086,7 +2086,7 @@ export default function ErpProjectDetail() {
                     href={`${API_BASE}/api/qr/download/${order.reportFileId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] hover:bg-[#1B2A4A]/8 transition-colors shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B2A4A] hover:bg-[#141A24]/8 transition-colors shrink-0"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     {t('qr_orders_view_report')}
@@ -2115,12 +2115,12 @@ export default function ErpProjectDetail() {
           onClick={() => setGlassDetect(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#ECEAE2] overflow-hidden"
             dir={isRtl ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b border-[#ECEAE2] ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
                 {glassDetect.nameMatches ? (
                   <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
@@ -2133,7 +2133,7 @@ export default function ErpProjectDetail() {
               </div>
               <button
                 onClick={() => setGlassDetect(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-[#ECEAE2] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2147,7 +2147,7 @@ export default function ErpProjectDetail() {
                   {t('detect_orgadata_label')}:
                 </span>
                 <span
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#1B2A4A]/8 border border-[#1B2A4A]/12 text-[#1B2A4A] text-xs font-semibold"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#141A24]/8 border border-[#1B2A4A]/12 text-[#1B2A4A] text-xs font-semibold"
                   dir="ltr"
                 >
                   {glassDetect.orgadataName}
@@ -2159,7 +2159,7 @@ export default function ErpProjectDetail() {
 
               {/* Name comparison (only when names differ) */}
               {!glassDetect.nameMatches && (
-                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-3 text-sm">
+                <div className="rounded-xl bg-[#F4F2EB] border border-[#ECEAE2] p-4 space-y-3 text-sm">
                   <div>
                     <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
                     <p className="font-semibold text-[#1B2A4A]">"{project.name}"</p>
@@ -2177,13 +2177,13 @@ export default function ErpProjectDetail() {
                   <>
                     <button
                       onClick={() => handleGlassConfirm(false)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
                     >
                       {t('glass_confirm_upload')}
                     </button>
                     <button
                       onClick={() => setGlassDetect(null)}
-                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
                     >
                       {t('detect_cancel')}
                     </button>
@@ -2192,19 +2192,19 @@ export default function ErpProjectDetail() {
                   <>
                     <button
                       onClick={() => handleGlassConfirm(true)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#142240] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
                     >
                       {t('qr_conflict_update')}
                     </button>
                     <button
                       onClick={() => handleGlassConfirm(false)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                      className={`flex-1 px-4 py-2 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
                     >
                       {t('qr_conflict_keep')}
                     </button>
                     <button
                       onClick={() => setGlassDetect(null)}
-                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
                     >
                       {t('qr_conflict_cancel')}
                     </button>
@@ -2219,7 +2219,7 @@ export default function ErpProjectDetail() {
       {/* Delete Project Modal */}
       {showDeleteProject && project && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -2234,7 +2234,7 @@ export default function ErpProjectDetail() {
               {t('del_project_warning')}
             </p>
             <div className={`flex gap-3 justify-end ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button onClick={() => setShowDeleteProject(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              <button onClick={() => setShowDeleteProject(false)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-[#ECEAE2] rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                 {t('erp_cancel')}
               </button>
               <button
@@ -2252,7 +2252,7 @@ export default function ErpProjectDetail() {
       {/* Delete File Modal */}
       {confirmDeleteFileId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -2260,7 +2260,7 @@ export default function ErpProjectDetail() {
               <h2 className={`font-bold text-[#1B2A4A] ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('del_file_title')}</h2>
             </div>
             <div className={`flex gap-3 justify-end ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button onClick={() => setConfirmDeleteFileId(null)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
+              <button onClick={() => setConfirmDeleteFileId(null)} className={`px-4 py-2 text-sm text-slate-600 hover:bg-[#ECEAE2] rounded-xl transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}>
                 {t('erp_cancel')}
               </button>
               <button

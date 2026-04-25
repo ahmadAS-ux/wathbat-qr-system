@@ -121,14 +121,14 @@ export default function AdminRequests() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#F0F2F5]">
+      <div className="min-h-screen bg-[#F4F2EB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
           {/* Page header */}
           <div className={`flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div className="p-2 rounded-xl bg-[#4A6FA5]/10">
-                <Wrench className="w-5 h-5 text-[#4A6FA5]" />
+                <Wrench className="w-5 h-5 text-[#141A24]" />
               </div>
               <div className={isRtl ? 'text-right' : ''}>
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('requests_title')}</h1>
@@ -137,7 +137,7 @@ export default function AdminRequests() {
             </div>
             <button
               onClick={exportExcel}
-              className={`flex items-center gap-2 bg-[#1B2A4A] hover:bg-[#142240] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
+              className={`flex items-center gap-2 bg-[#141A24] hover:bg-[#0B1019] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Download className="w-4 h-4" />
               {t('admin_export')}
@@ -155,12 +155,12 @@ export default function AdminRequests() {
                 onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
                 placeholder={t('search_placeholder')}
                 dir={isRtl ? 'rtl' : 'ltr'}
-                className={`w-72 border border-slate-200 rounded-xl py-2.5 text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50 shadow-sm ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
+                className={`w-72 border border-[#ECEAE2] rounded-xl py-2.5 text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 shadow-sm ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'}`}
               />
             </div>
 
             {/* Status filter tabs */}
-            <div className={`flex gap-1.5 bg-slate-100 p-1 rounded-xl ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex gap-1.5 bg-[#ECEAE2] p-1 rounded-xl ${isRtl ? 'flex-row-reverse' : ''}`}>
               {filters.map(f => (
                 <button
                   key={f.key}
@@ -173,7 +173,7 @@ export default function AdminRequests() {
                 >
                   {f.label}
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                    statusFilter === f.key ? 'bg-[#1B2A4A]/10 text-[#1B2A4A]' : 'bg-slate-200 text-slate-500'
+                    statusFilter === f.key ? 'bg-[#141A24]/10 text-[#1B2A4A]' : 'bg-slate-200 text-slate-500'
                   }`}>
                     {statusCounts[f.key as keyof typeof statusCounts] ?? 0}
                   </span>
@@ -183,11 +183,11 @@ export default function AdminRequests() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70">
+                  <tr className="border-b border-[#ECEAE2] bg-[#F4F2EB]">
                     {[
                       t('admin_col_id'),
                       t('admin_col_position'),
@@ -220,7 +220,7 @@ export default function AdminRequests() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.01 }}
-                        className="hover:bg-slate-50/80 transition-colors"
+                        className="hover:bg-[#F4F2EB] transition-colors"
                       >
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{row.id}</td>
                         <td className="px-5 py-3.5 font-semibold text-slate-800">{row.positionId}</td>
@@ -229,7 +229,7 @@ export default function AdminRequests() {
                           {row.projectName ? (
                             <button
                               onClick={() => navigate(`/admin?project=${encodeURIComponent(row.projectName!)}`)}
-                              className="text-[#4A6FA5] hover:text-[#3d5f94] font-medium hover:underline underline-offset-2 transition-colors"
+                              className="text-[#141A24] hover:text-[#0B1019] font-medium hover:underline underline-offset-2 transition-colors"
                             >
                               {row.projectName}
                             </button>
@@ -252,7 +252,7 @@ export default function AdminRequests() {
                             value={row.status}
                             disabled={updatingId === row.id}
                             onChange={e => updateStatus(row.id, e.target.value)}
-                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-all ${STATUS_COLORS[row.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-all ${STATUS_COLORS[row.status] ?? 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]'}`}
                           >
                             {statusOptions.map(s => (
                               <option key={s} value={s}>{s}</option>
@@ -279,10 +279,10 @@ export default function AdminRequests() {
             </div>
 
             {hasMore && (
-              <div className="flex justify-center p-4 border-t border-slate-100 bg-slate-50/50">
+              <div className="flex justify-center p-4 border-t border-[#ECEAE2] bg-[#F4F2EB]">
                 <button
                   onClick={() => setVisible(v => v + PAGE_SIZE)}
-                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-full hover:bg-white hover:border-slate-300 transition-colors shadow-sm"
+                  className="px-6 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-full hover:bg-white hover:border-slate-300 transition-colors shadow-sm"
                 >
                   {t('show_more')}
                 </button>

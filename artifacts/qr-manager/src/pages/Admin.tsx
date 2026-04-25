@@ -109,6 +109,7 @@ export default function Admin() {
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [totalProjectsCount, setTotalProjectsCount] = useState(0);
   const [overdueLeads, setOverdueLeads] = useState<Lead[]>([]);
   const [overdueLeadsCount, setOverdueLeadsCount] = useState(0);
   const [overduePaymentsCount, setOverduePaymentsCount] = useState(0);
@@ -154,6 +155,7 @@ export default function Admin() {
       ]);
       if (projRes.ok) {
         const all: Project[] = await projRes.json();
+        setTotalProjectsCount(all.length);
         setRecentProjects(all.slice(0, PREVIEW_COUNT));
       }
       if (leadsRes.ok) {
@@ -285,7 +287,7 @@ export default function Admin() {
   const kpiCards = [
     ...(isErpUser ? [{
       label: t('dash_active_projects'),
-      value: recentProjects.length > 0 || !erpLoading ? String(recentProjects.length) : '…',
+      value: totalProjectsCount > 0 || !erpLoading ? String(totalProjectsCount) : '…',
       icon: FolderOpen,
       tone: 'ink',
       loading: erpLoading,

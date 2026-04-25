@@ -15,8 +15,8 @@ interface UserRow {
 import { API_BASE as BASE } from '@/lib/api-base';
 
 const ROLE_STYLES: Record<string, string> = {
-  Admin: 'bg-[#1B2A4A]/8 text-[#1B2A4A] border-[#1B2A4A]/15',
-  User:  'bg-[#4A6FA5]/10 text-[#4A6FA5] border-[#4A6FA5]/20',
+  Admin: 'bg-[#141A24]/8 text-[#1B2A4A] border-[#1B2A4A]/15',
+  User:  'bg-[#4A6FA5]/10 text-[#141A24] border-[#4A6FA5]/20',
 };
 
 export default function AdminUsers() {
@@ -85,14 +85,14 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#F0F2F5]">
+      <div className="min-h-screen bg-[#F4F2EB]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
           {/* Header */}
           <div className={`flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div className="p-2 rounded-xl bg-[#4A6FA5]/10">
-                <Users className="w-5 h-5 text-[#4A6FA5]" />
+                <Users className="w-5 h-5 text-[#141A24]" />
               </div>
               <div className={isRtl ? 'text-right' : ''}>
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('users_title')}</h1>
@@ -101,7 +101,7 @@ export default function AdminUsers() {
             </div>
             <button
               onClick={() => { setShowCreate(true); setFormError(''); setForm({ username: '', password: '', role: 'User' }); }}
-              className={`flex items-center gap-1.5 text-sm font-semibold bg-[#1B2A4A] hover:bg-[#142240] text-white px-3.5 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
+              className={`flex items-center gap-1.5 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3.5 py-2 rounded-xl transition-colors shadow-sm ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Plus className="w-4 h-4" />
               {t('users_new')}
@@ -109,11 +109,11 @@ export default function AdminUsers() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70">
+                  <tr className="border-b border-[#ECEAE2] bg-[#F4F2EB]">
                     {[t('admin_col_id'), t('login_username'), t('users_role'), t('admin_col_date'), ''].map((h, idx) => (
                       <th key={idx} className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-start whitespace-nowrap">{h}</th>
                     ))}
@@ -131,12 +131,12 @@ export default function AdminUsers() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.03 }}
-                        className="hover:bg-slate-50/80 transition-colors"
+                        className="hover:bg-[#F4F2EB] transition-colors"
                       >
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{u.id}</td>
                         <td className="px-5 py-3.5 font-semibold text-slate-800">
                           <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                            <div className="w-7 h-7 rounded-full bg-[#1B2A4A]/8 flex items-center justify-center text-[#1B2A4A] text-xs font-bold shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-[#141A24]/8 flex items-center justify-center text-[#1B2A4A] text-xs font-bold shrink-0">
                               {u.username.charAt(0).toUpperCase()}
                             </div>
                             <span>{u.username}</span>
@@ -146,7 +146,7 @@ export default function AdminUsers() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border ${ROLE_STYLES[u.role] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border ${ROLE_STYLES[u.role] ?? 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]'}`}>
                             {u.role}
                           </span>
                         </td>
@@ -180,13 +180,13 @@ export default function AdminUsers() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200"
+            className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-[#ECEAE2]"
             dir={isRtl ? 'rtl' : 'ltr'}
             onClick={e => e.stopPropagation()}
           >
-            <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b border-[#ECEAE2] ${isRtl ? 'flex-row-reverse' : ''}`}>
               <h3 className="font-semibold text-slate-900">{t('users_create_title')}</h3>
-              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-lg hover:bg-[#ECEAE2]">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -198,7 +198,7 @@ export default function AdminUsers() {
                   value={form.username}
                   onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
                   placeholder={t('ph_username')}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40"
                 />
               </div>
               <div>
@@ -208,7 +208,7 @@ export default function AdminUsers() {
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder={t('ph_password')}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40"
                 />
               </div>
               <div>
@@ -217,7 +217,7 @@ export default function AdminUsers() {
                   <select
                     value={form.role}
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]/25 focus:border-[#4A6FA5]/50 pr-8"
+                    className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 pr-8"
                   >
                     <option value="User">User</option>
                     <option value="Admin">Admin</option>
@@ -231,13 +231,13 @@ export default function AdminUsers() {
               )}
 
               <div className={`flex items-center justify-end gap-3 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm font-medium text-slate-600 border border-[#ECEAE2] rounded-xl hover:bg-[#F4F2EB] transition-colors">
                   {t('admin_cancel')}
                 </button>
                 <button
                   onClick={createUser}
                   disabled={submitting}
-                  className="px-5 py-2 text-sm font-semibold bg-[#1B2A4A] hover:bg-[#142240] disabled:opacity-50 text-white rounded-xl transition-colors shadow-sm"
+                  className="px-5 py-2 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] disabled:opacity-50 text-white rounded-xl transition-colors shadow-sm"
                 >
                   {submitting ? t('admin_creating') : t('users_create_btn')}
                 </button>

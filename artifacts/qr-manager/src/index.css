@@ -34,6 +34,13 @@
   /* White/Off-white Backgrounds */
   --background: 210 20% 98%;
   --foreground: 211 56% 15%;
+  /* Design system tokens */
+  --ds-bg: #F4F2EB;
+  --ds-card: #FAFAF7;
+  --ds-line: #ECEAE2;
+  --ds-ink: #141A24;
+  --ds-ink-dark: #0B1019;
+  --ds-mute: #6B6A60;
   
   --card: 0 0% 100%;
   --card-foreground: 211 56% 15%;
@@ -87,6 +94,11 @@
   --chart-3: 211 40% 45%;
   --chart-4: 41 50% 65%;
   --chart-5: 211 30% 70%;
+}
+
+/* ── Global design-system base ── */
+body {
+  background-color: #F4F2EB;
 }
 
 @layer base {

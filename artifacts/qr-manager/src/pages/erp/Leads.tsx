@@ -174,8 +174,8 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="px-6 py-4 border-b border-[#ECEAE2] flex items-center justify-between">
             <h2 className="font-bold text-[#1B2A4A] text-lg">{t('erp_lead_new')}</h2>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
           </div>
@@ -186,7 +186,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_customer')} *</label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                 placeholder={t('ph_customer_name')}
                 value={form.customerName}
                 onChange={e => handleNameChange(e.target.value)}
@@ -194,7 +194,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 autoComplete="off"
               />
               {showNameSuggestions && nameResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">{t('erp_similar_customers')}</p>
                   {nameResults.map(lead => (
                     <button
@@ -205,13 +205,13 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                         setShowNameSuggestions(false);
                         setNameResults([]);
                       }}
-                      className="w-full text-start px-3 py-2.5 hover:bg-slate-50 transition-colors border-t border-slate-50 flex items-center justify-between gap-3"
+                      className="w-full text-start px-3 py-2.5 hover:bg-[#F4F2EB] transition-colors border-t border-slate-50 flex items-center justify-between gap-3"
                     >
                       <div>
                         <p className="text-sm font-medium text-[#1B2A4A]">{lead.customerName}</p>
                         <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{lead.phone}</p>
                       </div>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${SEARCH_STATUS_COLORS[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${SEARCH_STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
                         {statusLabel[lead.status] ?? lead.status}
                       </span>
                     </button>
@@ -227,7 +227,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 inputMode="numeric"
                 maxLength={10}
                 placeholder="05XXXXXXXX"
-                className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30 ${phoneDuplicate ? 'border-amber-400' : 'border-slate-200'}`}
+                className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 ${phoneDuplicate ? 'border-amber-400' : 'border-[#ECEAE2]'}`}
                 dir="ltr"
                 value={form.phone}
                 onChange={e => handlePhoneChange(e.target.value)}
@@ -243,7 +243,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_source')} *</label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30 bg-white"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
                   value={form.source}
                   onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
                 >
@@ -254,7 +254,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_building')} *</label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30 bg-white"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
                   value={form.buildingType}
                   onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}
                 >
@@ -267,7 +267,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_product')} *</label>
               <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30 bg-white"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-white"
                 value={form.productInterest}
                 onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}
               >
@@ -279,7 +279,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_location')}</label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                 placeholder={t('ph_location')}
                 value={form.location}
                 onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
@@ -291,7 +291,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_followup')} *</label>
                 <input
                   type="date"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                   dir="ltr"
                   value={form.firstFollowupDate}
                   onChange={e => setForm(f => ({ ...f, firstFollowupDate: e.target.value }))}
@@ -301,7 +301,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
                 <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_value')}</label>
                 <input
                   type="number"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B2A4A]/30"
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
                   placeholder={t('ph_estimated_value')}
                   dir="ltr"
                   value={form.estimatedValue}
@@ -311,13 +311,13 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-[#ECEAE2] transition-colors">
                 {t('erp_cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 rounded-xl text-sm font-semibold bg-[#1B2A4A] text-white hover:bg-[#1B2A4A]/90 disabled:opacity-50 transition-colors"
+                className="px-5 py-2 rounded-xl text-sm font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-50 transition-colors"
               >
                 {saving ? '...' : t('erp_create')}
               </button>
@@ -328,12 +328,12 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
       {showDuplicateConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="font-bold text-[#1B2A4A] mb-2">{t('erp_duplicate_confirm_title')}</h3>
             <p className="text-sm text-slate-600 mb-4">{t('erp_duplicate_confirm_msg')}</p>
             <div className="space-y-2 mb-5 max-h-36 overflow-y-auto">
               {nameResults.map(lead => (
-                <div key={lead.id} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+                <div key={lead.id} className="px-3 py-2 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
                   <p className="text-sm font-medium text-[#1B2A4A]">{lead.customerName}</p>
                   <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{lead.phone}</p>
                 </div>
@@ -343,13 +343,13 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <button
                 onClick={() => { setShowDuplicateConfirm(false); doSubmit(); }}
                 disabled={saving}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-[#1B2A4A] text-white rounded-xl hover:bg-[#243860] disabled:opacity-50 transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors"
               >
                 {t('erp_duplicate_create_new')}
               </button>
               <button
                 onClick={() => setShowDuplicateConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
+                className="flex-1 px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors"
               >
                 {t('erp_duplicate_select_existing')}
               </button>
@@ -412,7 +412,7 @@ export default function ErpLeads() {
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-[#1B2A4A] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#1B2A4A]/90 transition-colors"
+            className="flex items-center gap-2 bg-[#141A24] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#0B1019] transition-colors"
           >
             <Plus className="w-4 h-4" />
             {t('erp_lead_new')}
@@ -420,14 +420,14 @@ export default function ErpLeads() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-slate-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 mb-4 bg-[#ECEAE2] rounded-xl p-1 w-fit">
           <button
             onClick={() => setTab('active')}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'active' ? 'bg-white text-[#1B2A4A] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
             {t('erp_leads_active')}
             {activeLeads.length > 0 && (
-              <span className="ms-2 bg-[#1B2A4A] text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold">{activeLeads.length}</span>
+              <span className="ms-2 bg-[#141A24] text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold">{activeLeads.length}</span>
             )}
           </button>
           <button
@@ -444,10 +444,10 @@ export default function ErpLeads() {
         ) : display.length === 0 ? (
           <div className="text-center py-16 text-slate-400">{t('erp_no_leads')}</div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
+                <tr className="border-b border-[#ECEAE2] bg-[#F4F2EB]">
                   <th className="text-start px-4 py-3 font-semibold text-slate-600">{t('erp_lead_customer')}</th>
                   <th className="text-start px-4 py-3 font-semibold text-slate-600">{t('erp_lead_product')}</th>
                   <th className="text-start px-4 py-3 font-semibold text-slate-600 hidden md:table-cell">{t('erp_lead_building')}</th>
@@ -463,7 +463,7 @@ export default function ErpLeads() {
                     <tr
                       key={lead.id}
                       onClick={() => navigate(`/erp/leads/${lead.id}`)}
-                      className="border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer transition-colors last:border-0"
+                      className="border-b border-slate-50 hover:bg-[#F4F2EB] cursor-pointer transition-colors last:border-0"
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-[#1B2A4A]">{lead.customerName}</div>
@@ -482,7 +482,7 @@ export default function ErpLeads() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${overdue ? 'bg-red-100 text-red-700' : STATUS_COLORS[lead.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${overdue ? 'bg-red-100 text-red-700' : STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
                           {STATUS_ICONS[lead.status]}
                           {overdue ? t('erp_lead_overdue') : (statusLabel[lead.status] ?? lead.status)}
                         </span>
