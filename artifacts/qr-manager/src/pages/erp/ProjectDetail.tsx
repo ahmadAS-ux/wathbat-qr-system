@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
+import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 
 interface ProjectFile {
   id: number;
@@ -948,12 +949,18 @@ export default function ErpProjectDetail() {
   // Tab navigation state
   const [activeTab, setActiveTab] = useState<string>('overview');
 
+  // Contract integrity state
+  const [contractData, setContractData] = useState<any>(null);
+  const [contractDataLoading, setContractDataLoading] = useState(false);
+  const [integrityReport, setIntegrityReport] = useState<IntegrityReport | null>(null);
+
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
 
   const canUpload = user?.role !== 'SalesAgent' && user?.role !== 'Accountant';
   const canManagePayments = user?.role === 'Admin' || user?.role === 'Accountant';
   const canCreateMilestone = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
+  const canViewContract = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
 
   const loadProject = async () => {
     if (!project) setLoading(true);
@@ -1004,6 +1011,48 @@ export default function ErpProjectDetail() {
   };
 
   useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadAllFiles(); }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== 'contract' || !id) return;
+    setContractDataLoading(true);
+    setIntegrityReport(null);
+    fetch(`${API_BASE}/api/erp/projects/${id}/contract`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { setContractDataLoading(false); return; }
+        setContractData(d);
+        const today = new Date();
+        const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+        const vals: Record<string, string | null | undefined> = {
+          customerName: d.project?.customerName,
+          projectName: d.project?.name,
+          quotationNumber: d.quotation?.quotationNumber,
+          quotationDate: d.quotation?.quotationDate,
+          deliveryDeadline: d.project?.deliveryDeadline ?? null,
+          grandTotal: d.quotation?.grandTotal ? `${d.quotation.grandTotal} SAR` : null,
+          subtotalNet: d.quotation?.subtotalNet ? `${d.quotation.subtotalNet} SAR` : null,
+          taxRate: d.quotation?.taxRate ? `${d.quotation.taxRate}%` : null,
+          taxAmount: d.quotation?.taxAmount ? `${d.quotation.taxAmount} SAR` : null,
+          today: todayStr,
+          companyName: 'Wathbah Aluminum',
+        };
+        setIntegrityReport(checkContractIntegrity({
+          project: d.project,
+          quotation: d.quotation,
+          section: d.section,
+          drawings: d.drawings,
+          template: d.template,
+          renderedIntroAr: renderPlaceholders(d.template?.contract_cover_intro_ar || '', vals),
+          renderedIntroEn: renderPlaceholders(d.template?.contract_cover_intro_en || '', vals),
+          renderedTermsAr: renderPlaceholders(d.template?.contract_terms_ar || '', vals),
+          renderedTermsEn: renderPlaceholders(d.template?.contract_terms_en || '', vals),
+          renderedSignatureAr: renderPlaceholders(d.template?.contract_signature_block_ar || '', vals),
+          renderedSignatureEn: renderPlaceholders(d.template?.contract_signature_block_en || '', vals),
+        }));
+        setContractDataLoading(false);
+      })
+      .catch(() => setContractDataLoading(false));
+  }, [activeTab, id]);
 
   const completionPct = (m: PaymentMilestone): number | null => {
     if (!m.paidAmount || !m.amount || m.amount === 0) return null;
@@ -1424,7 +1473,7 @@ export default function ErpProjectDetail() {
             { key: 'payments',    label: t('tab_payments'),    badge: `${milestones.filter(m => m.status === 'paid').length}/${milestones.length}`, showBadge: milestones.length > 0 },
             { key: 'procurement', label: t('tab_procurement'), badge: null, showBadge: false },
             { key: 'production',  label: t('tab_production'),  badge: null, showBadge: false },
-            { key: 'contract',    label: t('tab_contract'),    badge: null, showBadge: false },
+            ...(canViewContract ? [{ key: 'contract', label: t('tab_contract'), badge: null, showBadge: false }] : []),
             { key: 'overview',    label: t('tab_overview'),    badge: null, showBadge: false },
             { key: 'timeline',    label: t('tab_timeline'),    badge: null, showBadge: false },
           ] as { key: string; label: string; badge: string | null; showBadge: boolean }[]).map(tab => (
@@ -1872,17 +1921,28 @@ export default function ErpProjectDetail() {
         )} {/* end activeTab === 'files' */}
 
         {/* ── Contract Tab ── */}
-        {activeTab === 'contract' && (user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent') && (
+        {activeTab === 'contract' && canViewContract && (
           <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-            <div className={`flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <div>
+            {/* Header: title + integrity badge + nav button */}
+            <div className={`flex items-center justify-between gap-3 mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex items-center gap-2.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
                 <h2 className={`font-semibold text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>
                   {t('contract_stage_label')}
                 </h2>
-                {!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation') && (
-                  <p className={`text-xs text-slate-400 mt-0.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                    {t('contract_generate_disabled_tooltip')}
-                  </p>
+                {contractDataLoading && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9B9A91]" />
+                )}
+                {!contractDataLoading && integrityReport && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    integrityReport.overall === 'green'
+                      ? 'bg-green-100 text-green-800'
+                      : integrityReport.overall === 'amber'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-red-100 text-red-800'
+                  } ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    {integrityReport.overall === 'green' ? '●' : integrityReport.overall === 'amber' ? '⚠' : '✗'}
+                    {' '}{t(`contract_integrity_${integrityReport.overall}` as TranslationKey)}
+                  </span>
                 )}
               </div>
               <button
@@ -1894,6 +1954,31 @@ export default function ErpProjectDetail() {
                 {t('contract_generate_button')}
               </button>
             </div>
+
+            {/* Issue list */}
+            {!contractDataLoading && integrityReport && integrityReport.issues.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {integrityReport.issues.map(issue => (
+                  <div key={issue.code} className={`flex items-start gap-2 text-sm ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <span className={`mt-0.5 shrink-0 ${issue.severity === 'error' ? 'text-red-500' : 'text-amber-500'}`}>
+                      {issue.severity === 'error'
+                        ? <X className="w-4 h-4" />
+                        : <AlertTriangle className="w-4 h-4" />}
+                    </span>
+                    <span className={`text-[#4A4940] ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                      {isRtl ? issue.messageAr : issue.messageEn}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quotation missing hint */}
+            {!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation') && (
+              <p className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('contract_generate_disabled_tooltip')}
+              </p>
+            )}
           </div>
         )}
 

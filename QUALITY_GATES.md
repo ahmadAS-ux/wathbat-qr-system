@@ -283,6 +283,19 @@ The system has THREE upload flows that must remain strictly separated. Before co
 
 ---
 
+### Gate 15: Documentation Sync ✅
+
+Before committing, check whether the change touches:
+
+- [ ] File paths, line numbers, or data flows in `CODE_STRUCTURE.md` or `FILE_UPLOAD_GUIDE.md` → update them
+- [ ] Architectural decisions, new endpoints, schema changes in `WORKFLOW_REFERENCE_v3.md` → update them
+- [ ] Design gaps closed → check off relevant row in `DESIGN_GAP_ANALYSIS.md`
+- [ ] "Current Active Work" status in `CLAUDE.md` → update sub-phase status
+
+**FAIL if:** Code change references a doc claim that is now stale.
+
+---
+
 ## Commit Message Convention
 
 ```
@@ -306,7 +319,7 @@ Types:
 Add this to every Claude Code prompt:
 
 ```
-Before committing, verify all 14 gates in QUALITY_GATES.md pass:
+Before committing, verify all 15 gates in QUALITY_GATES.md pass:
 1. pnpm run typecheck — zero errors
 2. pnpm run build — succeeds (PORT=3001 BASE_PATH=/ pnpm run build)
 3. Server starts and /api/healthz responds
@@ -321,4 +334,5 @@ Before committing, verify all 14 gates in QUALITY_GATES.md pass:
 12. Version bumped in all 3 package.json files + CHANGELOG updated + git tag created
 13. QR data visible in ERP views, no "Unauthorized" on any link; public endpoints in app.ts skip list
 14. Upload flow separation: individual slot upload uses slot's fileType directly, batch uses auto-detection; never mix the two paths
+15. Docs in sync: CODE_STRUCTURE.md, FILE_UPLOAD_GUIDE.md, WORKFLOW_REFERENCE_v3.md, DESIGN_GAP_ANALYSIS.md updated if touched
 ```

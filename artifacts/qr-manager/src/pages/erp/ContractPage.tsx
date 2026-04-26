@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api-base';
-import { checkContractIntegrity, type IntegrityReport } from './contract-integrity';
+import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import { ArrowRight, ArrowLeft, Printer, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
 import logo from '@assets/image_1774733777220.png';
 
@@ -72,18 +72,6 @@ const PRINT_STYLE = `
 .drawing-figure img { max-width: 100%; max-height: 240mm; object-fit: contain; }
 .drawing-header { font-size: 11pt; font-weight: 600; margin-bottom: 6mm; text-align: start; }
 `;
-
-/* ─── Placeholder helpers ──────────────────────────────────────────────────── */
-function renderPlaceholders(
-  template: string,
-  values: Record<string, string | null | undefined>,
-): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
-    const v = values[key];
-    if (v === undefined || v === null || v === '') return _match;
-    return String(v);
-  });
-}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);

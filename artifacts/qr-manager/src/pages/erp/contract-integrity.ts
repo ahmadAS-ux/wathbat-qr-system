@@ -13,6 +13,17 @@ export interface IntegrityReport {
   canPrint: boolean;
 }
 
+export function renderPlaceholders(
+  template: string,
+  values: Record<string, string | null | undefined>,
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+    const v = values[key];
+    if (v === undefined || v === null || v === '') return _match;
+    return String(v);
+  });
+}
+
 export function checkContractIntegrity(data: {
   project: any;
   quotation: any | null;
