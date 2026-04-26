@@ -177,6 +177,7 @@ export default function Admin() {
   const [stageDist, setStageDist] = useState<StageDist>({});
   const [cashflow, setCashflow] = useState<CashflowSummary | null>(null);
   const [cashflowLoading, setCashflowLoading] = useState(true);
+  const [trends, setTrends] = useState<{ projectsTrend: number[]; revenueTrend: number[]; outstandingTrend: number[]; qrTrend: number[] } | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -214,13 +215,14 @@ export default function Admin() {
     setErpLoading(true);
     setCashflowLoading(true);
     try {
-      const [projRes, leadsRes, overdueLeadsRes, stageRes, activityRes, cashflowRes] = await Promise.all([
+      const [projRes, leadsRes, overdueLeadsRes, stageRes, activityRes, cashflowRes, trendsRes] = await Promise.all([
         fetch(`${BASE}/api/erp/projects`),
         fetch(`${BASE}/api/erp/leads`),
         fetch(`${BASE}/api/erp/leads/overdue-count`),
         fetch(`${BASE}/api/erp/projects/stage-distribution`),
         fetch(`${BASE}/api/erp/activity`),
         isPaymentsUser ? fetch(`${BASE}/api/erp/stats/cashflow`) : Promise.resolve(null),
+        isPaymentsUser ? fetch(`${BASE}/api/erp/stats/trends`) : Promise.resolve(null),
       ]);
       if (projRes.ok) {
         const all: Project[] = await projRes.json();
@@ -241,6 +243,7 @@ export default function Admin() {
       if (stageRes.ok) setStageDist(await stageRes.json());
       if (activityRes.ok) setActivity(await activityRes.json());
       if (cashflowRes && cashflowRes.ok) setCashflow(await cashflowRes.json());
+      if (trendsRes && trendsRes.ok) setTrends(await trendsRes.json());
     } finally {
       setErpLoading(false);
       setCashflowLoading(false);
@@ -350,7 +353,7 @@ export default function Admin() {
       unit: isRtl ? 'مشروع' : 'projects',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [4,6,5,8,7,9,11,10,12,14],
+      sparkPoints: trends?.projectsTrend ?? [4,6,5,8,7,9,11,10,12,14],
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
       loading: erpLoading,
     }] : []),
@@ -361,7 +364,7 @@ export default function Admin() {
       unit: isRtl ? 'مليون ر.س' : 'M SAR',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [6,5,7,8,7,10,12,11,14,16],
+      sparkPoints: trends?.revenueTrend ?? [6,5,7,8,7,10,12,11,14,16],
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
       loading: cashflowLoading,
     }] : []),
@@ -372,7 +375,7 @@ export default function Admin() {
       unit: isRtl ? 'ألف ر.س' : 'K SAR',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [14,13,12,11,12,10,9,8,8,7],
+      sparkPoints: trends?.outstandingTrend ?? [14,13,12,11,12,10,9,8,8,7],
       sparkTone: 'mute' as 'ok' | 'danger' | 'mute',
       loading: cashflowLoading,
     }] : []),
@@ -383,7 +386,7 @@ export default function Admin() {
       unit: isRtl ? 'رمز' : 'codes',
       delta: null as string | null,
       deltaTone: 'ok' as 'ok' | 'danger' | 'mute',
-      sparkPoints: [2,3,4,5,4,6,7,8,9,11],
+      sparkPoints: trends?.qrTrend ?? [2,3,4,5,4,6,7,8,9,11],
       sparkTone: 'ok' as 'ok' | 'danger' | 'mute',
       loading,
     },

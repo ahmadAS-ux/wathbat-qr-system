@@ -2400,6 +2400,60 @@ router.get("/erp/stats/cashflow", requireRole("Admin", "Accountant", "FactoryMan
   }
 });
 
+// GET /erp/stats/trends — 10-point daily sparkline arrays for the 4 KPI cards
+router.get("/erp/stats/trends", requireRole("Admin", "Accountant", "FactoryManager"), async (req: Request, res: Response) => {
+  try {
+    const [projResult, revenueResult, outstandingResult, qrResult] = await Promise.all([
+      db.execute(sql`
+        WITH days AS (
+          SELECT generate_series(NOW() - INTERVAL '9 days', NOW(), INTERVAL '1 day')::date AS day
+        )
+        SELECT COALESCE(COUNT(p.id), 0)::int AS count
+        FROM days d
+        LEFT JOIN projects p ON p.created_at::date = d.day
+        GROUP BY d.day ORDER BY d.day
+      `),
+      db.execute(sql`
+        WITH days AS (
+          SELECT generate_series(NOW() - INTERVAL '9 days', NOW(), INTERVAL '1 day')::date AS day
+        )
+        SELECT COALESCE(SUM(pm.paid_amount), 0)::int AS count
+        FROM days d
+        LEFT JOIN payment_milestones pm ON pm.paid_at::date = d.day
+        GROUP BY d.day ORDER BY d.day
+      `),
+      db.execute(sql`
+        WITH days AS (
+          SELECT generate_series(NOW() - INTERVAL '9 days', NOW(), INTERVAL '1 day')::date AS day
+        )
+        SELECT COALESCE(SUM(CASE WHEN pm.status != 'paid' THEN COALESCE(pm.amount, 0) - COALESCE(pm.paid_amount, 0) ELSE 0 END), 0)::int AS count
+        FROM days d
+        LEFT JOIN payment_milestones pm ON pm.created_at::date = d.day
+        GROUP BY d.day ORDER BY d.day
+      `),
+      db.execute(sql`
+        WITH days AS (
+          SELECT generate_series(NOW() - INTERVAL '9 days', NOW(), INTERVAL '1 day')::date AS day
+        )
+        SELECT COALESCE(COUNT(pd.id), 0)::int AS count
+        FROM days d
+        LEFT JOIN processed_docs pd ON pd.created_at::date = d.day
+        GROUP BY d.day ORDER BY d.day
+      `),
+    ]);
+    const toArr = (r: any) => (r.rows as any[]).map(row => Number(row.count ?? 0));
+    res.json({
+      projectsTrend:    toArr(projResult),
+      revenueTrend:     toArr(revenueResult),
+      outstandingTrend: toArr(outstandingResult),
+      qrTrend:          toArr(qrResult),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/stats/trends failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // GET /erp/activity — enriched activity feed with user attribution
 router.get("/erp/activity", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
