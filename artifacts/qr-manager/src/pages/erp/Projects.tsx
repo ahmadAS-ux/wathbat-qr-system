@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { Plus } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 
 interface Project {
@@ -294,6 +294,7 @@ export default function ErpProjects() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState('');
 
   const loadProjects = async () => {
     setLoading(true);
@@ -318,14 +319,21 @@ export default function ErpProjects() {
 
   const filters = ['all', 'new', 'in_study', 'in_production', 'complete'];
 
+  const filteredProjects = search.trim()
+    ? projects.filter(p =>
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.customerName.toLowerCase().includes(search.toLowerCase())
+      )
+    : projects;
+
   return (
     <AdminLayout>
-      <div className="p-6 max-w-5xl mx-auto" dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="p-6 max-w-6xl mx-auto" dir={isRtl ? 'rtl' : 'ltr'}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-[#1B2A4A]">{t('erp_projects_title')}</h1>
-            <p className="text-slate-500 text-sm mt-1">{projects.length} {t('erp_projects_title').toLowerCase()}</p>
+            <p className="text-slate-500 text-sm mt-1">{filteredProjects.length} {t('erp_projects_title').toLowerCase()}</p>
           </div>
           <button
             onClick={() => setShowCreate(true)}
@@ -334,6 +342,17 @@ export default function ErpProjects() {
             <Plus className="w-4 h-4" />
             {t('erp_project_new')}
           </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('erp_projects_search')}
+            className="w-72 h-9 ps-9 pe-3 rounded-lg border border-[#ECEAE2] ring-1 ring-transparent focus:ring-[#141A24] bg-white text-sm outline-none"
+          />
         </div>
 
         {/* Stage Filter Tabs */}
@@ -353,54 +372,79 @@ export default function ErpProjects() {
           ))}
         </div>
 
-        {/* Project Cards */}
+        {/* Projects Table */}
         {loading ? (
           <div className="text-center py-16 text-slate-400">{t('processing')}</div>
-        ) : projects.length === 0 ? (
+        ) : filteredProjects.length === 0 ? (
           <div className="text-center py-16 text-slate-400">{t('erp_no_projects')}</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map(project => {
-              const style = STAGE_STYLES[project.stageDisplay] ?? STAGE_STYLES.new;
-              const dot = STAGE_DOT[project.stageDisplay] ?? STAGE_DOT.new;
-              return (
-                <div
-                  key={project.id}
-                  onClick={() => navigate(`/erp/projects/${project.id}`)}
-                  className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-md hover:border-[#ECEAE2] cursor-pointer transition-all p-5 flex flex-col gap-3"
-                >
-                  {/* Stage Badge */}
-                  <div className="flex items-center justify-between">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                      {stageLabel[project.stageDisplay] ?? project.stageDisplay}
-                    </span>
-                    {project.fromLeadId && (
-                      <span className="text-[10px] text-slate-400 bg-[#F4F2EB] border border-[#ECEAE2] px-2 py-0.5 rounded-full">
-                        {t('erp_from_lead')}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Project Name */}
-                  <div>
-                    <h3 className="font-bold text-[#1B2A4A] text-base leading-tight">{project.name}</h3>
-                    <p className="text-slate-500 text-sm mt-0.5">{project.customerName}</p>
-                  </div>
-
-                  {/* Meta */}
-                  <div className="flex items-center gap-3 text-xs text-slate-400 mt-auto pt-2 border-t border-slate-50">
-                    {project.productInterest && <span>{project.productInterest}</span>}
-                    {project.buildingType && <span>· {project.buildingType}</span>}
-                    {project.estimatedValue && (
-                      <span className="ms-auto font-medium text-slate-600" dir="ltr">
-                        {project.estimatedValue.toLocaleString()} SAR
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#ECEAE2] bg-white">
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_project')}</th>
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_client')}</th>
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_stage')}</th>
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_progress')}</th>
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_value')}</th>
+                  <th className="text-start px-4 py-3 font-semibold text-[#6B6A60] text-xs uppercase tracking-wide">{t('erp_projects_col_delivery')}</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECEAE2]">
+                {filteredProjects.map(project => {
+                  const style = STAGE_STYLES[project.stageDisplay] ?? STAGE_STYLES.new;
+                  const dot   = STAGE_DOT[project.stageDisplay]   ?? STAGE_DOT.new;
+                  const pct   = Math.round((project.stageInternal + 1) / 15 * 100);
+                  const isOverdue = project.deliveryDeadline
+                    && new Date(project.deliveryDeadline) < new Date()
+                    && project.stageDisplay !== 'complete';
+                  const deliveryStr = project.deliveryDeadline
+                    ? (() => { const d = new Date(project.deliveryDeadline!); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; })()
+                    : '—';
+                  return (
+                    <tr
+                      key={project.id}
+                      onClick={() => navigate(`/erp/projects/${project.id}`)}
+                      className="cursor-pointer hover:bg-[#F4F2EB] transition-colors"
+                    >
+                      <td className="px-4 py-3.5 font-medium text-[#1B2A4A]">{project.name}</td>
+                      <td className="px-4 py-3.5 text-[#4A4940]">{project.customerName}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                          {stageLabel[project.stageDisplay] ?? project.stageDisplay}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 rounded-full bg-[#ECEAE2] overflow-hidden">
+                            <div className="h-full rounded-full bg-[#141A24]" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-[#6B6A60]" dir="ltr">{pct}%</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-[#4A4940]" dir="ltr">
+                        {project.estimatedValue ? `${project.estimatedValue.toLocaleString()} SAR` : '—'}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span dir="ltr">{deliveryStr}</span>
+                          {isOverdue && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">
+                              {t('erp_projects_overdue')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-[#9B9A91]">
+                        {isRtl ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
