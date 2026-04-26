@@ -4,6 +4,17 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.4.1] - April 2026
+
+### Added — Step 16b: Project Code Display (Frontend)
+
+- **Projects table** ([artifacts/qr-manager/src/pages/erp/Projects.tsx](artifacts/qr-manager/src/pages/erp/Projects.tsx)): project name cell now shows `WT-YYYY-XXXX` code as a muted sub-line (`dir="ltr"`) beneath the project name. Hidden gracefully when code is null.
+- **Project detail header** ([artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx](artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx)): code badge (`bg-[#F1EFE7]`, `dir="ltr"`, `ms-1`) displayed inline next to the project title. Hidden when null.
+- **i18n**: added `erp_project_code` key (EN: "Code" / AR: "الرقم") in both language blocks.
+- `Project` interface updated in both pages to include `code: string | null`.
+
+---
+
 ## [3.4.0] - April 2026
 
 ### Added — Step 16a: Project Code Column (WT-YYYY-XXXX)

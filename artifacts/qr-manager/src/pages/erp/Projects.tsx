@@ -21,6 +21,7 @@ interface Project {
   assignedTo: number | null;
   deliveryDeadline: string | null;
   notes: string | null;
+  code: string | null;
   createdAt: string;
 }
 
@@ -408,7 +409,12 @@ export default function ErpProjects() {
                       onClick={() => navigate(`/erp/projects/${project.id}`)}
                       className="cursor-pointer hover:bg-[#F4F2EB] transition-colors"
                     >
-                      <td className="px-4 py-3.5 font-medium text-[#1B2A4A]">{project.name}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="font-medium text-[#1B2A4A]">{project.name}</div>
+                        {project.code && (
+                          <div className="text-xs text-[#9B9A91] mt-0.5" dir="ltr">{project.code}</div>
+                        )}
+                      </td>
                       <td className="px-4 py-3.5 text-[#4A4940]">{project.customerName}</td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}>

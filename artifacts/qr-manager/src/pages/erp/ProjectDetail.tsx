@@ -124,6 +124,7 @@ interface Project {
   warrantyStartDate: string | null;
   warrantyEndDate: string | null;
   notes: string | null;
+  code: string | null;
   createdAt: string;
   files: ProjectFile[];
 }
@@ -1331,7 +1332,12 @@ export default function ErpProjectDetail() {
         <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 mb-4">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-[#141A24]">{project.name}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold text-[#141A24]">{project.name}</h1>
+                {project.code && (
+                  <span className="text-xs text-[#9B9A91] bg-[#F1EFE7] px-2 py-0.5 rounded ms-1" dir="ltr">{project.code}</span>
+                )}
+              </div>
               <p className="text-slate-500 text-sm mt-0.5">{project.customerName}</p>
               {project.phone && <p className="text-slate-400 text-xs mt-0.5" dir="ltr">{project.phone}</p>}
             </div>
