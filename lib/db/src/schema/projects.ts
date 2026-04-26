@@ -20,6 +20,7 @@ export const projectsTable = pgTable("projects", {
   warrantyStartDate: date("warranty_start_date"),
   warrantyEndDate: date("warranty_end_date"),
   notes: text("notes"),
+  code: text("code"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").notNull().references(() => usersTable.id),
 });

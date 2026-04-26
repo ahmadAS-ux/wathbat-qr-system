@@ -342,6 +342,38 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE project_phases ADD COLUMN IF NOT EXISTS customer_confirmed BOOLEAN NOT NULL DEFAULT false`);
     await db.execute(sql`ALTER TABLE project_phases ADD COLUMN IF NOT EXISTS customer_confirmed_at TIMESTAMP`);
 
+    // Step 16: project codes (WT-YYYY-XXXX) — nullable until backfill, no default
+    await db.execute(sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS code TEXT`);
+    // Backfill existing rows — idempotent (only targets rows where code IS NULL)
+    await db.execute(sql`
+      WITH ranked AS (
+        SELECT id,
+               EXTRACT(YEAR FROM created_at)::INTEGER AS yr,
+               ROW_NUMBER() OVER (
+                 PARTITION BY EXTRACT(YEAR FROM created_at)
+                 ORDER BY created_at ASC, id ASC
+               ) AS rn
+        FROM projects WHERE code IS NULL
+      )
+      UPDATE projects p
+      SET code = 'WT-' || ranked.yr::TEXT || '-' || LPAD(ranked.rn::TEXT, 4, '0')
+      FROM ranked WHERE p.id = ranked.id
+    `);
+    // Add UNIQUE constraint after backfill — guarded DO block (idempotent)
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'projects_code_unique'
+            AND conrelid = 'projects'::regclass
+        ) THEN
+          ALTER TABLE projects ADD CONSTRAINT projects_code_unique UNIQUE (code);
+        END IF;
+      END
+      $$
+    `);
+
     // Link legacy QR uploads to ERP projects (Issue #4 — nullable FK)
     await db.execute(sql`ALTER TABLE processed_docs ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id)`);
 

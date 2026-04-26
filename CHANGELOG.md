@@ -4,6 +4,18 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.4.0] - April 2026
+
+### Added — Step 16a: Project Code Column (WT-YYYY-XXXX)
+
+- **`code` column** on `projects` table — nullable `TEXT`, unique constraint added after backfill.
+- **Idempotent startup migrations** (in `runStartupMigrations()`): `ADD COLUMN IF NOT EXISTS code TEXT` → backfill CTE (sorted by `created_at ASC, id ASC` per year) → `DO $$` constraint guard.
+- **Auto-generation** on project creation: `generateAndSetProjectCode()` helper in `erp.ts` uses `db.transaction()` + `pg_advisory_xact_lock(year)` to serialize concurrent inserts; generates `WT-YYYY-XXXX` format with year reset and 4-digit zero-padded sequence.
+- `POST /api/erp/projects` response now includes `code` field.
+- Drizzle schema (`lib/db/src/schema/projects.ts`) updated with `code: text("code")` (nullable).
+
+---
+
 ## [3.3.0] - April 2026
 
 ### Changed — Stabilization Release

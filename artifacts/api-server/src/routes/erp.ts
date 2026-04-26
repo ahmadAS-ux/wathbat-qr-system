@@ -614,6 +614,24 @@ router.patch("/erp/leads/:id/lose", requireRole("Admin", "FactoryManager", "Empl
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 
+async function generateAndSetProjectCode(newProjectId: number): Promise<string> {
+  return db.transaction(async (tx) => {
+    const year = new Date().getFullYear();
+    // Advisory lock serializes code generation per year across concurrent inserts.
+    // Lock is held until this transaction commits.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${year})`);
+    const result = await tx.execute(sql`
+      SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 9) AS INTEGER)), 0) + 1 AS next_n
+      FROM projects
+      WHERE code LIKE ${'WT-' + year + '-%'}
+    `);
+    const nextN = (result.rows[0] as any).next_n as number;
+    const code = `WT-${year}-${String(nextN).padStart(4, '0')}`;
+    await tx.execute(sql`UPDATE projects SET code = ${code} WHERE id = ${newProjectId}`);
+    return code;
+  });
+}
+
 // GET /erp/projects — list (no SalesAgent, no Accountant)
 router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
@@ -712,7 +730,9 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
       { projectId: row.id, label: 'After sign-off / بعد التسليم', percentage: 10, linkedEvent: 'final' },
     ]);
 
-    res.status(201).json(row);
+    // Step 16: generate and persist project code (WT-YYYY-XXXX)
+    const code = await generateAndSetProjectCode(row.id);
+    res.status(201).json({ ...row, code });
   } catch (err) {
     logger.error({ err }, "POST /erp/projects failed");
     res.status(500).json({ error: "Internal error" });
