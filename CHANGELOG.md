@@ -4,6 +4,22 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.8] - April 2026 - Stabilization: Cascade Delete and UX Fixes
+
+### Fixed
+
+- **Customer delete now cascades to projects linked via `from_lead_id`** — `getCustomerDependencySummary()` previously queried only `WHERE customer_id = ?`. Projects created before Stage 3 (which had `customer_id = NULL` but `from_lead_id` pointing to a lead of this customer) were invisible to the query and survived deletion. The query now uses `DISTINCT UNION` of both the direct (`customer_id`) and indirect (`from_lead_id IN leads.customer_id`) paths.
+- **Backfill: `customer_id` set on legacy project rows** — `runStartupMigrations()` now runs an idempotent `UPDATE projects SET customer_id = l.customer_id FROM leads l WHERE p.from_lead_id = l.id AND p.customer_id IS NULL` on every boot. This repairs existing orphaned rows in deployed databases. Run `SELECT count(*) FROM projects WHERE customer_id IS NULL` after deploy to verify.
+- **CustomerPicker search query now pre-fills the inline new-customer name field** — when a user types in the `CustomerPicker` search input and finds no match, the typed text is now automatically mirrored into the `newName` field that appears in the new-customer fallback section. Previously the user had to type their name twice. Fixed via `onSearchChange` callback prop on `CustomerPicker`, wired in `Leads.tsx` and `Projects.tsx`.
+
+### Fix commits
+
+- `e95252a` - `fix: customer delete cascade includes projects linked via from_lead_id`
+- `3b6c29c` - `fix: customer picker search query carries to inline new-customer name field`
+- `7171138` - `fix: backfill missing customer_id on legacy projects`
+
+---
+
 ## [4.0.7] - April 2026 - Stage 5: Customer Picker in Lead and Project Flows
 
 ### Changed
