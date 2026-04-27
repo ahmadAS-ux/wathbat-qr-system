@@ -382,6 +382,20 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE dropdown_options ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
     // Backfill any rows that were inserted before the active column existed
     await db.execute(sql`UPDATE dropdown_options SET active = true WHERE active IS NULL`);
+    // Unique constraint on (category, value) — required for ON CONFLICT seed upserts
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'dropdown_options_category_value_unique'
+            AND conrelid = 'dropdown_options'::regclass
+        ) THEN
+          ALTER TABLE dropdown_options ADD CONSTRAINT dropdown_options_category_value_unique UNIQUE (category, value);
+        END IF;
+      END
+      $$
+    `);
 
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
@@ -395,46 +409,36 @@ async function runStartupMigrations() {
     await db.execute(sql`UPDATE dropdown_options SET label_ar = 'عالي'          WHERE category = 'budget_range'     AND value = 'high'         AND label_ar = 'مرتفع'`);
     await db.execute(sql`UPDATE dropdown_options SET label_ar = 'ممتاز'         WHERE category = 'budget_range'     AND value = 'premium'      AND label_ar = 'بريميوم'`);
 
-    // Seed dropdown options if empty
-    const optResult = await db.execute(sql`SELECT COUNT(*) as count FROM dropdown_options`);
-    const optRow = optResult.rows[0] as any;
-    if (Number(optRow?.count ?? 0) === 0) {
-      const seedRows = [
-        // lead_source
-        ["lead_source", "whatsapp", "واتساب",         "WhatsApp",     1],
-        ["lead_source", "phone",    "هاتف",            "Phone",        2],
-        ["lead_source", "walk_in",  "حضوري",           "Walk-in",      3],
-        ["lead_source", "referral", "تحويل",           "Referral",     4],
-        ["lead_source", "social",   "تواصل اجتماعي",  "Social media", 5],
-        // product_interest
-        ["product_interest", "windows",      "نوافذ",           "Windows",      1],
-        ["product_interest", "doors",        "أبواب",           "Doors",        2],
-        ["product_interest", "curtain_wall", "واجهات ستائرية", "Curtain wall", 3],
-        ["product_interest", "facades",      "واجهات",          "Facades",      4],
-        ["product_interest", "shower",       "زجاج شاور",      "Shower glass", 5],
-        ["product_interest", "other",        "أخرى",            "Other",        6],
-        // building_type
-        ["building_type", "villa",      "فيلا",   "Villa",      1],
-        ["building_type", "apartment",  "شقة",    "Apartment",  2],
-        ["building_type", "commercial", "تجاري",  "Commercial", 3],
-        ["building_type", "tower",      "برج",    "Tower",      4],
-        // budget_range
-        ["budget_range", "low",     "منخفض", "Low",     1],
-        ["budget_range", "medium",  "متوسط", "Medium",  2],
-        ["budget_range", "high",    "عالي",  "High",    3],
-        ["budget_range", "premium", "ممتاز", "Premium", 4],
-      ];
-      for (const [category, value, labelAr, labelEn, sortOrder] of seedRows) {
-        await db.insert(dropdownOptionsTable).values({
-          category: category as string,
-          value: value as string,
-          labelAr: labelAr as string,
-          labelEn: labelEn as string,
-          sortOrder: sortOrder as number,
-        });
-      }
-      logger.info("Seeded dropdown_options with default values");
+    // Seed dropdown options — idempotent via ON CONFLICT DO NOTHING (M6)
+    const seedRows: [string, string, string, string, number][] = [
+      // lead_source
+      ["lead_source", "whatsapp", "واتساب",         "WhatsApp",     1],
+      ["lead_source", "phone",    "هاتف",            "Phone",        2],
+      ["lead_source", "walk_in",  "حضوري",           "Walk-in",      3],
+      ["lead_source", "referral", "تحويل",           "Referral",     4],
+      ["lead_source", "social",   "تواصل اجتماعي",  "Social media", 5],
+      // product_interest
+      ["product_interest", "windows",      "نوافذ",           "Windows",      1],
+      ["product_interest", "doors",        "أبواب",           "Doors",        2],
+      ["product_interest", "curtain_wall", "واجهات ستائرية", "Curtain wall", 3],
+      ["product_interest", "facades",      "واجهات",          "Facades",      4],
+      ["product_interest", "shower",       "زجاج شاور",      "Shower glass", 5],
+      ["product_interest", "other",        "أخرى",            "Other",        6],
+      // building_type
+      ["building_type", "villa",      "فيلا",   "Villa",      1],
+      ["building_type", "apartment",  "شقة",    "Apartment",  2],
+      ["building_type", "commercial", "تجاري",  "Commercial", 3],
+      ["building_type", "tower",      "برج",    "Tower",      4],
+      // budget_range
+      ["budget_range", "low",     "منخفض", "Low",     1],
+      ["budget_range", "medium",  "متوسط", "Medium",  2],
+      ["budget_range", "high",    "عالي",  "High",    3],
+      ["budget_range", "premium", "ممتاز", "Premium", 4],
+    ];
+    for (const [category, value, labelAr, labelEn, sortOrder] of seedRows) {
+      await db.insert(dropdownOptionsTable).values({ category, value, labelAr, labelEn, sortOrder }).onConflictDoNothing();
     }
+    logger.info("Dropdown options seed check complete (ON CONFLICT DO NOTHING)");
   } catch (err) {
     logger.error({ err }, "Failed to initialise tables — server will still start");
   }
