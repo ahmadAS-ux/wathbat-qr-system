@@ -456,3 +456,68 @@ These decisions were explicitly made in the Claude Design session and must NOT b
 8. **Customer-first in Recent Projects** — Customer name as primary, project name as sub-line.
 9. **Phone numbers in `dir="ltr" unicodeBidi: isolate`** — Required for correct digit ordering.
 10. **Stage progress bar direction** — In RTL: stage 01 on RIGHT, stage 15 on LEFT. Fill moves right-to-left. Do NOT use `flex-row-reverse` with `dir="rtl"` parent (they cancel out).
+
+---
+
+## Appendix C: Frontend UI Quality Audit (April 2026)
+
+> **Scope:** All ERP pages — Projects, ProjectDetail, Leads, LeadDetail, ContractPage, Payments, Vendors, AdminSettings, AdminUsers, PhaseConfirm, AdminLayout sidebar.
+> **Focus areas:** Design consistency, RTL/LTR rendering, component quality, missing states, mobile responsiveness.
+> **Status:** Findings only — not yet actioned.
+
+---
+
+### Critical
+
+| ID | Title | File | Line | Issue | Impact |
+|----|-------|------|------|-------|--------|
+| C1 | Non-system badge colors — Payments | `erp/Payments.tsx` | 128, 165 | "Paid" and completion badges use `bg-teal-50 text-teal-600 border-teal-100` (Tailwind defaults). Design token: `bg-[#DCEFEC] text-[#0E6E6A]` | Payment badges look different from every other badge |
+| C2 | Non-system badge colors — Vendors PO status | `erp/Vendors.tsx` | 42–44 | PO status uses `bg-teal-50`, `bg-amber-50`, `bg-blue-50` — none exist in design token set | Vendor badges visually inconsistent with the rest of the ERP |
+| C3 | Silent API error states in ProjectDetail | `erp/ProjectDetail.tsx` | phases, files, expected-files sections | Multiple `fetch()` calls have no error-handling UI. API failure shows a blank section with no message | Data loss UX — users see blank sections with no explanation |
+
+---
+
+### Major
+
+| ID | Title | File | Line | Issue | Impact |
+|----|-------|------|------|-------|--------|
+| M1 | Projects table not scrollable on mobile | `erp/Projects.tsx` | 383 | Table wrapper uses `overflow-hidden` but no `overflow-x-auto`. Six columns with fixed `px-4 py-3.5` overflow the viewport | Mobile users cannot see right-side columns |
+| M2 | Overdue milestone badge uses non-system red | `erp/Payments.tsx` | 140 | Overdue row uses `bg-red-50/20` — Tailwind with opacity. Design token: `bg-[#F7E2DF] text-[#A0312A]` | Inconsistent with overdue badge in Projects (`bg-red-100 text-red-700`) |
+| M3 | AdminSettings blank page while loading | `erp/AdminSettings.tsx` | 39–50 | `loading` state exists in code but no loading skeleton or text rendered. Fields appear blank | First load looks like settings are empty rather than loading |
+| M4 | AdminUsers Arabic text rendered in DM Sans | `AdminUsers.tsx` | 97–100 | Header applies `text-right` in RTL but does not apply `font-[Tajawal]` | Arabic user-management UI uses the English font |
+| M5 | Status label maps duplicated across pages | `erp/Leads.tsx`, `erp/Projects.tsx` | 199–216, 313–319 | Each page defines its own `statusLabel` / `stageLabel` map. No shared source of truth | Translation change requires updates in 3+ places; drift between pages likely |
+| M6 | STATUS_ICONS defined but never rendered | `erp/Leads.tsx` | 35–40 | `STATUS_ICONS` map is defined (lucide icons per status) but never used anywhere in render output | Dead code + intended icon feature silently missing from UI |
+| M7 | Modal z-index inconsistent | `erp/Projects.tsx`, `erp/Leads.tsx`, `erp/Vendors.tsx` | 252, 330, 311 | Modals mix `z-50` and `z-[60]`. Backdrop and content share same z-level in some modals | If toast + modal appear simultaneously, layering breaks |
+| M8 | Vendors expanded PO spinner has no label | `erp/Vendors.tsx` | 139–150 | Loading spinner when expanding vendor PO list has no accompanying text | Users have no feedback about what is loading |
+
+---
+
+### Minor
+
+| ID | Title | File | Issue |
+|----|-------|------|-------|
+| N1 | `ml-*` / `mr-*` / `pl-*` / `pr-*` RTL breakage risk | `erp/Payments.tsx`, `erp/LeadDetail.tsx` form sections | Physical margin/padding props outside `dir="ltr"` containers. Mirrors incorrectly in Arabic mode |
+| N2 | Progress bar in Projects table missing explicit `dir` | `erp/Projects.tsx:427` | `pct%` span has `dir="ltr"` but the bar container div does not. Should match ProjectDetail pattern |
+| N3 | Inconsistent modal header borders | `erp/Projects.tsx:160`, `erp/Leads.tsx:178` | Create Project modal has `border-b` on header; Create Lead modal does not |
+| N4 | LeadDetail delete uses browser `confirm()` | `erp/LeadDetail.tsx` | Native `window.confirm()` instead of the styled custom modal used elsewhere |
+| N5 | Vendor categories hardcoded | `erp/Vendors.tsx:28` | `VENDOR_CATEGORIES` static array — not pulled from admin dropdown options API. Adding a category requires a code deploy |
+| N6 | `BackIcon` pattern duplicated in every page | LeadDetail, Payments, ContractPage, Vendors, ProjectDetail | `const BackIcon = isRtl ? ArrowRight : ArrowLeft` defined locally in 5 files |
+| N7 | Search inputs missing `aria-label` | `erp/Vendors.tsx:199`, `erp/Projects.tsx` search input | Placeholder only; no `aria-label`. Screen readers cannot identify these fields |
+| N8 | AdminSettings font class non-standard syntax | `erp/AdminSettings.tsx:73` | `font-[DM_Sans,sans-serif]` — inconsistent with `font-[DM_Sans]` used elsewhere |
+| N9 | No pagination on Leads or Projects lists | `erp/Leads.tsx`, `erp/Projects.tsx` | All records load in a single fetch. Performance degrades with 100+ records |
+| N10 | Inconsistent empty state boxing | `erp/Payments.tsx:105` | Payments empty state inside bordered box; other pages show plain centered text |
+
+---
+
+### Summary
+
+| Severity | Count |
+|----------|-------|
+| Critical | 3 |
+| Major | 8 |
+| Minor | 10 |
+
+**Fix order (recommended):**
+1. C1 + C2 — align Payments and Vendors badge colors to design tokens (see Appendix A for exact hex)
+2. C3 — add error state UI to ProjectDetail fetch sections
+3. M1 — wrap Projects table in `overflow-x-auto` for mobile
