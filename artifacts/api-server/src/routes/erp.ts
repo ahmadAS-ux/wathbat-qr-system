@@ -201,11 +201,16 @@ async function getCustomerDependencySummary(customerId: number) {
     WHERE customer_id = ${customerId}
     ORDER BY created_at DESC, id DESC
   `);
+  // Projects linked directly (customer_id) OR indirectly via from_lead_id.
+  // The indirect path catches rows created before Stage 3 set customer_id.
   const projectResult = await db.execute(sql`
-    SELECT id, name, code, stage_display
+    SELECT DISTINCT id, name, code, stage_display
     FROM projects
     WHERE customer_id = ${customerId}
-    ORDER BY created_at DESC, id DESC
+       OR from_lead_id IN (
+            SELECT id FROM leads WHERE customer_id = ${customerId}
+          )
+    ORDER BY id DESC
   `);
 
   const leads = leadResult.rows.map((row: any) => ({
