@@ -140,15 +140,35 @@ function isUniqueConstraintError(err: unknown, constraintName: string): boolean 
   return code === "23505" && constraint === constraintName;
 }
 
-async function findCustomerByPhone(phone: string, excludeId?: number) {
+async function findCustomerByPhone(phone: string, excludeId?: number, runner: typeof db | DbTx = db) {
   const conditions = [eq(customersTable.phone, phone)];
   if (excludeId !== undefined) conditions.push(ne(customersTable.id, excludeId));
-  const [row] = await db
+  const [row] = await runner
     .select({ id: customersTable.id, name: customersTable.name, phone: customersTable.phone })
     .from(customersTable)
     .where(and(...conditions));
   return row;
 }
+
+const leadSelectFields = {
+  id: leadsTable.id,
+  customerId: leadsTable.customerId,
+  customerName: sql<string>`COALESCE(${customersTable.name}, ${leadsTable.customerName})`,
+  phone: sql<string>`COALESCE(${customersTable.phone}, ${leadsTable.phone})`,
+  source: leadsTable.source,
+  productInterest: leadsTable.productInterest,
+  buildingType: leadsTable.buildingType,
+  location: leadsTable.location,
+  assignedTo: leadsTable.assignedTo,
+  budgetRange: leadsTable.budgetRange,
+  estimatedValue: leadsTable.estimatedValue,
+  firstFollowupDate: leadsTable.firstFollowupDate,
+  status: leadsTable.status,
+  lostReason: leadsTable.lostReason,
+  convertedProjectId: leadsTable.convertedProjectId,
+  createdAt: leadsTable.createdAt,
+  createdBy: leadsTable.createdBy,
+};
 
 async function getCustomerDependencySummary(customerId: number) {
   const leadResult = await db.execute(sql`
@@ -631,8 +651,6 @@ router.delete("/erp/customers/:id", requireRole(...ADMIN_ONLY), async (req: Requ
 router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const { status, assignedTo, overdue } = req.query;
-    let query = db.select().from(leadsTable);
-
     const conditions = [];
     if (status) conditions.push(eq(leadsTable.status, status as string));
     if (assignedTo) conditions.push(eq(leadsTable.assignedTo, Number(assignedTo)));
@@ -642,8 +660,15 @@ router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "Sal
     }
 
     const rows = conditions.length > 0
-      ? await db.select().from(leadsTable).where(and(...conditions)).orderBy(leadsTable.createdAt)
-      : await db.select().from(leadsTable).orderBy(leadsTable.createdAt);
+      ? await db.select(leadSelectFields)
+        .from(leadsTable)
+        .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+        .where(and(...conditions))
+        .orderBy(leadsTable.createdAt)
+      : await db.select(leadSelectFields)
+        .from(leadsTable)
+        .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+        .orderBy(leadsTable.createdAt);
 
     res.json(rows);
   } catch (err) {
@@ -671,25 +696,66 @@ router.get("/erp/leads/overdue-count", requireRole("Admin", "FactoryManager", "E
 router.post("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const { customerName, phone, source, productInterest, buildingType, location, assignedTo, budgetRange, estimatedValue, firstFollowupDate } = req.body;
-    if (!customerName || !phone || !source || !productInterest || !buildingType || !firstFollowupDate) {
-      res.status(400).json({ error: "customerName, phone, source, productInterest, buildingType, firstFollowupDate are required" });
+    const customerId = req.body.customerId ? Number(req.body.customerId) : null;
+    if ((req.body.customerId !== undefined && req.body.customerId !== null && req.body.customerId !== "") && Number.isNaN(customerId)) {
+      res.status(400).json({ error: "customerId must be a valid number" });
       return;
     }
-    if (!/^05\d{8}$/.test(phone)) {
-      res.status(400).json({ error: "Phone must be a valid Saudi number starting with 05 (10 digits)" });
+    if ((!customerId && !customerName) || !source || !productInterest || !buildingType || !firstFollowupDate) {
+      res.status(400).json({ error: "customerId or customerName, source, productInterest, buildingType, firstFollowupDate are required" });
       return;
     }
     const sess = session(req);
-    const [row] = await db.insert(leadsTable).values({
-      customerName, phone, source, productInterest, buildingType,
-      location: location ?? null,
-      assignedTo: assignedTo ? Number(assignedTo) : sess.userId,
-      budgetRange: budgetRange ?? null,
-      estimatedValue: estimatedValue ? Number(estimatedValue) : null,
-      firstFollowupDate,
-      createdBy: sess.userId,
-    }).returning();
-    res.status(201).json(row);
+    const created = await db.transaction(async (tx) => {
+      const resolvedCustomer = await resolveCustomerLink(tx, {
+        createdBy: sess.userId,
+        customerId,
+        customerName: customerName ?? null,
+        phone: phone ?? null,
+        seedLocation: location ?? null,
+      });
+      if ("error" in resolvedCustomer) return resolvedCustomer;
+
+      const [row] = await tx.insert(leadsTable).values({
+        customerId: resolvedCustomer.customerId,
+        customerName: resolvedCustomer.customerName,
+        phone: resolvedCustomer.phone,
+        source,
+        productInterest,
+        buildingType,
+        location: location ?? null,
+        assignedTo: assignedTo ? Number(assignedTo) : sess.userId,
+        budgetRange: budgetRange ?? null,
+        estimatedValue: estimatedValue ? Number(estimatedValue) : null,
+        firstFollowupDate,
+        createdBy: sess.userId,
+      }).returning();
+      if (!row) throw new Error("Lead insert failed");
+      return row;
+    });
+
+    if ("error" in created) {
+      if (created.error === "customer_not_found") {
+        res.status(404).json({ error: "Customer not found" });
+        return;
+      }
+      if (created.error === "phone_exists") {
+        res.status(409).json({ error: "phone_exists", existingCustomerId: created.existingCustomerId });
+        return;
+      }
+      if (created.error === "phone_invalid") {
+        res.status(400).json({ error: "phone must be a valid E.164 number" });
+        return;
+      }
+      res.status(400).json({ error: "customerName is required" });
+      return;
+    }
+
+    const [row] = await db.select(leadSelectFields)
+      .from(leadsTable)
+      .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+      .where(eq(leadsTable.id, created.id));
+    res.status(201).json(row ?? created);
   } catch (err) {
     logger.error({ err }, "POST /erp/leads failed");
     res.status(500).json({ error: "Internal error" });
@@ -704,16 +770,28 @@ router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee
       res.json([]);
       return;
     }
+    const normalizedPhone = normalizePhoneToE164(q);
     const pattern = `%${q}%`;
     const rows = await db.execute(
-      sql`SELECT id, customer_name, phone, status, building_type, converted_project_id
-          FROM leads
-          WHERE customer_name ILIKE ${pattern} OR phone = ${q}
-          ORDER BY created_at DESC
+      sql`SELECT
+            l.id,
+            l.customer_id,
+            COALESCE(c.name, l.customer_name) AS customer_name,
+            COALESCE(c.phone, l.phone) AS phone,
+            l.status,
+            l.building_type,
+            l.converted_project_id
+          FROM leads l
+          LEFT JOIN customers c ON c.id = l.customer_id
+          WHERE COALESCE(c.name, l.customer_name) ILIKE ${pattern}
+             OR COALESCE(c.phone, l.phone) ILIKE ${pattern}
+             OR (${normalizedPhone} IS NOT NULL AND COALESCE(c.phone, l.phone) = ${normalizedPhone})
+          ORDER BY l.created_at DESC
           LIMIT 5`
     );
     const results = rows.rows.map((r: any) => ({
       id: r.id,
+      customerId: r.customer_id,
       customerName: r.customer_name,
       phone: r.phone,
       status: r.status,
@@ -738,10 +816,19 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
 
     // Search leads (not for Accountant)
     if (sess.role !== "Accountant") {
+      const normalizedPhone = normalizePhoneToE164(q);
       const leadRows = await db.execute(
-        sql`SELECT id, customer_name, phone, status FROM leads
-            WHERE customer_name ILIKE ${pattern} OR phone ILIKE ${pattern}
-            ORDER BY created_at DESC LIMIT 5`
+        sql`SELECT
+              l.id,
+              COALESCE(c.name, l.customer_name) AS customer_name,
+              COALESCE(c.phone, l.phone) AS phone,
+              l.status
+            FROM leads l
+            LEFT JOIN customers c ON c.id = l.customer_id
+            WHERE COALESCE(c.name, l.customer_name) ILIKE ${pattern}
+               OR COALESCE(c.phone, l.phone) ILIKE ${pattern}
+               OR (${normalizedPhone} IS NOT NULL AND COALESCE(c.phone, l.phone) = ${normalizedPhone})
+            ORDER BY l.created_at DESC LIMIT 5`
       );
       for (const r of leadRows.rows as any[]) {
         results.push({ type: "lead", id: r.id, name: r.customer_name, subtitle: r.phone ?? "", url: `/erp/leads/${r.id}` });
@@ -771,7 +858,10 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
 router.get("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, id));
+    const [lead] = await db.select(leadSelectFields)
+      .from(leadsTable)
+      .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+      .where(eq(leadsTable.id, id));
     if (!lead) return notFound(res);
     const logs = await db.select().from(leadLogsTable).where(eq(leadLogsTable.leadId, id)).orderBy(leadLogsTable.createdAt);
     res.json({ ...lead, logs });
@@ -785,18 +875,79 @@ router.get("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee", 
 router.patch("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const allowed = ["customerName", "phone", "source", "productInterest", "buildingType", "location", "assignedTo", "budgetRange", "estimatedValue", "firstFollowupDate", "status"];
-    const updates: Record<string, unknown> = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    const sess = session(req);
+    const [existingLead] = await db.select().from(leadsTable).where(eq(leadsTable.id, id));
+    if (!existingLead) return notFound(res);
+
+    const leadUpdates: Record<string, unknown> = {};
+    const leadFieldMap: Record<string, string> = {
+      source: "source",
+      productInterest: "productInterest",
+      buildingType: "buildingType",
+      location: "location",
+      assignedTo: "assignedTo",
+      budgetRange: "budgetRange",
+      estimatedValue: "estimatedValue",
+      firstFollowupDate: "firstFollowupDate",
+      status: "status",
+    };
+    for (const [requestKey, columnKey] of Object.entries(leadFieldMap)) {
+      if (req.body[requestKey] !== undefined) leadUpdates[columnKey] = req.body[requestKey];
     }
-    if (Object.keys(updates).length === 0) {
+    if (leadUpdates.assignedTo !== undefined) leadUpdates.assignedTo = leadUpdates.assignedTo ? Number(leadUpdates.assignedTo) : null;
+    if (leadUpdates.estimatedValue !== undefined) leadUpdates.estimatedValue = leadUpdates.estimatedValue ? Number(leadUpdates.estimatedValue) : null;
+
+    const requestedCustomerId = req.body.customerId ? Number(req.body.customerId) : null;
+    if ((req.body.customerId !== undefined && req.body.customerId !== null && req.body.customerId !== "") && Number.isNaN(requestedCustomerId)) {
+      res.status(400).json({ error: "customerId must be a valid number" });
+      return;
+    }
+
+    const hasCustomerUpdate =
+      req.body.customerId !== undefined ||
+      req.body.customerName !== undefined ||
+      req.body.phone !== undefined;
+
+    if (Object.keys(leadUpdates).length === 0 && !hasCustomerUpdate) {
       res.status(400).json({ error: "No valid fields to update" });
       return;
     }
-    const [row] = await db.update(leadsTable).set(updates).where(eq(leadsTable.id, id)).returning();
-    if (!row) return notFound(res);
-    res.json(row);
+
+    const updatedLead = await db.transaction(async (tx) => {
+      const finalLeadUpdates = { ...leadUpdates };
+      if (hasCustomerUpdate) {
+        const resolvedCustomer = await resolveCustomerLink(tx, {
+          createdBy: sess.userId,
+          customerId: requestedCustomerId,
+          customerName: req.body.customerName ?? null,
+          phone: req.body.phone ?? null,
+          fallbackCustomerId: existingLead.customerId ?? null,
+          legacyCustomerName: existingLead.customerName,
+          legacyPhone: existingLead.phone,
+        });
+        if ("error" in resolvedCustomer) return resolvedCustomer;
+
+        finalLeadUpdates.customerId = resolvedCustomer.customerId;
+        finalLeadUpdates.customerName = resolvedCustomer.customerName;
+        finalLeadUpdates.phone = resolvedCustomer.phone;
+      }
+
+      const [row] = await tx.update(leadsTable).set(finalLeadUpdates).where(eq(leadsTable.id, id)).returning();
+      return row;
+    });
+
+    if ("error" in updatedLead) {
+      if (updatedLead.error === "customer_not_found") return res.status(404).json({ error: "Customer not found" });
+      if (updatedLead.error === "phone_exists") return res.status(409).json({ error: "phone_exists", existingCustomerId: updatedLead.existingCustomerId });
+      if (updatedLead.error === "phone_invalid") return res.status(400).json({ error: "phone must be a valid E.164 number" });
+      return res.status(400).json({ error: "customerName is required" });
+    }
+
+    const [row] = await db.select(leadSelectFields)
+      .from(leadsTable)
+      .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+      .where(eq(leadsTable.id, id));
+    res.json(row ?? updatedLead);
   } catch (err) {
     logger.error({ err }, "PATCH /erp/leads/:id failed");
     res.status(500).json({ error: "Internal error" });
@@ -946,6 +1097,68 @@ router.patch("/erp/leads/:id/lose", requireRole("Admin", "FactoryManager", "Empl
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type CustomerLinkPayload = {
+  createdBy: number;
+  customerId?: number | null;
+  customerName?: string | null;
+  phone?: string | null;
+  seedLocation?: string | null;
+  fallbackCustomerId?: number | null;
+  legacyCustomerName?: string | null;
+  legacyPhone?: string | null;
+};
+
+type CustomerLinkResult =
+  | { customerId: number; customerName: string; phone: string }
+  | { error: "customer_not_found" | "customer_name_required" | "phone_invalid" | "phone_exists"; existingCustomerId?: number };
+
+async function resolveCustomerLink(tx: DbTx, payload: CustomerLinkPayload): Promise<CustomerLinkResult> {
+  const requestedCustomerId = payload.customerId ?? null;
+  if (requestedCustomerId !== null) {
+    const [customer] = await tx.select().from(customersTable).where(eq(customersTable.id, requestedCustomerId));
+    if (!customer) return { error: "customer_not_found" };
+    return { customerId: customer.id, customerName: customer.name, phone: customer.phone };
+  }
+
+  const finalName = payload.customerName?.trim() || payload.legacyCustomerName?.trim() || "";
+  if (!finalName) return { error: "customer_name_required" };
+
+  const candidatePhone = payload.phone ?? payload.legacyPhone ?? null;
+  const normalizedPhone = candidatePhone ? normalizePhoneToE164(String(candidatePhone)) : null;
+  if (!normalizedPhone) return { error: "phone_invalid" };
+
+  if (payload.fallbackCustomerId) {
+    const [customer] = await tx.select().from(customersTable).where(eq(customersTable.id, payload.fallbackCustomerId));
+    if (!customer) return { error: "customer_not_found" };
+
+    const duplicate = await findCustomerByPhone(normalizedPhone, customer.id, tx);
+    if (duplicate) return { error: "phone_exists", existingCustomerId: duplicate.id };
+
+    const [updated] = await tx.update(customersTable).set({
+      name: finalName,
+      phone: normalizedPhone,
+      updatedAt: new Date(),
+    }).where(eq(customersTable.id, customer.id)).returning();
+
+    return { customerId: updated.id, customerName: updated.name, phone: updated.phone };
+  }
+
+  const existing = await findCustomerByPhone(normalizedPhone, undefined, tx);
+  if (existing) {
+    return { customerId: existing.id, customerName: existing.name, phone: existing.phone };
+  }
+
+  const [created] = await tx.insert(customersTable).values({
+    name: finalName,
+    phone: normalizedPhone,
+    location: payload.seedLocation?.trim() || null,
+    status: "active",
+    createdBy: payload.createdBy,
+  }).returning();
+
+  return { customerId: created.id, customerName: created.name, phone: created.phone };
+}
 
 const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
