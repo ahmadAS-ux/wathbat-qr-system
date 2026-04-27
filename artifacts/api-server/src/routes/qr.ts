@@ -98,7 +98,7 @@ export async function parseAndInjectQR(docxBuffer: Buffer): Promise<{
   // Orgadata places all glass sections inside flat tables (not nested).
   // A single table may contain multiple glass sections separated by "Name:" rows.
 
-  const POSITION_RE = /^\d{1,2}\s*\/\s*\d+$/;
+  const POSITION_RE = /^[A-Za-z\d][\w-]*\s*\/\s*\d+$/;
   const TABLE_OPEN  = "<w:tbl>";
   const TABLE_CLOSE = "</w:tbl>";
 

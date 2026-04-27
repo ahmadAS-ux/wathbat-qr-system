@@ -4,6 +4,14 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.6] - April 2026 - Glass Parser D-Prefix Hotfix
+
+### Fixed
+
+- **Glass order parser now accepts D-prefix and all letter-prefix position codes** — `POSITION_RE` in `artifacts/api-server/src/routes/qr.ts` previously only matched numeric-only position codes (`"1 / 2"`, `"12 / 99"`). Orgadata files that use prefixed codes such as `D1-02 / 1`, `D1-08 / 3`, `F3-07 / 2`, or similar formats were rejected with a `NO_POSITIONS` error even when the file contained valid positions. The regex is now `/^[A-Za-z\d][\w-]*\s*\/\s*\d+$/`, matching any code that begins with a letter or digit followed by word characters or hyphens before the ` / N` separator. Case-insensitive on the leading letter for defensive coverage of future Orgadata versions. Zero behavior change for existing numeric-only format files.
+
+---
+
 ## [4.0.5] - April 2026 - Stage 4: Customer UI Foundation
 
 ### Added
