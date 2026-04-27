@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
-import { canManageUsers, canViewVendors, canViewPayments } from '@/lib/permissions';
+import { canManageUsers, canViewVendors, canViewPayments, canViewLeads, canCreateProject } from '@/lib/permissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
@@ -220,18 +220,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <span className="flex-1">{t('admin_nav')}</span>
                   </div>
                 </Link>
-                <Link href="/admin/requests">
-                  <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
-                    <FileText className={navIcon(isActive('/admin/requests', false))} />
-                    <span className="flex-1">{t('requests_title')}</span>
-                  </div>
-                </Link>
+                {canCreateProject(user?.role) && (
+                  <Link href="/admin/requests">
+                    <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
+                      <FileText className={navIcon(isActive('/admin/requests', false))} />
+                      <span className="flex-1">{t('requests_title')}</span>
+                    </div>
+                  </Link>
+                )}
               </div>
             )}
           </>
 
           {/* ── MANUFACTURING SYSTEM ── */}
-          {(isErpUser || isPaymentsUser) && (
+          {(canViewLeads(user?.role) || isPaymentsUser) && (
             <>
               <button onClick={toggleMfg} className={sectionBtn}>
                 <span className="flex-1 text-start">{t('erp_section_label')}</span>
@@ -239,34 +241,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </button>
               {!mfgCollapsed && (
                 <div className="space-y-0.5">
-                  {isErpUser && (
-                    <>
-                      <Link href="/erp/leads">
-                        <div
-                          onClick={() => handleNavClick('/erp/leads', false)}
-                          className={navItem(isActive('/erp/leads', false))}
-                          style={navItemStyle(isActive('/erp/leads', false))}
-                        >
-                          <Users className={navIcon(isActive('/erp/leads', false))} />
-                          <span className="flex-1">{t('erp_clients_nav')}</span>
-                          {overdueCount > 0 && (
-                            <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                              {overdueCount}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                      <Link href="/erp/projects">
-                        <div
-                          onClick={() => handleNavClick('/erp/projects', false)}
-                          className={navItem(isActive('/erp/projects', false))}
-                          style={navItemStyle(isActive('/erp/projects', false))}
-                        >
-                          <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
-                          <span className="flex-1">{t('erp_projects_nav')}</span>
-                        </div>
-                      </Link>
-                    </>
+                  {canViewLeads(user?.role) && (
+                    <Link href="/erp/leads">
+                      <div
+                        onClick={() => handleNavClick('/erp/leads', false)}
+                        className={navItem(isActive('/erp/leads', false))}
+                        style={navItemStyle(isActive('/erp/leads', false))}
+                      >
+                        <Users className={navIcon(isActive('/erp/leads', false))} />
+                        <span className="flex-1">{t('erp_clients_nav')}</span>
+                        {overdueCount > 0 && (
+                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                            {overdueCount}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )}
+                  {canCreateProject(user?.role) && (
+                    <Link href="/erp/projects">
+                      <div
+                        onClick={() => handleNavClick('/erp/projects', false)}
+                        className={navItem(isActive('/erp/projects', false))}
+                        style={navItemStyle(isActive('/erp/projects', false))}
+                      >
+                        <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
+                        <span className="flex-1">{t('erp_projects_nav')}</span>
+                      </div>
+                    </Link>
                   )}
                   {isPaymentsUser && (
                     <Link href="/erp/payments">
