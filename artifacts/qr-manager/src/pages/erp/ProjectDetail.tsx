@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation, useParams } from 'wouter';
+import { useLocation, useParams, useSearch } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/lib/i18n';
@@ -915,6 +915,7 @@ export default function ErpProjectDetail() {
   const [, navigate] = useLocation();
   const params = useParams() as { id: string };
   const id = Number(params.id);
+  const search = useSearch();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -955,8 +956,8 @@ export default function ErpProjectDetail() {
   // Which single-file slots have their version history expanded
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
 
-  // Tab navigation state
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  // Tab navigation state — honour ?tab= query param for deep-links (e.g. from Payments page)
+  const [activeTab, setActiveTab] = useState<string>(() => new URLSearchParams(search).get('tab') ?? 'overview');
 
   // Contract integrity state
   const [contractData, setContractData] = useState<any>(null);

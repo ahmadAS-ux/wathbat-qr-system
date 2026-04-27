@@ -739,8 +739,8 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
   }
 });
 
-// GET /erp/projects/:id — full detail + files (active only) + phases
-router.get("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+// GET /erp/projects/:id — full detail + files (active only) + phases (Accountant allowed for payment deep-link)
+router.get("/erp/projects/:id", requireRole("Admin", "FactoryManager", "Employee", "Accountant"), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));

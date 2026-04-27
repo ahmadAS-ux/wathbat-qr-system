@@ -112,7 +112,7 @@ export default function ErpPayments() {
                 {/* Project header */}
                 <div
                   className="px-5 py-3 bg-[#141A24]/3 border-b border-[#ECEAE2] flex items-center justify-between gap-2 cursor-pointer hover:bg-[#141A24]/5 transition-colors"
-                  onClick={() => navigate(`/erp/projects/${projectId}`)}
+                  onClick={() => navigate(`/erp/projects/${projectId}?tab=payments`)}
                 >
                   <div>
                     <p className="font-semibold text-sm text-[#1B2A4A]">{group.projectName}</p>
