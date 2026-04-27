@@ -368,7 +368,7 @@ All violations found in current ERP `.tsx` files — classes that conflict with 
 | 13 | Tab navigation redesign: ensure all 7 tabs + correct active style | `erp/ProjectDetail.tsx` | MEDIUM | `feat: implement 7-tab design with correct active styling` |
 | 14 | Timeline tab: 5×3 stage grid with loop/parallel badges | `erp/ProjectDetail.tsx` | MEDIUM | `feat: timeline tab 5x3 grid with stage annotations` |
 | 15 | Contract tab: embed contract preview inside project detail | `erp/ProjectDetail.tsx` + `erp/ContractPage.tsx` | HIGH | `feat: add contract preview tab in project detail` |
-| 16 | DB migration: add `code` column to `erp_projects` + backend generation | `db/schema.ts` + `erp.ts` | HIGH | `feat: add project code (WT-YYYY-XXXX) to projects` |
+| 16 | ✅ DB migration: add `code` column to `erp_projects` + backend generation | `db/schema.ts` + `erp.ts` | HIGH | `feat: add project code (WT-YYYY-XXXX) to projects` |
 | 17 | Projects page: replace card grid with table layout | `erp/Projects.tsx` | HIGH | `feat: projects list redesign as sortable table per design` |
 | 18 | KPI sparklines: add trend endpoint + wire to live data | `erp.ts` + `Admin.tsx` | MEDIUM | `feat: KPI sparklines wired to live trend data` |
 

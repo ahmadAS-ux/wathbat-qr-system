@@ -163,6 +163,7 @@ export const projects = pgTable('projects', {
   warrantyStartDate: date('warranty_start_date'),
   warrantyEndDate: date('warranty_end_date'),   // auto-calculated from start + months
   notes: text('notes'),
+  code: text('code'),                              // WT-YYYY-XXXX, nullable, auto-generated on creation, unique
   createdAt: timestamp('created_at').notNull().defaultNow(),
   createdBy: integer('created_by').notNull().references(() => users.id),
 });
@@ -487,7 +488,7 @@ export const dropdownOptions = pgTable('dropdown_options', {
 | Create / edit leads | ✅ | ✅ | ✅ | ✅ (own only) | ❌ |
 | Convert lead → project | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Mark lead as lost | ✅ | ✅ | ✅ | ✅ (own) | ❌ |
-| Create / view projects | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Create / view projects | ✅ | ✅ | ✅ | ❌ † | ❌ |
 | Upload Orgadata files | ✅ | ✅ | ✅ | ❌ | ❌ |
 | View prices / quotations | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Create vendor POs | ✅ | ✅ | ✅ | ❌ | ❌ |
@@ -499,6 +500,8 @@ export const dropdownOptions = pgTable('dropdown_options', {
 | Manage users | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Edit dropdown lists | ✅ | ❌ | ❌ | ❌ | ❌ |
 | System settings | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+† SalesAgent can view the contract tab of a project (read-only). All other project actions remain blocked.
 
 ### Middleware pattern (Express)
 
