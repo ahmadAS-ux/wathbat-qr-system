@@ -4,6 +4,26 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.5.0] - April 2026 — Stage 1: Permission Foundation
+
+### Added — Infrastructure (no behavior change)
+
+- **`lib/permissions.ts`** ([artifacts/qr-manager/src/lib/permissions.ts](artifacts/qr-manager/src/lib/permissions.ts)): Single source of truth for role-based access control. Exports `Role` type and 13 named helper functions (`canViewPrices`, `canDeleteProject`, `canEditContract`, `canViewContract`, `canViewProjectDetail`, `canViewPayments`, `canCreateMilestone`, `canManageUsers`, `canEditDropdowns`, `canViewQRSystem`, `canViewVendors`, `canCreateProject`, `canViewLeads`). Each takes `role: Role | string | undefined` and returns `boolean`. Pure functions — no React, no side effects.
+- **`RequireRole` component** ([artifacts/qr-manager/src/components/RequireRole.tsx](artifacts/qr-manager/src/components/RequireRole.tsx)): Route guard component that redirects unauthorised roles to a fallback path (default `/admin`). Props: `roles: Role[]`, `children`, `fallback?`. Uses `useAuth()` + wouter `useLocation()`.
+
+### Refactored — Inline role checks replaced with helpers (zero behavior change)
+
+- **`ProjectDetail.tsx`**: `canDelete`, `canUpload`, `canManagePayments`, `canViewContract`, and sub-component `canManage`/`canDelete` booleans now call helpers from `lib/permissions.ts`. `canCreateMilestone` left intentionally unchanged (wrong value — fix deferred to Stage 2, M5).
+- **`AdminLayout.tsx`**: `isAdmin`, `isPaymentsUser`, `isVendorsUser` now call helpers. `isErpUser` and `canSearch` left as-is (negative checks with no 1:1 helper — TODO comments added).
+- **`Admin.tsx`**: `isAdmin` now calls `canManageUsers()`. `isErpUser` and `isPaymentsUser` left as-is with TODO comments noting the known discrepancy (`isPaymentsUser` in Admin.tsx includes FactoryManager; AdminLayout.tsx does not — deferred to Stage 5).
+
+### Known issues carried forward to Stage 2
+- `canCreateMilestone` in `ProjectDetail.tsx` still incorrectly allows FM and SalesAgent — M5 fix in Stage 2, Commit 1
+- `isErpUser` composite negative check has no helper — Stage 2 or Stage 5
+- `isPaymentsUser` discrepancy between `Admin.tsx` and `AdminLayout.tsx` — Stage 5
+
+---
+
 ## [3.4.2] - April 2026
 
 ### Fixed — Security + RTL

@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { API_BASE as BASE } from '@/lib/api-base';
+import { canManageUsers } from '@/lib/permissions';
 
 interface Metrics {
   totalDocsProcessed: number;
@@ -163,8 +164,11 @@ function SectionHeader({
 export default function Admin() {
   const { t, isRtl, language } = useLanguage();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = canManageUsers(user?.role);
+  // TODO Stage 2: isErpUser has no 1:1 helper (negative check: role !== 'Accountant') — left as-is
   const isErpUser = user?.role !== 'Accountant';
+  // TODO Stage 5: isPaymentsUser here is Admin|Accountant|FM — differs from AdminLayout.tsx (Admin|Accountant only).
+  // Known discrepancy carried forward. See USERS_AND_PERMISSIONS.md Known Gaps.
   const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant' || user?.role === 'FactoryManager';
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
+import { canManageUsers, canViewVendors, canViewPayments } from '@/lib/permissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
@@ -29,6 +30,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mfgCollapsed, setMfgCollapsed] = useState(false);
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
 
+  // TODO Stage 2: canSearch has no 1:1 helper (negative check: role !== 'Accountant') — left as-is
   const canSearch = user?.role !== 'Accountant';
 
   useEffect(() => {
@@ -60,10 +62,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = canManageUsers(user?.role);
+  // TODO Stage 2: isErpUser has no 1:1 helper (negative check: role !== 'Accountant') — left as-is
   const isErpUser = user?.role !== 'Accountant';
-  const isPaymentsUser = user?.role === 'Admin' || user?.role === 'Accountant';
-  const isVendorsUser = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
+  // NOTE: isPaymentsUser here = Admin|Accountant = canViewPayments (correct).
+  // isPaymentsUser in Admin.tsx = Admin|Accountant|FM (different) — known discrepancy, see USERS_AND_PERMISSIONS.md Known Gaps.
+  const isPaymentsUser = canViewPayments(user?.role);
+  const isVendorsUser = canViewVendors(user?.role);
 
   useEffect(() => {
     if (!isErpUser) return;

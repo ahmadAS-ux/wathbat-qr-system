@@ -8,6 +8,12 @@ import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
+import {
+  canDeleteProject,
+  canCreateProject,
+  canViewPayments,
+  canViewContract as checkCanViewContract,
+} from '@/lib/permissions';
 
 interface ProjectFile {
   id: number;
@@ -204,8 +210,8 @@ function PhasesSection({ projectId, isRtl, t, user }: { projectId: number; isRtl
   const [savingNotes, setSavingNotes] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
-  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
+  const canManage = canCreateProject(user?.role);
+  const canDelete = canDeleteProject(user?.role);
 
   const loadPhases = async () => {
     setLoading(true);
@@ -531,8 +537,8 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
   const [deletingPoId, setDeletingPoId] = useState<number | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
-  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Employee';
-  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
+  const canManage = canCreateProject(user?.role);
+  const canDelete = canDeleteProject(user?.role);
 
   const loadPos = async () => {
     setLoading(true);
@@ -802,7 +808,7 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
   const [sending, setSending] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  const canManage = user?.role === 'Admin' || user?.role === 'FactoryManager';
+  const canManage = canDeleteProject(user?.role);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -956,12 +962,13 @@ export default function ErpProjectDetail() {
   const [integrityReport, setIntegrityReport] = useState<IntegrityReport | null>(null);
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
-  const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
-
-  const canUpload = user?.role !== 'SalesAgent' && user?.role !== 'Accountant';
-  const canManagePayments = user?.role === 'Admin' || user?.role === 'Accountant';
+  const canDelete = canDeleteProject(user?.role);
+  const canUpload = canCreateProject(user?.role);
+  const canManagePayments = canViewPayments(user?.role);
+  // TODO Stage 2 (M5): canCreateMilestone is intentionally wrong here (Admin|FM|SalesAgent).
+  // Fix in Stage 2, Commit 1 — correct value is canCreateMilestone(user?.role) → Admin|Accountant.
   const canCreateMilestone = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
-  const canViewContract = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
+  const canViewContract = checkCanViewContract(user?.role);
 
   const loadProject = async () => {
     if (!project) setLoading(true);
