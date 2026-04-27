@@ -562,6 +562,72 @@ router.patch("/erp/customers/:id", requireRole(...CUSTOMER_ROLES), async (req: R
   }
 });
 
+router.delete("/erp/customers/:id", requireRole(...ADMIN_ONLY), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+
+    const [customer] = await db
+      .select({ id: customersTable.id })
+      .from(customersTable)
+      .where(eq(customersTable.id, id));
+    if (!customer) return notFound(res);
+
+    const summary = await getCustomerDependencySummary(id);
+    const confirm = req.query.confirm === "true";
+    if (!confirm && (summary.leadCount > 0 || summary.projectCount > 0)) {
+      res.status(409).json({ error: "has_dependencies", ...summary });
+      return;
+    }
+
+    const deletion = await db.transaction(async (tx) => {
+      let preservedQrOrderCount = 0;
+
+      for (const project of summary.projects) {
+        const qrCountResult = await tx.execute(
+          sql`SELECT COUNT(*)::int AS count FROM processed_docs WHERE project_id = ${project.id}`,
+        );
+        preservedQrOrderCount += Number((qrCountResult.rows[0] as any)?.count ?? 0);
+
+        await tx.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${project.id}`);
+        await tx.delete(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, project.id));
+
+        const pos = await tx
+          .select({ id: purchaseOrdersTable.id })
+          .from(purchaseOrdersTable)
+          .where(eq(purchaseOrdersTable.projectId, project.id));
+        if (pos.length > 0) {
+          await tx.delete(poItemsTable).where(inArray(poItemsTable.poId, pos.map((po) => po.id)));
+        }
+
+        await tx.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, project.id));
+        await tx.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, project.id));
+        await tx.delete(projectPhasesTable).where(eq(projectPhasesTable.projectId, project.id));
+        await tx.delete(projectFilesTable).where(eq(projectFilesTable.projectId, project.id));
+        await tx.delete(projectsTable).where(eq(projectsTable.id, project.id));
+      }
+
+      if (summary.leads.length > 0) {
+        await tx.delete(leadLogsTable).where(inArray(leadLogsTable.leadId, summary.leads.map((lead) => lead.id)));
+        await tx.delete(leadsTable).where(inArray(leadsTable.id, summary.leads.map((lead) => lead.id)));
+      }
+
+      await tx.delete(customersTable).where(eq(customersTable.id, id));
+
+      return {
+        deletedLeadCount: summary.leadCount,
+        deletedProjectCount: summary.projectCount,
+        preservedQrOrderCount,
+      };
+    });
+
+    res.json({ ok: true, deletedCustomerId: id, ...deletion });
+  } catch (err) {
+    logger.error({ err }, "DELETE /erp/customers/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const { status, assignedTo, overdue } = req.query;
