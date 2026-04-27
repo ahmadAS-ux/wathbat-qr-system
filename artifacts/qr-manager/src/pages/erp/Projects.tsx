@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
-import { useAuth } from '@/hooks/use-auth';
 import { Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
+import { CustomerPicker, CustomerOption } from '@/components/erp/CustomerPicker';
+import { PhoneInput } from '@/components/erp/PhoneInput';
 
 interface Project {
   id: number;
@@ -39,45 +40,18 @@ const STAGE_DOT: Record<string, string> = {
   complete:      'bg-[#0F6E56]',
 };
 
-interface SearchLead {
-  id: number;
-  customerName: string;
-  phone: string;
-  status: string;
-  buildingType: string | null;
-  convertedProjectId: number | null;
-}
-
-const LEAD_STATUS_COLORS: Record<string, string> = {
-  new: 'bg-[#E1ECF7] text-[#1E508C]',
-  followup: 'bg-[#FBF0D6] text-[#9A6B0E]',
-  converted: 'bg-[#DCEFEC] text-[#0E6E6A]',
-  lost: 'bg-[#F7E2DF] text-[#A0312A]',
-};
-
 function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { t, isRtl } = useLanguage();
-  const { user } = useAuth();
-  const [form, setForm] = useState({ name: '', customerName: '', phone: '', location: '', buildingType: '', productInterest: '', estimatedValue: '' });
+  const [form, setForm] = useState({ name: '', location: '', buildingType: '', productInterest: '', estimatedValue: '' });
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+  const [newName, setNewName] = useState('');
+  const [newPhoneE164, setNewPhoneE164] = useState('');
   const [products, setProducts] = useState<{ value: string; labelAr: string; labelEn: string }[]>([]);
   const [buildings, setBuildings] = useState<{ value: string; labelAr: string; labelEn: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchLead[]>([]);
-  const [fromLeadId, setFromLeadId] = useState<number | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const label = (item: { labelAr: string; labelEn: string }) => isRtl ? item.labelAr : item.labelEn;
-
-  const statusLabel: Record<string, string> = {
-    new: t('erp_lead_status_new'),
-    followup: t('erp_lead_status_followup'),
-    converted: t('erp_lead_status_converted'),
-    lost: t('erp_lead_status_lost'),
-  };
 
   useEffect(() => {
     Promise.all([
@@ -86,50 +60,19 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
     ]).then(([p, b]) => { setProducts(p); setBuildings(b); }).catch(() => {});
   }, []);
 
-  const handleCustomerNameChange = (value: string) => {
-    setForm(f => ({ ...f, customerName: value }));
-    setFromLeadId(null);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (value.length >= 3) {
-      searchTimer.current = setTimeout(async () => {
-        try {
-          const res = await fetch(`${API_BASE}/api/erp/leads/search?q=${encodeURIComponent(value)}`);
-          if (res.ok) {
-            const data = await res.json();
-            setSearchResults(data);
-            setShowSuggestions(data.length > 0);
-          }
-        } catch {}
-      }, 300);
-    } else {
-      setSearchResults([]);
-      setShowSuggestions(false);
-    }
-  };
-
-  const selectLead = (lead: SearchLead) => {
-    setFromLeadId(lead.id);
-    setForm(f => ({
-      ...f,
-      customerName: lead.customerName,
-      phone: lead.phone ?? '',
-      buildingType: lead.buildingType ?? f.buildingType,
-    }));
-    setShowSuggestions(false);
-    setSearchResults([]);
-  };
-
-  const doSubmit = async (overrideFromLeadId?: number | null) => {
+  const doSubmit = async () => {
     setSaving(true);
     try {
-      const leadId = overrideFromLeadId !== undefined ? overrideFromLeadId : fromLeadId;
+      const customerPayload = selectedCustomer
+        ? { customerId: selectedCustomer.id }
+        : { customerName: newName, phone: newPhoneE164 };
       const res = await fetch(`${API_BASE}/api/erp/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...customerPayload,
           ...form,
           estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined,
-          fromLeadId: leadId ?? undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -143,148 +86,82 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.customerName) { setError(t('erp_required_fields')); return; }
-    if (form.phone && !/^05\d{8}$/.test(form.phone)) { setPhoneError(t('erp_phone_error')); return; }
-    setPhoneError('');
-    if (searchResults.length > 0 && !fromLeadId) {
-      setShowDuplicateConfirm(true);
-      return;
-    }
+    if (!form.name) { setError(t('erp_required_fields')); return; }
+    if (!selectedCustomer && (!newName.trim() || !newPhoneE164)) { setError(t('erp_required_fields')); return; }
     await doSubmit();
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-        <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="px-6 py-4 border-b border-[#ECEAE2] flex items-center justify-between">
-            <h2 className="font-bold text-[#1B2A4A] text-lg">{t('erp_project_new')}</h2>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
-          </div>
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_name')} *</label>
-              <input className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" placeholder={t('ph_project_name')} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="relative">
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_customer')} *</label>
-              <input
-                className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                placeholder={t('ph_customer_name')}
-                value={form.customerName}
-                onChange={e => handleCustomerNameChange(e.target.value)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                autoComplete="off"
-              />
-              {fromLeadId && (
-                <p className="text-xs text-teal-600 mt-1">✓ {t('erp_from_lead')} #{fromLeadId}</p>
-              )}
-              {showSuggestions && searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-[#FAFAF7] border border-[#ECEAE2] rounded-xl shadow-lg overflow-hidden">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">{t('erp_similar_customers')}</p>
-                  {searchResults.map(lead => (
-                    <button
-                      key={lead.id}
-                      type="button"
-                      onMouseDown={() => selectLead(lead)}
-                      className="w-full text-start px-3 py-2.5 hover:bg-[#F4F2EB] transition-colors border-t border-slate-50 flex items-center justify-between gap-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-[#1B2A4A]">{lead.customerName}</p>
-                        <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{lead.phone}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {lead.convertedProjectId && (
-                          <span className="text-[10px] text-slate-400">{t('erp_lead_already_converted')}</span>
-                        )}
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEAD_STATUS_COLORS[lead.status] ?? 'bg-[#ECEAE2] text-slate-600'}`}>
-                          {statusLabel[lead.status] ?? lead.status}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_phone')}</label>
-                <input type="tel" maxLength={10} placeholder={t('ph_phone')} className={`w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 ${phoneError ? 'border-red-400' : 'border-[#ECEAE2]'}`} dir="ltr" value={form.phone} onChange={e => { setForm(f => ({ ...f, phone: e.target.value })); setPhoneError(''); }} />
-                {phoneError && <p className="text-red-600 text-xs mt-1">{phoneError}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_value')}</label>
-                <input type="number" placeholder={t('ph_estimated_value')} className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" dir="ltr" value={form.estimatedValue} onChange={e => setForm(f => ({ ...f, estimatedValue: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_product')}</label>
-                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.productInterest} onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}>
-                  <option value="">—</option>
-                  {products.map(p => <option key={p.value} value={p.value}>{label(p)}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_building')}</label>
-                <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.buildingType} onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}>
-                  <option value="">—</option>
-                  {buildings.map(b => <option key={b.value} value={b.value}>{label(b)}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_location')}</label>
-              <input className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" placeholder={t('ph_location')} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-[#ECEAE2] transition-colors">{t('erp_cancel')}</button>
-              <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl text-sm font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-50 transition-colors">
-                {saving ? '...' : t('erp_create')}
-              </button>
-            </div>
-          </form>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-[#ECEAE2] flex items-center justify-between">
+          <h2 className="font-bold text-[#1B2A4A] text-lg">{t('erp_project_new')}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
         </div>
-      </div>
+        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_name')} *</label>
+            <input className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" placeholder={t('ph_project_name')} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_customer')} *</label>
+            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} />
+          </div>
 
-      {showDuplicateConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div className="bg-[#FAFAF7] rounded-xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="font-bold text-[#1B2A4A] mb-2">{t('erp_duplicate_confirm_title')}</h3>
-            <p className="text-sm text-slate-600 mb-4">{t('erp_duplicate_confirm_msg')}</p>
-            <div className="space-y-2 mb-5 max-h-36 overflow-y-auto">
-              {searchResults.map(lead => (
-                <button
-                  key={lead.id}
-                  type="button"
-                  onClick={() => { selectLead(lead); setShowDuplicateConfirm(false); }}
-                  className="w-full text-start px-3 py-2 rounded-xl border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
-                >
-                  <p className="text-sm font-medium text-[#1B2A4A]">{lead.customerName}</p>
-                  <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{lead.phone}</p>
-                </button>
-              ))}
+          {!selectedCustomer && (
+            <div className="border border-dashed border-[#ECEAE2] rounded-xl p-4 space-y-3 bg-[#F4F2EB]/40">
+              <p className="text-xs text-slate-500">{t('erp_new_customer_hint')}</p>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_customer')} *</label>
+                <input
+                  className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]"
+                  placeholder={t('ph_customer_name')}
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_phone')} *</label>
+                <PhoneInput value={newPhoneE164} onChange={setNewPhoneE164} />
+              </div>
             </div>
-            <div className={`flex gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <button
-                onClick={() => { setShowDuplicateConfirm(false); doSubmit(null); }}
-                disabled={saving}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-50 transition-colors"
-              >
-                {t('erp_duplicate_create_new')}
-              </button>
-              <button
-                onClick={() => setShowDuplicateConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors"
-              >
-                {t('erp_duplicate_select_existing')}
-              </button>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_value')}</label>
+            <input type="number" placeholder={t('ph_estimated_value')} className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" dir="ltr" value={form.estimatedValue} onChange={e => setForm(f => ({ ...f, estimatedValue: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_product')}</label>
+              <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.productInterest} onChange={e => setForm(f => ({ ...f, productInterest: e.target.value }))}>
+                <option value="">—</option>
+                {products.map(p => <option key={p.value} value={p.value}>{label(p)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_building')}</label>
+              <select className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]" value={form.buildingType} onChange={e => setForm(f => ({ ...f, buildingType: e.target.value }))}>
+                <option value="">—</option>
+                {buildings.map(b => <option key={b.value} value={b.value}>{label(b)}</option>)}
+              </select>
             </div>
           </div>
-        </div>
-      )}
-    </>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_location')}</label>
+            <input className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20" placeholder={t('ph_location')} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-[#ECEAE2] transition-colors">{t('erp_cancel')}</button>
+            <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl text-sm font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-50 transition-colors">
+              {saving ? '...' : t('erp_create')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
