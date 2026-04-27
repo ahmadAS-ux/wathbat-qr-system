@@ -150,6 +150,39 @@ async function findCustomerByPhone(phone: string, excludeId?: number) {
   return row;
 }
 
+async function getCustomerDependencySummary(customerId: number) {
+  const leadResult = await db.execute(sql`
+    SELECT id, status
+    FROM leads
+    WHERE customer_id = ${customerId}
+    ORDER BY created_at DESC, id DESC
+  `);
+  const projectResult = await db.execute(sql`
+    SELECT id, name, code, stage_display
+    FROM projects
+    WHERE customer_id = ${customerId}
+    ORDER BY created_at DESC, id DESC
+  `);
+
+  const leads = leadResult.rows.map((row: any) => ({
+    id: Number(row.id),
+    status: row.status as string,
+  }));
+  const projects = projectResult.rows.map((row: any) => ({
+    id: Number(row.id),
+    name: row.name as string,
+    code: row.code as string | null,
+    stageDisplay: row.stage_display as string,
+  }));
+
+  return {
+    leadCount: leads.length,
+    projectCount: projects.length,
+    leads,
+    projects,
+  };
+}
+
 // v3.0: 15-stage display mapping (SYSTEM_DESIGN_v3.md Section 1)
 function getDisplayStage(internal: number): string {
   if (internal <= 1) return 'new';
@@ -402,6 +435,25 @@ router.get("/erp/customers/:id", requireRole(...CUSTOMER_ROLES), async (req: Req
     res.json(row);
   } catch (err) {
     logger.error({ err }, "GET /erp/customers/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.get("/erp/customers/:id/dependencies", requireRole(...ADMIN_ONLY), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+
+    const [customer] = await db
+      .select({ id: customersTable.id })
+      .from(customersTable)
+      .where(eq(customersTable.id, id));
+    if (!customer) return notFound(res);
+
+    const summary = await getCustomerDependencySummary(id);
+    res.json({ customerId: id, ...summary });
+  } catch (err) {
+    logger.error({ err }, "GET /erp/customers/:id/dependencies failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
