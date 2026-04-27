@@ -4,6 +4,23 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.5.1] - April 2026 — Stage 2: Permission Bug Fixes
+
+### Fixed — Role enforcement correctness
+
+- **`ProjectDetail.tsx` — `canCreateMilestone`**: was using wrong inline logic (Admin|FM|SalesAgent); now calls `canCreateMilestoneHelper()` → Admin|Accountant only.
+- **`ProjectDetail.tsx` — price hiding**: `estimatedValue` in the Overview section now hidden from Employee role via `canViewPrices(user?.role)` guard (Admin|FM|Accountant only).
+- **`AdminLayout.tsx` — SalesAgent sidebar**: SalesAgent now sees Dashboard + Clients only. Projects and Service Requests are hidden. Clients guard uses `canViewLeads()`; Projects guard uses `canCreateProject()`.
+- **`AdminLayout.tsx` — QR section**: `isAdmin` guard on upload/users/dropdowns replaced with `canViewQRSystem()` helper (same behavior, semantic rename).
+- **`Payments.tsx` → `ProjectDetail.tsx` deep-link**: project header row in Payments now navigates to `/erp/projects/:id?tab=payments`. `ProjectDetail` reads `?tab=` query param on load and opens the correct tab.
+- **Backend `GET /erp/projects/:id`**: Accountant role added to allowed roles (was `NO_SALES_NO_ACCT` = Admin|FM|Employee; now also allows Accountant) to support the payment deep-link.
+
+### Known issues carried forward to Stage 3
+- `isErpUser` composite negative check has no helper — Stage 5
+- `isPaymentsUser` discrepancy between `Admin.tsx` and `AdminLayout.tsx` — Stage 5
+
+---
+
 ## [3.5.0] - April 2026 — Stage 1: Permission Foundation
 
 ### Added — Infrastructure (no behavior change)
