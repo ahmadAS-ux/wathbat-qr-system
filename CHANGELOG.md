@@ -4,6 +4,66 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.1] - April 2026 - Stage 1: Customer Foundation
+
+### Added
+
+- **`V4_1_ROADMAP.md`** - approved v4.1.0 delivery plan for the customer entity refactor, including stage cadence, commit boundaries, verification, exclusions, and rollback guidance.
+- **`lib/db/src/schema/customers.ts`** - new canonical customer entity with `phone` deduplication, lifecycle status, optional profile fields, timestamps, and creator linkage.
+- **`artifacts/api-server/src/lib/phone.ts`** - shared backend utility for E.164 validation, Saudi/local normalization, and display formatting groundwork.
+
+### Changed
+
+- **`artifacts/api-server/src/index.ts`** - startup migrations now create `customers`, enforce guarded status/E.164/phone uniqueness constraints, add nullable `customer_id` links to `leads` and `projects`, and create supporting indexes. All changes are additive and safe to rerun.
+- **`lib/db/src/schema/index.ts`** - exports the new customers schema for workspace consumers.
+
+### Fixed
+
+- Customer deduplication foundation is now at the schema/migration layer instead of relying solely on lead text fields, which unblocks the v4.1.0 customer-linking work without breaking current lead/project APIs.
+
+---
+
+## [4.0.0] - April 2026 — Stabilization Release: Permission Foundation + Backend Robustness + Contract Fixes
+
+> **v4.0.0 is a stabilization release.** All 4 build phases are complete (v3.2.0). This release hardens the permission model, fixes 5 role-enforcement bugs, makes the backend transaction-safe, and closes all known contract page issues. Zero new features.
+
+### Added
+
+- **`lib/permissions.ts`** — 13 named role-check helper functions (`canViewPrices`, `canDeleteProject`, `canEditContract`, `canViewContract`, `canViewProjectDetail`, `canViewPayments`, `canCreateMilestone`, `canManageUsers`, `canEditDropdowns`, `canViewQRSystem`, `canViewVendors`, `canCreateProject`, `canViewLeads`). Accepts `role: Role | string | undefined`. Single source of truth — no more inline role string comparisons.
+- **`RequireRole` component** — route guard that reads `useAuth()`, checks `roles[]`, and redirects unauthorised users to `/admin` (configurable fallback). Used in `App.tsx` for all role-restricted routes.
+- **`FRONTEND_ORIGIN` env var** — added to `.env.example`; `app.ts` CORS now scoped to `process.env.FRONTEND_ORIGIN` in production.
+
+### Fixed — Role enforcement
+
+- **`canCreateMilestone`** in `ProjectDetail.tsx` was `Admin|FM|SalesAgent` — corrected to `Admin|Accountant` via `canCreateMilestoneHelper()` import.
+- **`estimatedValue` price hiding** — guarded with `canViewPrices(user?.role)` in ProjectDetail Overview section; Employee can no longer see prices.
+- **SalesAgent sidebar** — now shows Dashboard + Clients only; Projects and Service Requests are hidden via `canCreateProject()` guard.
+- **QR sidebar** — `isAdmin` guard replaced with `canViewQRSystem()` helper (semantically equivalent; Admin only).
+- **Accountant → project detail navigation** — `GET /erp/projects/:id` backend now allows Accountant. `Payments.tsx` deep-links to `?tab=payments`. `ProjectDetail.tsx` reads `?tab=` query param on load.
+- **`POST /erp/projects/:id/payments`** — payment milestone creation correctly restricted to Admin+Accountant (was implicitly too broad).
+
+### Fixed — Backend robustness
+
+- **Atomic project creation** — `POST /erp/projects` now runs insert + lead status update + default phases/milestones + code generation inside a single `db.transaction()`. No orphan `code=NULL` rows on partial failure.
+- **Idempotent dropdown seed** — `UNIQUE (category, value)` constraint on `dropdown_options` added (idempotent `DO $$` guard). Seed loop uses `INSERT ... ON CONFLICT DO NOTHING`; partial seed states recover on restart.
+- **Silent error surfacing** — `loadMilestones` and `loadAllFiles` in `ProjectDetail.tsx` now call `showToast()` on network failure. Sidebar search debounce catch logs `console.error` instead of swallowing silently.
+- **CORS scoped** — `cors()` replaced with `cors({ origin: process.env.FRONTEND_ORIGIN || true })`.
+
+### Fixed — Contract page
+
+- **Project code format** — changed from sequential `WT-YYYY-NNNN` to opaque `WT-TYPE-RANDOM5` (TYPE = first 2 chars of buildingType uppercased; RANDOM5 = 5 random alphanumeric chars). Advisory lock key changed from year-based to fixed constant. Existing sequential codes nulled and regenerated on next startup.
+- **ContractPage BiDi** — drawing pages had `dir="ltr"` hardcoded; now `dir={isRtl ? 'rtl' : 'ltr'}`. Terms+signature page had no `dir` — same fix applied.
+- **Contract drawing images 401** — `<img src="/api/erp/drawings/:id">` bypassed the `window.fetch` JWT monkey-patch. Fixed by embedding `imageDataB64` (base64) in the contract API response; frontend uses `data:` URIs instead of auth-required image requests.
+
+### Docs
+
+- **`USERS_AND_PERMISSIONS.md`** — Section 0 status table updated to reflect all items ✅; Section 4 SalesAgent sidebar description corrected; Section 10 known-gaps list closed with resolution notes.
+- **`DESIGN_GAP_ANALYSIS.md`** — Item 16 (project code) marked complete; code format updated to `WT-TYPE-RANDOM5`; header version updated.
+- **`WORKFLOW_REFERENCE_v3.md`** — Version bumped to 4.0.0; Section 4 preamble updated with `lib/permissions.ts` and `RequireRole` references.
+- **`CODE_STRUCTURE.md`** — `lib/permissions.ts` and `RequireRole.tsx` added to frontend file tree.
+
+---
+
 ## [3.6.0] - April 2026 — Stage 4: Project Code Format + Contract Page Fixes
 
 ### Changed
