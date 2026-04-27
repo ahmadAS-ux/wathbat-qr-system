@@ -4,6 +4,25 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.7] - April 2026 - Stage 5: Customer Picker in Lead and Project Flows
+
+### Changed
+
+- **CreateLeadModal now uses CustomerPicker** — replaced the free-text customer name input and lead-search duplicate detection with the `CustomerPicker` typeahead component. When an existing customer is selected, the form sends `customerId`; otherwise a new-customer section (name + `PhoneInput`) appears and the form sends `customerName` + `phone` for `resolveCustomerLink` to handle transactionally.
+- **CreateProjectModal now uses CustomerPicker** — same pattern as leads: `CustomerPicker` for existing customers, conditional name + `PhoneInput` section for new customers. Removed `fromLeadId`, `searchResults`/`showSuggestions`, `showDuplicateConfirm`, and the lead-search duplicate flow entirely.
+- Both modals removed the old `SearchLead` interface, `SEARCH_STATUS_COLORS`/`LEAD_STATUS_COLORS` constants, `handleNameChange`/`handlePhoneChange`/`handleCustomerNameChange`/`selectLead` functions, and `nameTimer`/`phoneTimer`/`searchTimer` refs.
+
+### Added
+
+- 1 new i18n key (`erp_new_customer_hint`) in Arabic and English — hint text shown in the new-customer fallback section.
+
+### Stage 5 functional commits
+
+- `9db2e52` - `refactor: use customer picker in lead flows`
+- `1667237` - `refactor: use customer picker in project flows`
+
+---
+
 ## [4.0.6] - April 2026 - Glass Parser D-Prefix Hotfix
 
 ### Fixed
