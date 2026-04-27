@@ -1438,7 +1438,7 @@ export default function ErpProjectDetail() {
           </div>
 
           {/* ── 15-Segment Stage Progress Bar (inside header card) ── */}
-          <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
+          <div className="mt-4 pt-4 border-t border-[#ECEAE2]" dir="ltr">
             <div className="eyebrow mb-3">
               {t('stage_progress_eyebrow')} — <span dir="ltr" className="ltr">{project.stageInternal + 1}</span> {t('stage_progress_of')}
             </div>
