@@ -1599,10 +1599,12 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
       try {
         fileTypesRaw = JSON.parse(String(req.body?.fileTypes ?? '[]'));
       } catch {
+        logger.warn({ projectId, reason: 'invalid_filetypes_json' }, 'Upload rejected: fileTypes is not valid JSON');
         res.status(400).json({ error: 'fileTypes must be a valid JSON array' });
         return;
       }
       if (fileTypesRaw.length !== multiFiles.length) {
+        logger.warn({ projectId, reason: 'filetypes_count_mismatch', fileCount: multiFiles.length, typeCount: fileTypesRaw.length }, 'Upload rejected: fileTypes array length does not match files count');
         res.status(400).json({ error: 'fileTypes array length must match files count' });
         return;
       }
@@ -1676,16 +1678,19 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
     // ── Single-file legacy upload path ───────────────────────────────────────
     const fileType = String(req.body?.fileType ?? "");
     if (!singleFile || !fileType) {
+      logger.warn({ projectId, fileType: fileType || undefined, filename: singleFile?.originalname, reason: 'missing_file' }, 'Upload rejected: file or fileType missing from request');
       res.status(400).json({ error: "file and fileType are required" });
       return;
     }
 
     // ── v2.5.0: fileType validation ──────────────────────────────────────────
     if ((DEPRECATED_FILE_TYPES as readonly string[]).includes(fileType)) {
+      logger.warn({ projectId, fileType, filename: singleFile?.originalname, reason: 'deprecated_type' }, 'Upload rejected: deprecated file type');
       res.status(400).json({ error: "This file type has been deprecated. Valid types: glass_order, quotation, section, assembly_list, cut_optimisation, material_analysis, vendor_order, qoyod, other." });
       return;
     }
     if (!(PROJECT_FILE_TYPES as readonly string[]).includes(fileType)) {
+      logger.warn({ projectId, fileType, filename: singleFile?.originalname, reason: 'invalid_type' }, 'Upload rejected: invalid fileType');
       res.status(400).json({ error: "Invalid fileType" });
       return;
     }
@@ -1694,6 +1699,7 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
     const uploadedFile = singleFile;
 
     if (requiresDocx(fileType) && !isDocx(uploadedFile.originalname)) {
+      logger.warn({ projectId, fileType, filename: uploadedFile.originalname, reason: 'wrong_extension' }, 'Upload rejected: non-docx file for docx slot');
       res.status(400).json({ error: `Only .docx files are accepted for ${fileType}` });
       return;
     }
@@ -1738,6 +1744,7 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
         result = await parseAndInjectQR(uploadedFile.buffer);
       } catch (err: any) {
         if (err?.message === "NO_POSITIONS") {
+          logger.warn({ projectId, fileType: 'glass_order', filename: uploadedFile.originalname, reason: 'no_positions' }, 'Upload rejected: glass order file has no positions');
           res.status(400).json({
             error: "ParseError",
             message: "No positions found. Upload a valid Orgadata glass order (.docx).",
