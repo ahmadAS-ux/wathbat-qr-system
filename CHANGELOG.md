@@ -4,6 +4,15 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.4.2] - April 2026
+
+### Fixed — Security + RTL
+
+- **C1 (Security):** `GET /erp/projects/:id/files/:fileId` now validates that the requested file belongs to the project in the URL (`projectFilesTable.projectId = req.params.id`). Previously any authenticated user could download any file by guessing its numeric ID.
+- **M4 (RTL):** Progress bar eyebrow div at ProjectDetail.tsx:1442 now carries `dir={isRtl ? 'rtl' : 'ltr'}` to counteract the `dir="ltr"` inherited from the outer container added in commit `add2540`.
+
+---
+
 ## [3.4.1] - April 2026
 
 ### Added — Step 16b: Project Code Display (Frontend)

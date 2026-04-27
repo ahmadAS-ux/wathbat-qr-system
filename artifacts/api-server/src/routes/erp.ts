@@ -1262,7 +1262,8 @@ router.post("/erp/projects/:id/files/detect", requireRole(...NO_SALES_NO_ACCT), 
 router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
-    const [file] = await db.select().from(projectFilesTable).where(eq(projectFilesTable.id, fileId));
+    const projectId = Number(req.params.id);
+    const [file] = await db.select().from(projectFilesTable).where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
     if (!file) return notFound(res);
     res.setHeader("Content-Disposition", `attachment; filename="${file.originalFilename}"`);
     res.setHeader("Content-Type", "application/octet-stream");
