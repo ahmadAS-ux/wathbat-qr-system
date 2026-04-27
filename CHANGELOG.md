@@ -4,6 +4,24 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.6.0] - April 2026 — Stage 4: Project Code Format + Contract Page Fixes
+
+### Changed
+
+- **Project code format**: changed from sequential `WT-YYYY-NNNN` to opaque `WT-TYPE-RANDOM5` where TYPE = first 2 chars of buildingType uppercased (e.g. villa → `VI`, null → `XX`) and RANDOM5 = 5 random uppercase alphanumeric chars (e.g. `WT-VI-A3K7Q`). Advisory lock key changed from year-based to fixed `20260101`. Existing `WT-YYYY-NNNN` codes are nulled on next startup and regenerated in the new format.
+
+### Fixed
+
+- **`ContractPage.tsx` — BiDi**: drawing pages had `dir="ltr"` hardcoded — Arabic position labels now use `dir={isRtl ? 'rtl' : 'ltr'}`. Terms+signature page had no `dir` attribute — now also uses `dir={isRtl ? 'rtl' : 'ltr'}` so the CSS `contract-page[dir="rtl"]` rule applies correctly.
+- **Contract drawing images**: `<img src="/api/erp/drawings/:id">` bypassed the `window.fetch` JWT monkey-patch and returned 401. Fixed by embedding `imageDataB64` (base64) in the `GET /erp/projects/:id/contract` response. Frontend now uses `<img src="data:mimeType;base64,...">` — no separate auth-required request.
+
+### Docs
+
+- `WORKFLOW_REFERENCE_v3.md` Section 3.3: updated `code` field comment to reflect new format.
+- `CODE_STRUCTURE.md`: updated `projects.ts` comment to `WT-TYPE-RANDOM5`.
+
+---
+
 ## [3.5.2] - April 2026 — Stage 3: Backend Robustness
 
 ### Fixed
