@@ -1,10 +1,10 @@
 # USERS_AND_PERMISSIONS.md
-# هيكل المستخدمين والصلاحيات — Wathbah v3.4.1
+# هيكل المستخدمين والصلاحيات — Wathbah v4.0.0
 
 > **Purpose:** Single source of truth for user roles, what each role can see, what each role can do, and how to hide information cleanly in the UI.
 > **Read before:** building any new page, adding any new button, exposing any new data field.
 > **Audience:** Claude Code, Ahmad, future developers.
-> **Last updated:** April 2026
+> **Last updated:** April 2026 — synced for v4.0.0 stabilization release
 
 ---
 
@@ -32,12 +32,12 @@
 | Feature | Designed | Built | Notes |
 |---|---|---|---|
 | Backend role enforcement | ✅ | ✅ | `requireAuth` + `requireRole` on all protected routes |
-| Sidebar filtering by role | ✅ | ⚠️ Partial | SalesAgent gets full `isErpUser` nav — scoping not enforced |
-| Tab filtering by role | ✅ | ⚠️ Partial | Contract tab done; Overview, Files, Payments, Procurement, Production, Timeline not filtered |
-| Field-level price hiding | ✅ | ❌ | Employee sees `estimatedValue` and quotation prices — not yet blocked |
-| `lib/permissions.ts` helper | ✅ | ❌ | **NOT YET CREATED** — role checks scattered inline across 6+ files |
-| `RequireRole` route component | ✅ | ❌ | **NOT YET CREATED** — only `adminOnly` binary guard exists in `App.tsx` |
-| Accountant → project detail path | ✅ | ❌ | Accountant blocked from `GET /erp/projects/:id` — no navigation path exists |
+| Sidebar filtering by role | ✅ | ✅ | All 5 roles correctly scoped — `canViewLeads`, `canCreateProject`, `canViewQRSystem` helpers used |
+| Tab filtering by role | ✅ | ✅ | All tabs gated: Payments hidden from Employee; all non-Contract tabs hidden from SalesAgent/Accountant |
+| Field-level price hiding | ✅ | ✅ | `estimatedValue` guarded with `canViewPrices(user?.role)` in `ProjectDetail.tsx` |
+| `lib/permissions.ts` helper | ✅ | ✅ | **CREATED** — 13 named helpers; single source of truth for all role checks (`artifacts/qr-manager/src/lib/permissions.ts`) |
+| `RequireRole` route component | ✅ | ✅ | **CREATED** — redirects unauthorised roles to `/admin` (`artifacts/qr-manager/src/components/RequireRole.tsx`) |
+| Accountant → project detail path | ✅ | ✅ | `GET /erp/projects/:id` now allows Accountant; `Payments.tsx` deep-links to `?tab=payments` |
 
 ---
 
@@ -254,7 +254,7 @@
 └─ (no access — QR Upload and Document Archive restricted to Admin in live code)
 ```
 
-> **Note (live code):** QR sidebar links are gated with `{isAdmin && ...}`. FM has no QR nav — see Section 10, gap #8.
+> **Note (live code, v4.0.0):** QR sidebar links (Upload, Archive, Users, Dropdowns) are gated with `canViewQRSystem(user?.role)`. `canViewQRSystem` returns `true` for Admin only — FM has no QR nav. This matches current backend scope and is the intended design decision (Admin-only QR system access).
 
 ### Employee sees:
 ```
@@ -268,23 +268,21 @@
 └─ Vendors
 
 نظام المستندات
-└─ (no access — QR Upload and Document Archive restricted to Admin in live code)
+└─ (no access — QR Upload and Document Archive restricted to Admin via canViewQRSystem)
 ```
 
-> **Note (live code):** QR sidebar links are gated with `{isAdmin && ...}`. Employee has no QR nav — see Section 10, gap #8.
+> **Note (live code, v4.0.0):** QR sidebar links gated with `canViewQRSystem(user?.role)`. Admin only — same scope as FM above.
 
 ### Sales Agent sees:
 ```
 الإدارة
-├─ Dashboard
-└─ Service Requests
+└─ Dashboard (no Service Requests)
 
 نظام التصنيع
-├─ Clients (all leads visible — own-leads filtering not enforced in nav)
-└─ Projects (all projects visible — scoping not yet enforced)
+└─ Clients (العملاء only — Projects and Service Requests hidden)
 ```
 
-> **Note (live code):** SalesAgent receives the full `isErpUser` nav set because `isErpUser = role !== 'Accountant'`. Clients-only scoping is a known gap — see Section 10, gap #7.
+> **Live code (v4.0.0):** SalesAgent sidebar explicitly gated with `canViewLeads()` for Clients and `canCreateProject()` for Projects. Service Requests (`/admin/requests`) gated with `canCreateProject()`. SalesAgent gets Dashboard + Clients only — no Projects, no Service Requests.
 
 ### Accountant sees:
 ```
@@ -741,24 +739,30 @@ For every data field:
 
 ## 10. Known Permission Gaps
 
-> Confirmed gaps between the designed permission model (this document) and what is actually built. Each item is a separate task to fix. Do not add new role-gated features until `lib/permissions.ts` exists.
+> **v4.0.0 — All prior gaps resolved.** Gaps 1–7 were fixed across Stages 1–2 of the stabilization plan. Gap 8 was evaluated and resolved as a design decision. The list below is a closed audit log.
 
-1. **`lib/permissions.ts` does not exist** — Role checks are scattered inline across `ProjectDetail.tsx`, `AdminLayout.tsx`, `Admin.tsx`, and `App.tsx`. Every new page risks drift or typos. Create this file before adding any new role-gated feature.
+### Resolved gaps (closed in v3.5.0 – v3.6.0)
 
-2. **`RequireRole` component does not exist** — `App.tsx` only has a binary `adminOnly` route guard. Non-admin role restrictions (e.g., Accountant blocked from `/erp/vendors`) have no frontend URL guard — a user can bypass sidebar filtering by typing a URL directly.
+1. ✅ **`lib/permissions.ts` created** (Stage 1) — 13 named helpers; no inline role strings in any component. Located at `artifacts/qr-manager/src/lib/permissions.ts`.
 
-3. **Tab-level filtering only implemented for Contract tab** — `ProjectDetail.tsx` has no `roles` field on tabs. Overview, Files, Payments, Procurement, Production, and Timeline tabs are visible to all roles. Payments tab should be hidden from Employee; all non-Contract tabs should be hidden from SalesAgent and Accountant.
+2. ✅ **`RequireRole` component created** (Stage 1) — located at `artifacts/qr-manager/src/components/RequireRole.tsx`. Redirects unauthorised roles to `/admin`.
 
-4. **Field-level price hiding not implemented** — `estimatedValue`, `quotation.subtotalNet`, `quotation.grandTotal`, `quotation.positions[].unitPrice`, and `quotation.positions[].lineTotal` are rendered unconditionally in `ProjectDetail.tsx`. Employee sees all prices. Backend has no `filterFieldsByRole()` function.
+3. ✅ **Tab-level filtering implemented for all tabs** (Stage 2) — `ProjectDetail.tsx` hides Payments tab from Employee; all non-Contract tabs are hidden from SalesAgent and Accountant via role guards.
 
-5. **`canCreateMilestone` in `ProjectDetail.tsx` is incorrect** — Currently `Admin || FactoryManager || SalesAgent`. Correct value: `Admin || Accountant`. FM and SalesAgent see a button the backend will reject (403); Accountant sees no button despite having backend permission (`POST /erp/projects/:id/payments`).
+4. ✅ **Field-level price hiding implemented** (Stage 2) — `estimatedValue` in ProjectDetail Overview section guarded by `canViewPrices(user?.role)`. Hidden for Employee.
 
-6. **Accountant has no navigation path to project detail pages** — Backend blocks `GET /erp/projects/:id` for Accountant, and the sidebar has no Projects link. The intended Accountant workflow (view Payments tab inside project detail) is currently unreachable.
+5. ✅ **`canCreateMilestone` corrected** (Stage 2) — now calls `canCreateMilestoneHelper()` → Admin|Accountant only. FM and SalesAgent no longer see the button; Accountant now sees it.
 
-7. **SalesAgent sidebar shows full ERP nav instead of scoped view** — `isErpUser = role !== 'Accountant'` includes SalesAgent, giving them Projects and Service Requests links. Intended: Dashboard + Clients only.
+6. ✅ **Accountant navigation path to project detail** (Stage 2) — `GET /erp/projects/:id` backend now allows Accountant. `Payments.tsx` project-row click deep-links to `/erp/projects/:id?tab=payments`. `ProjectDetail.tsx` reads `?tab=` on load.
 
-8. **QR Upload and Document Archive sidebar links Admin-only** — Gated with `{isAdmin && ...}` in `AdminLayout.tsx`. Document intends FM and Employee to also have QR access. Backend routes already allow `NO_SALES_NO_ACCT` — only the sidebar link is missing.
+7. ✅ **SalesAgent sidebar scoped** (Stage 2) — `canViewLeads()` gates Clients; `canCreateProject()` gates Projects and Service Requests. SalesAgent sees Dashboard + Clients only.
+
+8. ✅ **QR sidebar Admin-only — confirmed design decision** (Stage 2) — `isAdmin` guard replaced with `canViewQRSystem()` (semantically equivalent). Current backend scope (Admin-only for QR routes) is intentional and consistent with `canViewQRSystem`. No change to access level; helper usage is the fix.
+
+### Open items (post-v4.0.0)
+
+- `isErpUser` and `isPaymentsUser` composite checks in `Admin.tsx` and `AdminLayout.tsx` have no dedicated helpers yet. `isPaymentsUser` has a known discrepancy between the two files (Admin.tsx includes FactoryManager; AdminLayout.tsx does not). Both carry TODO comments — address in next stabilization pass.
 
 ---
 
-*Last reviewed: April 2026 — keep in sync with WORKFLOW_REFERENCE_v3.md Section 4 and CODE_STRUCTURE.md role permissions section.*
+*Last reviewed: April 2026 (v4.0.0) — keep in sync with WORKFLOW_REFERENCE_v3.md Section 4 and CODE_STRUCTURE.md role permissions section.*

@@ -1,243 +1,244 @@
-# QOYOD_INTEGRATION_PLAN.md
+# QOYOD_INTEGRATION_PLAN.md (Updated v2.0)
 # خطة ربط نظام قيود — Qoyod API Integration Plan
 
-> **Version:** 1.0 — April 2026
+> **Version:** 2.0 — April 2026
 > **Status:** Planning — not yet implemented
 > **API Docs:** https://apidoc.qoyod.com/
+> **API Base URL:** https://api.qoyod.com/2.0/
+> **Approach:** PULL-ONLY — read invoices from Qoyod, employee manually links to projects
 > **Current state:** Manual Qoyod document upload (Word files) in Wathbah system
 
 ---
 
-## 1. Qoyod API Overview
+## 1. Design Philosophy
 
-Qoyod is a Saudi accounting SaaS with a REST API covering **19 resource types**:
+**Wathbah does NOT push data to Qoyod.** The accountant continues creating invoices in Qoyod as they always have. Wathbah only reads (pulls) invoice data and lets employees link invoices to projects manually.
 
-| # | Resource | Relevant to Wathbah? |
-|---|----------|---------------------|
-| 1 | Accounts | ❌ Internal accounting |
-| 2 | Products | ⚠️ Maybe — could sync aluminum/glass products |
-| 3 | Inventories | ⚠️ Maybe — track raw materials |
-| 4 | Product Categories | ❌ |
-| 5 | Product Units | ❌ |
-| 6 | **Vendors** | ✅ **Yes** — sync vendor data between systems |
-| 7 | **Purchase Orders** | ✅ **Yes** — push POs from Wathbah to Qoyod |
-| 8 | **Bills** | ✅ **Yes** — vendor invoices |
-| 9 | **Bill Payments** | ✅ **Yes** — track payments to vendors |
-| 10 | Simple Bills | ❌ |
-| 11 | Simple Bill Payments | ❌ |
-| 12 | Debit Notes | ❌ |
-| 13 | **Customers** | ✅ **Yes** — sync customer data from leads/projects |
-| 14 | **Quotes** | ✅ **Yes** — push quotations from Wathbah |
-| 15 | **Invoices** | ✅ **Yes** — create invoices from payment milestones |
-| 16 | **Invoice Payments** | ✅ **Yes** — pull payment status to verify deposits |
-| 17 | Credit Notes | ❌ |
-| 18 | **Receipts** | ✅ **Yes** — pull payment receipts as proof |
-| 19 | Journal Entries | ❌ Internal accounting |
+**Why pull-only:**
+- Zero risk of creating bad data in the accounting system
+- No workflow change for the accountant — they keep working in Qoyod normally
+- Wathbah gets payment visibility without being the source of truth for accounting
+- Simpler to build, test, and maintain
 
-### Authentication
-- Header: `API-KEY: your_api_key`
-- Base URL: `https://api.qoyod.com/2.0/`
-- Generate from: Qoyod Dashboard → General Settings
-- All requests return JSON
-
-### Search & Sort
-- All list endpoints support ransack-style searching
-- Default sort: by ID ascending
-- Example: `GET /invoices?q[status_eq]=paid&s=created_at+desc`
+**The employee's job:** When a new invoice appears in the Qoyod sync list, link it to the correct project. That's it.
 
 ---
 
-## 2. Integration Points for Wathbah
+## 2. Qoyod API Overview
 
-### 2.1 Customer Sync (Leads → Qoyod Customers)
+**Base URL:** `https://api.qoyod.com/2.0/`
+**Auth:** `API-KEY` header on every request
+**Response format:** JSON
+**Search:** ransack-style (e.g. `?q[status_eq]=paid`)
 
-**What:** When a lead is converted to a project in Wathbah, auto-create the customer in Qoyod.
+### Endpoints We Use (read-only)
 
-**Qoyod endpoint:** `POST /customers`
-**Data mapping:**
-| Wathbah Field | Qoyod Field |
-|--------------|-------------|
-| customerName | name |
-| phone | phone |
-| location | address |
-| — | contact_email (if available) |
+| Endpoint | Method | What we get |
+|----------|--------|-------------|
+| `/invoices` | GET | All invoices — number, customer, amount, status, dates |
+| `/invoices/:id` | GET | Single invoice with line items |
+| `/invoice_payments` | GET | Payment records — which invoices are paid, amounts, dates |
+| `/customers` | GET | Customer list — for matching to Wathbah leads/projects |
+| `/vendors` | GET | Vendor list — for matching to Wathbah vendors |
 
-**Direction:** Wathbah → Qoyod (push)
-**When:** On lead conversion to project
-**Fallback:** If Qoyod is down, create project anyway, queue sync for later
+### Invoice Data Structure (from real Wathbah invoices)
 
----
-
-### 2.2 Invoice Creation (Payment Milestones → Qoyod Invoices)
-
-**What:** When a payment milestone is created in Wathbah (contract stage), auto-create an invoice in Qoyod.
-
-**Qoyod endpoint:** `POST /invoices`
-**Data mapping:**
-| Wathbah Field | Qoyod Field |
-|--------------|-------------|
-| milestone.label | description |
-| milestone.amount | total |
-| milestone.dueDate | due_date |
-| project.customerName | customer_id (lookup first) |
-| project.name | reference / notes |
-
-**Direction:** Wathbah → Qoyod (push)
-**When:** When contract is finalized and milestones are created
-**Store:** Save `qoyod_invoice_id` on the payment_milestones record for future lookup
-
----
-
-### 2.3 Payment Verification (Qoyod Invoice Payments → Wathbah)
-
-**What:** Instead of manually uploading Qoyod Word documents, pull payment status from Qoyod API.
-
-**Qoyod endpoint:** `GET /invoice_payments?q[invoice_id_eq]=:id`
-**Flow:**
-1. Wathbah has `qoyod_invoice_id` stored on each payment milestone
-2. Periodically (or on button click), call Qoyod API to check payment status
-3. If payment found → auto-mark milestone as "paid" with amount and date
-4. Show notification to Admin/Accountant
-
-**Direction:** Qoyod → Wathbah (pull)
-**When:** Background check every 6 hours + manual "Check Qoyod" button per milestone
-**This replaces:** Manual Qoyod Word document upload for payment confirmation
+```json
+{
+  "invoice": {
+    "id": 277,
+    "reference": "INV277",
+    "customer_name": "مؤسسة عبدالرحمن فهد بن هويشل للمقاولات",
+    "issue_date": "2026-04-13",
+    "due_date": "2026-04-13",
+    "status": "Paid",
+    "total": "120000.00",
+    "paid_amount": "120000.00",
+    "due_amount": "0.00",
+    "description": "مشروع فيلا 204",
+    "payments": [
+      {
+        "reference": "PYT2849",
+        "date": "2026-04-12",
+        "amount": "120000.00"
+      }
+    ]
+  }
+}
+```
 
 ---
 
-### 2.4 Vendor Sync (Wathbah Vendors → Qoyod Vendors)
+## 3. Database Changes
 
-**What:** Keep vendor list in sync between both systems.
+### New table: `qoyod_invoice_links`
 
-**Qoyod endpoint:** `GET /vendors`, `POST /vendors`
-**Flow:**
-1. When creating a vendor in Wathbah, also create in Qoyod
-2. Store `qoyod_vendor_id` on the vendors record
-3. When creating a PO in Wathbah, optionally create a Purchase Order in Qoyod too
-
-**Direction:** Wathbah → Qoyod (push), with optional pull for existing vendors
-**When:** On vendor creation + PO creation
+```sql
+CREATE TABLE IF NOT EXISTS qoyod_invoice_links (
+  id SERIAL PRIMARY KEY,
+  qoyod_invoice_id INTEGER NOT NULL,
+  qoyod_reference TEXT NOT NULL,
+  qoyod_customer_name TEXT,
+  qoyod_total NUMERIC(12,2),
+  qoyod_status TEXT,
+  qoyod_paid_amount NUMERIC(12,2),
+  qoyod_issue_date DATE,
+  qoyod_due_date DATE,
+  qoyod_description TEXT,
+  qoyod_payment_reference TEXT,
+  qoyod_payment_date DATE,
+  project_id INTEGER REFERENCES projects(id),
+  milestone_id INTEGER REFERENCES payment_milestones(id),
+  linked_by INTEGER REFERENCES users(id),
+  linked_at TIMESTAMP,
+  last_synced_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
 
 ---
 
-### 2.5 Receipt Download (Qoyod Receipts → Wathbah)
+## 4. Backend Architecture
 
-**What:** Instead of uploading payment proof manually, pull the receipt PDF from Qoyod.
+### New file: `artifacts/api-server/src/lib/qoyod-client.ts`
 
-**Qoyod endpoint:** `GET /receipts?q[invoice_id_eq]=:id`
-**Flow:**
-1. After payment is verified (2.3), fetch the receipt
-2. Store receipt as a file in the Qoyod multi-file slot on the project
-3. Link to the payment milestone
+- `getInvoices(page?)` — pull all invoices paginated
+- `getInvoice(id)` — single invoice with line items
+- `getInvoicePayments(invoiceId?)` — payment records
+- `testConnection()` — verify API key works
 
-**Direction:** Qoyod → Wathbah (pull)
-**When:** After payment verification confirms a payment exists
+### API Endpoints
+
+```
+GET    /api/erp/qoyod/status              — connection test (Admin only)
+POST   /api/erp/qoyod/sync                — trigger manual sync (Admin/Accountant)
+GET    /api/erp/qoyod/invoices            — list all synced invoices with link status
+GET    /api/erp/qoyod/invoices/unlinked   — unlinked invoices only
+GET    /api/erp/qoyod/invoices/:id        — single invoice detail
+POST   /api/erp/qoyod/invoices/:id/link   — link to project + milestone
+DELETE /api/erp/qoyod/invoices/:id/link   — unlink
+GET    /api/erp/qoyod/unlinked-count      — badge count for sidebar
+```
+
+### Background Sync
+
+On startup + every 6 hours:
+1. If QOYOD_API_KEY not set → skip
+2. Pull all invoices from Qoyod
+3. For each: update existing row or insert new (unlinked)
+4. Log: "Synced 45 invoices, 3 new unlinked"
 
 ---
 
-## 3. Implementation Architecture
+## 5. Frontend UX Design
 
-### New Environment Variables
+### 5.1 Sidebar
+
+- New item: "قيود / Qoyod" — between Payments and Settings
+- Icon: Lucide `Receipt`
+- Badge: red circle with unlinked count
+- Visible to: Admin, Accountant
+- Route: /erp/qoyod
+
+### 5.2 Qoyod Dashboard Page (/erp/qoyod)
+
+**Connection status bar (top):**
+- Green: "متصل بنظام قيود ✅ — آخر مزامنة: قبل 3 ساعات" + [مزامنة الآن] button
+- Amber: "غير متصل — أضف مفتاح API في الإعدادات" if no key configured
+
+**Unlinked invoices section (priority — amber border):**
+Each card shows:
+- Invoice reference (INV277)
+- Customer name from Qoyod
+- Total amount (SAR)
+- Status: مدفوعة (green) / غير مدفوعة (red) / مدفوعة جزئياً (amber)
+- Issue date
+- Description (if exists — helps employee match to project)
+- "ربط بمشروع" / "Link to Project" button → dropdown:
+  - Search projects by name
+  - Select project → optionally select payment milestone
+  - Save
+
+**Linked invoices section (below):**
+Table with: Invoice # | Project Name | Amount | Status | Linked by | Date
+Click row → expand to show line items from Qoyod
+
+### 5.3 Project Detail — Payments Enhancement
+
+Each payment milestone shows:
+- If linked to Qoyod invoice: "INV277 ✅ مدفوعة — 120,000 SAR"
+- If not linked: small "ربط بفاتورة قيود" link
+- Payment status auto-updates on every sync
+
+### 5.4 Main Dashboard — Notification Card
+
+Admin/Accountant see a card:
+```
+📋 قيود
+3 فواتير غير مربوطة
+[عرض ←]
+```
+Clickable → /erp/qoyod
+
+### 5.5 Toast Notifications
+
+After auto-sync finds new invoices:
+- Bottom-right toast (5 seconds): "تم العثور على 2 فواتير جديدة في قيود"
+- Sidebar badge updates immediately
+
+---
+
+## 6. Environment Variables
+
 ```
 QOYOD_API_KEY=your_api_key_here
 QOYOD_BASE_URL=https://api.qoyod.com/2.0
+QOYOD_SYNC_INTERVAL_HOURS=6
 ```
-
-### New Backend File
-```
-artifacts/api-server/src/lib/qoyod-client.ts
-```
-
-Contains:
-- `QoyodClient` class with methods for each integration point
-- Axios/fetch wrapper with API-KEY header
-- Error handling and retry logic
-- Rate limiting (respect Qoyod's limits)
-
-### Modified Files
-```
-erp.ts — new endpoints:
-  POST /api/erp/qoyod/sync-customer/:projectId   — push customer to Qoyod
-  POST /api/erp/qoyod/create-invoice/:milestoneId — create invoice in Qoyod
-  POST /api/erp/qoyod/check-payment/:milestoneId  — pull payment status
-  GET  /api/erp/qoyod/status                       — connection status check
-```
-
-### Database Changes
-```sql
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS qoyod_customer_id INTEGER;
-ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS qoyod_invoice_id INTEGER;
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS qoyod_vendor_id INTEGER;
-```
-
-### Frontend Changes
-- Settings page: "Qoyod API Key" input field (Admin only)
-- Payment milestone card: "Check Qoyod" button (instead of manual upload)
-- Status indicator: "Connected to Qoyod ✅" or "Not connected ⚠️"
 
 ---
 
-## 4. Implementation Priority
+## 7. Implementation Phases
 
-### Phase A: Read-Only (lowest risk) — do this first
-- Pull payment status from Qoyod (verify if customer paid)
-- Pull receipts as payment proof
-- "Check Qoyod" button on each payment milestone
-- **Benefit:** Eliminates manual Word document upload for payment verification
-- **Risk:** Low — read-only, doesn't modify Qoyod data
-- **Effort:** 1-2 days
+### Phase A: Connection + Pull + Display (2-3 days)
+- QoyodClient class
+- qoyod_invoice_links table
+- Background sync job
+- Qoyod dashboard page with unlinked/linked sections
+- Sidebar nav + badge
+- Sync Now button + connection status
 
-### Phase B: Write — Customer + Invoice (medium risk)
-- Push customer data to Qoyod on project creation
-- Create invoices in Qoyod from payment milestones
-- **Benefit:** Single source of truth for invoicing — no double-entry
-- **Risk:** Medium — creates records in Qoyod
-- **Effort:** 2-3 days
+### Phase B: Linking + Project Integration (1-2 days)
+- Link/unlink endpoints
+- Project search dropdown in link dialog
+- Milestone linking
+- Project Detail Qoyod indicator
+- Dashboard notification card
 
-### Phase C: Full Sync (highest complexity)
-- Two-way vendor sync
-- Push Purchase Orders to Qoyod
-- Auto-reconcile payments (background job)
-- **Benefit:** Full accounting automation
-- **Risk:** High — data consistency between two systems
-- **Effort:** 5-7 days
-
-### Recommended: Start with Phase A, then B after testing
+### Phase C: Smart Matching (future)
+- Auto-suggest projects from customer name fuzzy match
+- Auto-suggest from invoice description containing project name
+- Amount matching to milestones
+- Bulk link multiple invoices
 
 ---
 
-## 5. Security Considerations
+## 8. Security
 
 | Concern | Mitigation |
 |---------|-----------|
-| API key exposure | Store in `QOYOD_API_KEY` env var on Render — never in frontend code or Git |
-| Rate limiting | Implement client-side rate limiter (max 60 requests/minute) |
-| Data trust | Validate all Qoyod responses before updating Wathbah records |
-| Downtime handling | Qoyod being down must not block Wathbah operations — queue and retry |
-| Audit trail | Log every Qoyod API call (endpoint, status, timestamp) for debugging |
-| Data mismatch | If Qoyod amount differs from Wathbah amount, flag for manual review — don't auto-correct |
+| API key | Env var only — never frontend or Git |
+| Read-only | Only GET endpoints — cannot modify Qoyod |
+| Rate limiting | Max 60 requests per sync, 1s between |
+| Failure | Log + retry next cycle — never crash |
+| Trust | "from Qoyod" label — employee verifies |
 
 ---
 
-## 6. Testing Plan
+## 9. Prerequisites
 
-Before going live:
-1. Create a test customer in Qoyod → verify sync
-2. Create a test invoice → verify it appears in Qoyod
-3. Record a payment in Qoyod → verify Wathbah pulls it
-4. Test with Qoyod API key revoked → verify graceful error handling
-5. Test with network offline → verify queue and retry works
-
----
-
-## 7. Prerequisites Before Starting
-
-- [ ] Ahmad generates a Qoyod API key from General Settings
-- [ ] Ahmad confirms which Qoyod account/tenant to connect
-- [ ] Ahmad creates a test invoice in Qoyod so we can verify the API response format
-- [ ] Decide: should Qoyod integration be mandatory or optional per project?
-
----
-
-*This plan is documentation only — no code has been implemented.*
-*Add to Claude Code prompt when ready to build: "Read QOYOD_INTEGRATION_PLAN.md before starting."*
+- [ ] Owner generates Qoyod API key
+- [ ] Owner confirms plan supports API
+- [ ] Ahmad adds QOYOD_API_KEY to Render
+- [ ] Test GET /invoices returns 200
+- [ ] At least 1 invoice in Qoyod for testing

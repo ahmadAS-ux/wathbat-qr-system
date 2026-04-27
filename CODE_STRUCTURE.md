@@ -78,6 +78,7 @@ artifacts/qr-manager/src/
 │   │   └── Header.tsx        # Top nav bar (hidden on /scan, /confirm/*, /login)
 │   ├── erp/
 │   │   └── NameMismatchModal.tsx  # Modal for Orgadata project name conflict (Phase 2)
+│   ├── RequireRole.tsx       # Route guard component — redirects unauthorised roles to /admin
 │   ├── FileUpload.tsx        # Drag-and-drop DOCX uploader
 │   ├── ResultsView.tsx       # QR results table
 │   ├── Toast.tsx             # Toast notification context
@@ -88,6 +89,7 @@ artifacts/qr-manager/src/
 └── lib/
     ├── api-base.ts           # Resolves API base URL from VITE_API_URL
     ├── i18n.ts               # ALL translation strings — Arabic + English (506 keys)
+    ├── permissions.ts        # Role helpers — canViewPrices, canDeleteProject, canCreateMilestone, etc. (13 helpers)
     └── utils.ts              # cn(), formatBytes() helpers
 ```
 

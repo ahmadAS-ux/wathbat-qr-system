@@ -1,9 +1,9 @@
 # DESIGN_GAP_ANALYSIS.md
 
 > **Status:** Complete analysis — DO NOT implement anything from this file without reading it fully.
-> **Date:** April 2026
+> **Date:** April 2026 (analysis), updated for v4.0.0
 > **Design source:** Claude Design export (asset-manager-wathbat bundle, 24 files)
-> **Codebase version:** v3.3.0
+> **Codebase version:** v3.3.0 (analysis baseline); v4.0.0 current — see item 16 below for completed project code work
 
 ---
 
@@ -232,7 +232,7 @@
 | Overdue row indicator | `Badge tone="danger" dot` badge | VERIFY | VERIFY | — | LOW |
 | VIP badge | `Badge tone="warn"` | Exists | YES | — | — |
 | Pagination | Pager with prev/next + page numbers | VERIFY — current might use "show more" | VERIFY | Add pagination component | MEDIUM |
-| Project code (WT-YYYY-XXXX) | Shown in sub-line | VERIFY if projects have codes | **VERIFY** | May need new DB column | HIGH |
+| Project code (WT-TYPE-RANDOM5) | Shown in sub-line | ✅ Projects have codes | ✅ DONE | `code` column exists; format is `WT-TYPE-RANDOM5` | — |
 
 ---
 
@@ -368,7 +368,7 @@ All violations found in current ERP `.tsx` files — classes that conflict with 
 | 13 | Tab navigation redesign: ensure all 7 tabs + correct active style | `erp/ProjectDetail.tsx` | MEDIUM | `feat: implement 7-tab design with correct active styling` |
 | 14 | Timeline tab: 5×3 stage grid with loop/parallel badges | `erp/ProjectDetail.tsx` | MEDIUM | `feat: timeline tab 5x3 grid with stage annotations` |
 | 15 | Contract tab: embed contract preview inside project detail | `erp/ProjectDetail.tsx` + `erp/ContractPage.tsx` | HIGH | `feat: add contract preview tab in project detail` |
-| 16 | ✅ DB migration: add `code` column to `erp_projects` + backend generation | `db/schema.ts` + `erp.ts` | HIGH | `feat: add project code (WT-YYYY-XXXX) to projects` |
+| 16 | ✅ Project code complete — format changed to `WT-TYPE-RANDOM5` (TYPE = first 2 chars of buildingType; RANDOM5 = 5 random alphanum chars). Opaque format prevents sequential guessing. DB column, backfill, advisory-locked generation all in place. | `db/schema.ts` + `erp.ts` | HIGH | `feat: add project code WT-TYPE-RANDOM5 (v3.4.0 + v3.6.0)` |
 | 17 | Projects page: replace card grid with table layout | `erp/Projects.tsx` | HIGH | `feat: projects list redesign as sortable table per design` |
 | 18 | KPI sparklines: add trend endpoint + wire to live data | `erp.ts` + `Admin.tsx` | MEDIUM | `feat: KPI sparklines wired to live trend data` |
 

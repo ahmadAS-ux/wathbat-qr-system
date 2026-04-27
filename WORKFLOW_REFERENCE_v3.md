@@ -1,7 +1,7 @@
 # Wathbah Manufacturing System — Workflow Reference v3.0
 # نظام وثبة لإدارة المصنع — مرجع سير العمل
 
-> **Version:** 3.2.0 — April 2026
+> **Version:** 4.0.0 — April 2026
 > **Status:** ALL 4 phases complete — v3.2.0 deployed on Render.com
 > **Built on top of:** QR Asset Manager v1.1.0 (Render.com)
 > **Tech stack:** TypeScript · React 19 · Express · PostgreSQL · Drizzle ORM · pnpm monorepo
@@ -468,7 +468,9 @@ export const dropdownOptions = pgTable('dropdown_options', {
 
 ## 4. Roles & Permissions
 
-5 roles. The existing `users.role` column currently holds `'Admin'|'User'`. Extend to support all 5 roles.
+> **v4.0.0:** `lib/permissions.ts` (`artifacts/qr-manager/src/lib/permissions.ts`) is the canonical source for all frontend role checks. Use named helpers (`canViewPrices`, `canDeleteProject`, `canCreateMilestone`, etc.) — never write inline role string comparisons in components. `RequireRole` component (`artifacts/qr-manager/src/components/RequireRole.tsx`) guards all protected routes. Backend uses `requireRole(...roles)` from `artifacts/api-server/src/lib/auth.ts`.
+
+5 roles. The `users.role` column holds exact-case strings — see DB values below.
 
 | Role | Value in DB |
 |---|---|
