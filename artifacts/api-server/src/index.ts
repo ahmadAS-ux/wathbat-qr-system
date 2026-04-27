@@ -80,6 +80,20 @@ async function runStartupMigrations() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS customers (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        location TEXT,
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER REFERENCES users(id)
+      )
+    `);
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, "admin"));
     if (!existing) {
       await db.insert(usersTable).values({ username: "admin", passwordHash: hashPassword("admin123"), role: "Admin" });
@@ -102,6 +116,7 @@ async function runStartupMigrations() {
         first_followup_date DATE NOT NULL,
         status TEXT NOT NULL DEFAULT 'new',
         lost_reason TEXT,
+        customer_id INTEGER REFERENCES customers(id),
         converted_project_id INTEGER,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         created_by INTEGER REFERENCES users(id)
@@ -129,6 +144,7 @@ async function runStartupMigrations() {
         estimated_value INTEGER,
         stage_display TEXT NOT NULL DEFAULT 'new',
         stage_internal INTEGER NOT NULL DEFAULT 1,
+        customer_id INTEGER REFERENCES customers(id),
         from_lead_id INTEGER REFERENCES leads(id),
         assigned_to INTEGER REFERENCES users(id),
         delivery_deadline DATE,
@@ -139,6 +155,50 @@ async function runStartupMigrations() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         created_by INTEGER NOT NULL REFERENCES users(id)
       )
+    `);
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'customers_phone_unique'
+            AND conrelid = 'customers'::regclass
+        ) THEN
+          ALTER TABLE customers
+          ADD CONSTRAINT customers_phone_unique UNIQUE (phone);
+        END IF;
+      END
+      $$
+    `);
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'customers_status_check'
+            AND conrelid = 'customers'::regclass
+        ) THEN
+          ALTER TABLE customers
+          ADD CONSTRAINT customers_status_check
+          CHECK (status IN ('active', 'inactive', 'archived'));
+        END IF;
+      END
+      $$
+    `);
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'customers_phone_e164_check'
+            AND conrelid = 'customers'::regclass
+        ) THEN
+          ALTER TABLE customers
+          ADD CONSTRAINT customers_phone_e164_check
+          CHECK (phone ~ '^\\+[1-9][0-9]{7,14}$');
+        END IF;
+      END
+      $$
     `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS project_files (
@@ -338,6 +398,43 @@ async function runStartupMigrations() {
     // paid_amount already exists from v2.6.0 — guard with IF NOT EXISTS just in case
     await db.execute(sql`ALTER TABLE payment_milestones ADD COLUMN IF NOT EXISTS paid_amount INTEGER`);
     // status 'due' is a new valid value in v3.0 — no migration needed, existing 'pending' rows remain valid
+
+    // v4.1: customer entity foundation
+    await db.execute(sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS customer_id INTEGER`);
+    await db.execute(sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS customer_id INTEGER`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS customers_name_idx ON customers(name)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS leads_customer_id_idx ON leads(customer_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS projects_customer_id_idx ON projects(customer_id)`);
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'leads_customer_id_fkey'
+            AND conrelid = 'leads'::regclass
+        ) THEN
+          ALTER TABLE leads
+          ADD CONSTRAINT leads_customer_id_fkey
+          FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT;
+        END IF;
+      END
+      $$
+    `);
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'projects_customer_id_fkey'
+            AND conrelid = 'projects'::regclass
+        ) THEN
+          ALTER TABLE projects
+          ADD CONSTRAINT projects_customer_id_fkey
+          FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT;
+        END IF;
+      END
+      $$
+    `);
 
     // v3.2: Phase 4 — customer confirmation columns on project_phases
     await db.execute(sql`ALTER TABLE project_phases ADD COLUMN IF NOT EXISTS customer_confirmed BOOLEAN NOT NULL DEFAULT false`);
