@@ -490,6 +490,18 @@ async function runStartupMigrations() {
       $$
     `);
 
+    // v4.0.8: backfill customer_id on projects that were created before Stage 3
+    // set it, using the lead they were converted from. Idempotent — only touches
+    // rows where customer_id IS NULL and the lead has a known customer_id.
+    await db.execute(sql`
+      UPDATE projects p
+      SET customer_id = l.customer_id
+      FROM leads l
+      WHERE p.from_lead_id = l.id
+        AND p.customer_id IS NULL
+        AND l.customer_id IS NOT NULL
+    `);
+
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 
