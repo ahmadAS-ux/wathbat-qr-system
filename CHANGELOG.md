@@ -4,6 +4,25 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.2] - April 2026 - Stage 2: Customer API
+
+### Added
+
+- **Customer CRUD + search API** - added `GET /api/erp/customers`, `GET /api/erp/customers/search`, `GET /api/erp/customers/:id`, `POST /api/erp/customers`, and `PATCH /api/erp/customers/:id` for canonical customer records with E.164 phone normalization and duplicate-phone conflict handling.
+- **Customer dependency inspection** - added `GET /api/erp/customers/:id/dependencies` for Admin-only pre-delete inspection, returning linked lead/project counts plus lightweight row summaries for warning UX.
+
+### Fixed
+
+- **Confirmed customer delete flow** - added `DELETE /api/erp/customers/:id` Admin-only behavior that returns `409 has_dependencies` unless `?confirm=true`, then cascades linked leads/projects inside a transaction while preserving QR history by nulling `processed_docs.project_id`.
+
+### Stage 2 functional commits
+
+- `3fd5bb1` - `feat: add customer search and CRUD endpoints`
+- `0fa7594` - `feat: add customer dependency inspection endpoint`
+- `b199c6e` - `fix: add admin-only confirmed customer delete flow`
+
+---
+
 ## [4.0.1] - April 2026 - Stage 1: Customer Foundation
 
 ### Added
