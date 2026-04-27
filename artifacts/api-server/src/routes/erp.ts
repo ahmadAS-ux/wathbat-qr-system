@@ -614,22 +614,22 @@ router.patch("/erp/leads/:id/lose", requireRole("Admin", "FactoryManager", "Empl
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 
-async function generateAndSetProjectCode(newProjectId: number): Promise<string> {
-  return db.transaction(async (tx) => {
-    const year = new Date().getFullYear();
-    // Advisory lock serializes code generation per year across concurrent inserts.
-    // Lock is held until this transaction commits.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${year})`);
-    const result = await tx.execute(sql`
-      SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 9) AS INTEGER)), 0) + 1 AS next_n
-      FROM projects
-      WHERE code LIKE ${'WT-' + year + '-%'}
-    `);
-    const nextN = (result.rows[0] as any).next_n as number;
-    const code = `WT-${year}-${String(nextN).padStart(4, '0')}`;
-    await tx.execute(sql`UPDATE projects SET code = ${code} WHERE id = ${newProjectId}`);
-    return code;
-  });
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function generateAndSetProjectCode(newProjectId: number, tx: DbTx): Promise<string> {
+  const year = new Date().getFullYear();
+  // Advisory lock serializes code generation per year across concurrent inserts.
+  // Lock is held until the outer transaction commits.
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(${year})`);
+  const result = await tx.execute(sql`
+    SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 9) AS INTEGER)), 0) + 1 AS next_n
+    FROM projects
+    WHERE code LIKE ${'WT-' + year + '-%'}
+  `);
+  const nextN = (result.rows[0] as any).next_n as number;
+  const code = `WT-${year}-${String(nextN).padStart(4, '0')}`;
+  await tx.execute(sql`UPDATE projects SET code = ${code} WHERE id = ${newProjectId}`);
+  return code;
 }
 
 // GET /erp/projects — list (no SalesAgent, no Accountant)
@@ -695,43 +695,47 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
       }
     }
 
-    const [row] = await db.insert(projectsTable).values({
-      name, customerName,
-      phone: resolvedPhone,
-      location: resolvedLocation,
-      buildingType: resolvedBuildingType,
-      productInterest: resolvedProductInterest,
-      estimatedValue: resolvedEstimatedValue,
-      assignedTo: assignedTo ? Number(assignedTo) : sess.userId,
-      stageDisplay: "new",
-      stageInternal: 1,
-      fromLeadId: resolvedFromLeadId,
-      createdBy: sess.userId,
-    }).returning();
+    const { row, code } = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(projectsTable).values({
+        name, customerName,
+        phone: resolvedPhone,
+        location: resolvedLocation,
+        buildingType: resolvedBuildingType,
+        productInterest: resolvedProductInterest,
+        estimatedValue: resolvedEstimatedValue,
+        assignedTo: assignedTo ? Number(assignedTo) : sess.userId,
+        stageDisplay: "new",
+        stageInternal: 1,
+        fromLeadId: resolvedFromLeadId,
+        createdBy: sess.userId,
+      }).returning();
 
-    if (resolvedFromLeadId) {
-      await db.update(leadsTable)
-        .set({ status: "converted", convertedProjectId: row.id })
-        .where(and(eq(leadsTable.id, resolvedFromLeadId), inArray(leadsTable.status, ["new", "followup"])));
-    }
+      if (resolvedFromLeadId) {
+        await tx.update(leadsTable)
+          .set({ status: "converted", convertedProjectId: row.id })
+          .where(and(eq(leadsTable.id, resolvedFromLeadId), inArray(leadsTable.status, ["new", "followup"])));
+      }
 
-    // v3.0: create default Phase 1 for every new project
-    await db.insert(projectPhasesTable).values({
-      projectId: row.id,
-      phaseNumber: 1,
-      label: 'المرحلة 1 / Phase 1',
-      status: 'pending',
+      // v3.0: create default Phase 1 for every new project
+      await tx.insert(projectPhasesTable).values({
+        projectId: row.id,
+        phaseNumber: 1,
+        label: 'المرحلة 1 / Phase 1',
+        status: 'pending',
+      });
+
+      // v3.0: create default payment milestones
+      await tx.insert(paymentMilestonesTable).values([
+        { projectId: row.id, label: 'Deposit / دفعة مقدمة', percentage: 50, linkedEvent: 'deposit' },
+        { projectId: row.id, label: 'Before delivery / قبل التوصيل', percentage: 40, linkedEvent: 'delivery' },
+        { projectId: row.id, label: 'After sign-off / بعد التسليم', percentage: 10, linkedEvent: 'final' },
+      ]);
+
+      // Step 16: generate and persist project code (WT-YYYY-XXXX) — within same transaction, no orphan rows
+      const code = await generateAndSetProjectCode(row.id, tx);
+      return { row, code };
     });
 
-    // v3.0: create default payment milestones
-    await db.insert(paymentMilestonesTable).values([
-      { projectId: row.id, label: 'Deposit / دفعة مقدمة', percentage: 50, linkedEvent: 'deposit' },
-      { projectId: row.id, label: 'Before delivery / قبل التوصيل', percentage: 40, linkedEvent: 'delivery' },
-      { projectId: row.id, label: 'After sign-off / بعد التسليم', percentage: 10, linkedEvent: 'final' },
-    ]);
-
-    // Step 16: generate and persist project code (WT-YYYY-XXXX)
-    const code = await generateAndSetProjectCode(row.id);
     res.status(201).json({ ...row, code });
   } catch (err) {
     logger.error({ err }, "POST /erp/projects failed");
