@@ -4,6 +4,22 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.3] - April 2026 - Stage 3: Customer-Linked Leads and Projects
+
+### Changed
+
+- **Lead reads and writes now resolve through canonical customers** - `GET /api/erp/leads`, `GET /api/erp/leads/:id`, `GET /api/erp/leads/search`, `POST /api/erp/leads`, and `PATCH /api/erp/leads/:id` now join against `customers`, return canonical `customerName`/`phone`, accept optional `customerId`, and create or link customers transactionally while keeping the legacy lead text fields populated for compatibility.
+- **Project reads now source customer data from joins** - `GET /api/erp/projects`, `GET /api/erp/projects/:id`, `GET /api/erp/projects/:id/contract`, `GET /api/erp/phases/:id`, `/api/erp/files/detect-project`, `/api/erp/payments/all`, `/api/erp/activity-feed`, vendor purchase-order listing, and ERP global search now read customer identity through `customers` instead of trusting duplicated project text fields.
+- **Project creation and lead conversion now persist `customer_id`** - direct project creation, lead-to-project conversion, and file-driven project creation now resolve or create canonical customers inside transactions, store `projects.customer_id`, and keep existing response keys stable so the current frontend keeps working during the refactor rollout.
+
+### Stage 3 functional commits
+
+- `061ff02` - `refactor: resolve lead reads and writes through customers`
+- `40194ca` - `refactor: resolve project reads through customers joins`
+- `ef1dd5f` - `refactor: create leads and projects via customer transactions`
+
+---
+
 ## [4.0.2] - April 2026 - Stage 2: Customer API
 
 ### Added
