@@ -1080,29 +1080,65 @@ router.patch("/erp/leads/:id/logs/:logId", requireRole("Admin", "FactoryManager"
 router.post("/erp/leads/:id/convert", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const leadId = Number(req.params.id);
-    const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, leadId));
+    const [lead] = await db.select(leadSelectFields)
+      .from(leadsTable)
+      .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+      .where(eq(leadsTable.id, leadId));
     if (!lead) return notFound(res);
     if (lead.status === "converted") {
       res.status(400).json({ error: "Lead is already converted" });
       return;
     }
     const sess = session(req);
-    const [project] = await db.insert(projectsTable).values({
-      name: lead.customerName,
-      customerName: lead.customerName,
-      phone: lead.phone,
-      location: lead.location ?? null,
-      buildingType: lead.buildingType,
-      productInterest: lead.productInterest,
-      estimatedValue: lead.estimatedValue ?? null,
-      fromLeadId: leadId,
-      assignedTo: lead.assignedTo ?? sess.userId,
-      stageDisplay: "new",
-      stageInternal: 1,
-      createdBy: sess.userId,
-    }).returning();
-    await db.update(leadsTable).set({ status: "converted", convertedProjectId: project.id }).where(eq(leadsTable.id, leadId));
-    res.status(201).json({ projectId: project.id, project });
+    const createdProject = await db.transaction(async (tx) => {
+      const resolvedCustomer = await resolveCustomerLink(tx, {
+        createdBy: sess.userId,
+        customerId: lead.customerId ?? null,
+        customerName: lead.customerName,
+        phone: lead.phone ?? null,
+        seedLocation: lead.location ?? null,
+      });
+      if ("error" in resolvedCustomer) return resolvedCustomer;
+
+      const [project] = await tx.insert(projectsTable).values({
+        name: lead.customerName,
+        customerId: resolvedCustomer.customerId,
+        customerName: resolvedCustomer.customerName,
+        phone: resolvedCustomer.phone,
+        location: lead.location ?? null,
+        buildingType: lead.buildingType,
+        productInterest: lead.productInterest,
+        estimatedValue: lead.estimatedValue ?? null,
+        fromLeadId: leadId,
+        assignedTo: lead.assignedTo ?? sess.userId,
+        stageDisplay: "new",
+        stageInternal: 1,
+        createdBy: sess.userId,
+      }).returning();
+      await tx.update(leadsTable)
+        .set({ status: "converted", convertedProjectId: project.id })
+        .where(eq(leadsTable.id, leadId));
+      return project;
+    });
+
+    if ("error" in createdProject) {
+      if (createdProject.error === "customer_not_found") {
+        res.status(404).json({ error: "Customer not found" });
+        return;
+      }
+      if (createdProject.error === "phone_exists") {
+        res.status(409).json({ error: "phone_exists", existingCustomerId: createdProject.existingCustomerId });
+        return;
+      }
+      if (createdProject.error === "phone_invalid") {
+        res.status(400).json({ error: "phone must be a valid E.164 number" });
+        return;
+      }
+      res.status(400).json({ error: "customerName is required" });
+      return;
+    }
+
+    res.status(201).json({ projectId: createdProject.id, project: createdProject });
   } catch (err) {
     logger.error({ err }, "POST /erp/leads/:id/convert failed");
     res.status(500).json({ error: "Internal error" });
@@ -1259,8 +1295,13 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
   try {
     const { name, phone, location, buildingType, productInterest, estimatedValue, assignedTo, fromLeadId } = req.body;
     let { customerName } = req.body;
-    if (!name || !customerName) {
-      res.status(400).json({ error: "name and customerName are required" });
+    const customerId = req.body.customerId ? Number(req.body.customerId) : null;
+    if ((req.body.customerId !== undefined && req.body.customerId !== null && req.body.customerId !== "") && Number.isNaN(customerId)) {
+      res.status(400).json({ error: "customerId must be a valid number" });
+      return;
+    }
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
       return;
     }
     const sess = session(req);
@@ -1271,23 +1312,52 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
     let resolvedBuildingType: string | null = buildingType ?? null;
     let resolvedProductInterest: string | null = productInterest ?? null;
     let resolvedEstimatedValue: number | null = estimatedValue ? Number(estimatedValue) : null;
+    let leadCustomerId: number | null = null;
+    let leadCustomerName: string | null = null;
+    let leadPhone: string | null = null;
 
     if (resolvedFromLeadId) {
-      const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, resolvedFromLeadId));
-      if (lead) {
-        if (!customerName) customerName = lead.customerName;
-        if (!resolvedPhone) resolvedPhone = lead.phone;
-        if (!resolvedLocation) resolvedLocation = lead.location;
-        if (!resolvedBuildingType) resolvedBuildingType = lead.buildingType;
-        if (!resolvedProductInterest) resolvedProductInterest = lead.productInterest;
-        if (resolvedEstimatedValue === null) resolvedEstimatedValue = lead.estimatedValue;
+      const [lead] = await db.select(leadSelectFields)
+        .from(leadsTable)
+        .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+        .where(eq(leadsTable.id, resolvedFromLeadId));
+      if (!lead) {
+        res.status(404).json({ error: "Lead not found" });
+        return;
       }
+      leadCustomerId = lead.customerId ?? null;
+      leadCustomerName = lead.customerName;
+      leadPhone = lead.phone ?? null;
+      if (!customerName) customerName = lead.customerName;
+      if (!resolvedPhone) resolvedPhone = lead.phone ?? null;
+      if (!resolvedLocation) resolvedLocation = lead.location;
+      if (!resolvedBuildingType) resolvedBuildingType = lead.buildingType;
+      if (!resolvedProductInterest) resolvedProductInterest = lead.productInterest;
+      if (resolvedEstimatedValue === null) resolvedEstimatedValue = lead.estimatedValue;
     }
 
-    const { row, code } = await db.transaction(async (tx) => {
-      const [row] = await tx.insert(projectsTable).values({
-        name, customerName,
+    if (!customerId && !customerName) {
+      res.status(400).json({ error: "customerId or customerName is required" });
+      return;
+    }
+
+    const createdProject = await db.transaction(async (tx) => {
+      const resolvedCustomer = await resolveCustomerLink(tx, {
+        createdBy: sess.userId,
+        customerId: customerId ?? leadCustomerId,
+        customerName: customerName ?? leadCustomerName,
         phone: resolvedPhone,
+        seedLocation: resolvedLocation,
+        legacyCustomerName: leadCustomerName,
+        legacyPhone: leadPhone,
+      });
+      if ("error" in resolvedCustomer) return resolvedCustomer;
+
+      const [row] = await tx.insert(projectsTable).values({
+        name,
+        customerId: resolvedCustomer.customerId,
+        customerName: resolvedCustomer.customerName,
+        phone: resolvedCustomer.phone,
         location: resolvedLocation,
         buildingType: resolvedBuildingType,
         productInterest: resolvedProductInterest,
@@ -1325,7 +1395,24 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
       return { row, code };
     });
 
-    res.status(201).json({ ...row, code });
+    if ("error" in createdProject) {
+      if (createdProject.error === "customer_not_found") {
+        res.status(404).json({ error: "Customer not found" });
+        return;
+      }
+      if (createdProject.error === "phone_exists") {
+        res.status(409).json({ error: "phone_exists", existingCustomerId: createdProject.existingCustomerId });
+        return;
+      }
+      if (createdProject.error === "phone_invalid") {
+        res.status(400).json({ error: "phone must be a valid E.164 number" });
+        return;
+      }
+      res.status(400).json({ error: "customerName is required" });
+      return;
+    }
+
+    res.status(201).json({ ...createdProject.row, code: createdProject.code });
   } catch (err) {
     logger.error({ err }, "POST /erp/projects failed");
     res.status(500).json({ error: "Internal error" });
@@ -2296,17 +2383,23 @@ router.post(
       const {
         name,
         customerName,
+        customerId: rawCustomerId,
         phone,
         buildingType,
         productInterest,
         personInCharge,
       } = req.body;
+      const customerId = rawCustomerId ? Number(rawCustomerId) : null;
 
       if (!name || name.trim().length < 2) {
         res.status(400).json({ error: 'Project name is required (min 2 chars)' });
         return;
       }
-      if (!customerName || customerName.trim().length < 2) {
+      if ((rawCustomerId !== undefined && rawCustomerId !== null && rawCustomerId !== '') && Number.isNaN(customerId)) {
+        res.status(400).json({ error: 'customerId must be a valid number' });
+        return;
+      }
+      if (!customerId && (!customerName || customerName.trim().length < 2)) {
         res.status(400).json({ error: 'Customer name is required (min 2 chars)' });
         return;
       }
@@ -2318,31 +2411,55 @@ router.post(
         res.status(400).json({ error: 'Product interest is required' });
         return;
       }
-      if (phone && !/^05\d{8}$/.test(phone)) {
-        res.status(400).json({ error: 'Phone must be Saudi format: 05XXXXXXXX' });
+      const sess = session(req);
+      const createdProject = await db.transaction(async (tx) => {
+        const resolvedCustomer = await resolveCustomerLink(tx, {
+          createdBy: sess.userId,
+          customerId,
+          customerName: customerName?.trim() ?? null,
+          phone: phone ?? null,
+        });
+        if ("error" in resolvedCustomer) return resolvedCustomer;
+
+        const [newProject] = await tx
+          .insert(projectsTable)
+          .values({
+            name: name.trim(),
+            customerId: resolvedCustomer.customerId,
+            customerName: resolvedCustomer.customerName,
+            phone: resolvedCustomer.phone,
+            buildingType,
+            productInterest,
+            stageDisplay: 'new',
+            stageInternal: 2,
+            notes: personInCharge
+              ? `Auto-created from Orgadata file. Person in charge: ${personInCharge}`
+              : 'Auto-created from Orgadata file',
+            createdBy: sess.userId,
+          })
+          .returning();
+
+        return newProject;
+      });
+
+      if ("error" in createdProject) {
+        if (createdProject.error === "customer_not_found") {
+          res.status(404).json({ error: "Customer not found" });
+          return;
+        }
+        if (createdProject.error === "phone_exists") {
+          res.status(409).json({ error: "phone_exists", existingCustomerId: createdProject.existingCustomerId });
+          return;
+        }
+        if (createdProject.error === "phone_invalid") {
+          res.status(400).json({ error: "phone must be a valid E.164 number" });
+          return;
+        }
+        res.status(400).json({ error: "customerName is required" });
         return;
       }
 
-      const sess = session(req);
-
-      const [newProject] = await db
-        .insert(projectsTable)
-        .values({
-          name: name.trim(),
-          customerName: customerName.trim(),
-          phone: phone || null,
-          buildingType,
-          productInterest,
-          stageDisplay: 'new',
-          stageInternal: 2,
-          notes: personInCharge
-            ? `Auto-created from Orgadata file. Person in charge: ${personInCharge}`
-            : 'Auto-created from Orgadata file',
-          createdBy: sess.userId,
-        })
-        .returning();
-
-      res.status(201).json(newProject);
+      res.status(201).json(createdProject);
     } catch (err) {
       logger.error(err, 'create-project-from-file failed');
       res.status(500).json({ error: 'Internal server error' });
