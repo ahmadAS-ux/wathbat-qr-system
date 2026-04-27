@@ -13,6 +13,7 @@ import {
   canCreateProject,
   canViewPayments,
   canViewContract as checkCanViewContract,
+  canCreateMilestone as canCreateMilestoneHelper,
 } from '@/lib/permissions';
 
 interface ProjectFile {
@@ -965,9 +966,7 @@ export default function ErpProjectDetail() {
   const canDelete = canDeleteProject(user?.role);
   const canUpload = canCreateProject(user?.role);
   const canManagePayments = canViewPayments(user?.role);
-  // TODO Stage 2 (M5): canCreateMilestone is intentionally wrong here (Admin|FM|SalesAgent).
-  // Fix in Stage 2, Commit 1 — correct value is canCreateMilestone(user?.role) → Admin|Accountant.
-  const canCreateMilestone = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'SalesAgent';
+  const canCreateMilestone = canCreateMilestoneHelper(user?.role);
   const canViewContract = checkCanViewContract(user?.role);
 
   const loadProject = async () => {
