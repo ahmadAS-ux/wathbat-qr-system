@@ -85,6 +85,7 @@ interface DrawingMeta {
   orderIndex: number;
   positionCode: string | null;
   mimeType: string;
+  imageDataB64: string;
 }
 
 interface ContractData {
@@ -485,9 +486,8 @@ export default function ContractPage() {
               <div className="drawing-header">{headerLabel}</div>
               <figure className="drawing-figure">
                 <img
-                  src={`${API_BASE}/api/erp/drawings/${drawing.id}`}
+                  src={`data:${drawing.mimeType};base64,${drawing.imageDataB64}`}
                   alt={`Drawing ${drawing.orderIndex + 1}`}
-                  loading="lazy"
                 />
               </figure>
             </div>

@@ -1804,16 +1804,24 @@ router.get('/erp/projects/:id/contract', requireRole('Admin', 'FactoryManager', 
       createdAt: parsedSectionsTable.createdAt,
     }).from(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
 
-    let drawings: Array<{ id: number; orderIndex: number; positionCode: string | null; mimeType: string }> = [];
+    let drawings: Array<{ id: number; orderIndex: number; positionCode: string | null; mimeType: string; imageDataB64: string }> = [];
     if (section) {
-      drawings = await db.select({
+      const rawDrawings = await db.select({
         id: parsedSectionDrawingsTable.id,
         orderIndex: parsedSectionDrawingsTable.orderIndex,
         positionCode: parsedSectionDrawingsTable.positionCode,
         mimeType: parsedSectionDrawingsTable.mimeType,
+        imageData: parsedSectionDrawingsTable.imageData,
       }).from(parsedSectionDrawingsTable)
         .where(eq(parsedSectionDrawingsTable.parsedSectionId, section.id))
         .orderBy(asc(parsedSectionDrawingsTable.orderIndex));
+      drawings = rawDrawings.map(d => ({
+        id: d.id,
+        orderIndex: d.orderIndex,
+        positionCode: d.positionCode,
+        mimeType: d.mimeType,
+        imageDataB64: Buffer.from(d.imageData as unknown as Buffer).toString('base64'),
+      }));
     }
 
     const templateRows = await db.select().from(systemSettings)
