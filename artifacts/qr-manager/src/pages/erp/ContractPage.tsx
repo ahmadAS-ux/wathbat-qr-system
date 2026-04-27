@@ -481,7 +481,7 @@ export default function ContractPage() {
               : `${t('contract_drawing')} ${drawing.orderIndex + 1}`;
 
           return (
-            <div key={drawing.id} className="contract-page" dir="ltr">
+            <div key={drawing.id} className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
               <div className="drawing-header">{headerLabel}</div>
               <figure className="drawing-figure">
                 <img
@@ -495,7 +495,7 @@ export default function ContractPage() {
         })}
 
         {/* PAGE N+1: Terms + Signatures */}
-        <div className="contract-page">
+        <div className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
           {/* Terms Arabic */}
           {rendered?.termsAr && (
             <div style={{ marginBottom: '8mm' }} dir="rtl">
