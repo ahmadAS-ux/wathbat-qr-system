@@ -1164,6 +1164,12 @@ export default function ErpProjectDetail() {
         setGlassDetect({ orgadataName: conflict.orgadataName ?? '', orgadataPerson: null, pendingFile: file, nameMatches: false });
         return;
       }
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const message = errBody?.message || t('erp_upload_failed');
+        showToast(message, 'error');
+        return;
+      }
       const scrollY = window.scrollY;
       if (fileType === 'glass_order') {
         await loadQrOrders();

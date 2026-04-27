@@ -600,6 +600,10 @@ export const translations = {
     timeline_lifecycle_title: "Project Lifecycle — 15 Stages",
     loop_badge: "Iterative Loop",
     parallel_badge: "Parallel",
+    erp_upload_failed: "Upload failed",
+    erp_upload_no_positions: "File has no positions. Use a valid Orgadata file",
+    erp_upload_wrong_format: "Wrong file format. .docx required",
+    erp_upload_deprecated_type: "File type no longer supported",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1200,6 +1204,10 @@ export const translations = {
     timeline_lifecycle_title: "دورة حياة المشروع — 15 مرحلة",
     loop_badge: "حلقة تكرارية",
     parallel_badge: "متوازي",
+    erp_upload_failed: "فشل رفع الملف",
+    erp_upload_no_positions: "الملف لا يحتوي على مواضع. استخدم ملف Orgadata صحيح",
+    erp_upload_wrong_format: "تنسيق الملف غير صحيح. مطلوب ملف .docx",
+    erp_upload_deprecated_type: "نوع الملف لم يعد مدعوماً",
   }
 };
 
