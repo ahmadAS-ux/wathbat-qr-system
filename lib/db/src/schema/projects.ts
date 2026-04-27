@@ -1,6 +1,7 @@
 import { pgTable, serial, text, integer, timestamp, date } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { leadsTable } from "./leads";
+import { customersTable } from "./customers";
 
 export const projectsTable = pgTable("projects", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,7 @@ export const projectsTable = pgTable("projects", {
   estimatedValue: integer("estimated_value"),
   stageDisplay: text("stage_display").notNull().default("new"),
   stageInternal: integer("stage_internal").notNull().default(1),
+  customerId: integer("customer_id").references(() => customersTable.id),
   fromLeadId: integer("from_lead_id").references(() => leadsTable.id),
   assignedTo: integer("assigned_to").references(() => usersTable.id),
   deliveryDeadline: date("delivery_deadline"),

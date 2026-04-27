@@ -170,6 +170,30 @@ const leadSelectFields = {
   createdBy: leadsTable.createdBy,
 };
 
+const projectSelectFields = {
+  id: projectsTable.id,
+  name: projectsTable.name,
+  customerId: projectsTable.customerId,
+  customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
+  phone: sql<string | null>`COALESCE(${customersTable.phone}, ${projectsTable.phone})`,
+  location: projectsTable.location,
+  buildingType: projectsTable.buildingType,
+  productInterest: projectsTable.productInterest,
+  estimatedValue: projectsTable.estimatedValue,
+  stageDisplay: projectsTable.stageDisplay,
+  stageInternal: projectsTable.stageInternal,
+  fromLeadId: projectsTable.fromLeadId,
+  assignedTo: projectsTable.assignedTo,
+  deliveryDeadline: projectsTable.deliveryDeadline,
+  warrantyMonths: projectsTable.warrantyMonths,
+  warrantyStartDate: projectsTable.warrantyStartDate,
+  warrantyEndDate: projectsTable.warrantyEndDate,
+  notes: projectsTable.notes,
+  code: projectsTable.code,
+  createdAt: projectsTable.createdAt,
+  createdBy: projectsTable.createdBy,
+};
+
 async function getCustomerDependencySummary(customerId: number) {
   const leadResult = await db.execute(sql`
     SELECT id, status
@@ -838,9 +862,14 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
     // Search projects (not for SalesAgent or Accountant)
     if (sess.role !== "SalesAgent" && sess.role !== "Accountant") {
       const projRows = await db.execute(
-        sql`SELECT id, name, customer_name FROM projects
-            WHERE name ILIKE ${pattern} OR customer_name ILIKE ${pattern}
-            ORDER BY created_at DESC LIMIT 5`
+        sql`SELECT
+              p.id,
+              p.name,
+              COALESCE(c.name, p.customer_name) AS customer_name
+            FROM projects p
+            LEFT JOIN customers c ON c.id = p.customer_id
+            WHERE p.name ILIKE ${pattern} OR COALESCE(c.name, p.customer_name) ILIKE ${pattern}
+            ORDER BY p.created_at DESC LIMIT 5`
       );
       for (const r of projRows.rows as any[]) {
         results.push({ type: "project", id: r.id, name: r.name, subtitle: r.customer_name ?? "", url: `/erp/projects/${r.id}` });
@@ -1190,8 +1219,15 @@ router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reques
   try {
     const { stageDisplay } = req.query;
     const rows = stageDisplay
-      ? await db.select().from(projectsTable).where(eq(projectsTable.stageDisplay, stageDisplay as string)).orderBy(projectsTable.createdAt)
-      : await db.select().from(projectsTable).orderBy(projectsTable.createdAt);
+      ? await db.select(projectSelectFields)
+        .from(projectsTable)
+        .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+        .where(eq(projectsTable.stageDisplay, stageDisplay as string))
+        .orderBy(projectsTable.createdAt)
+      : await db.select(projectSelectFields)
+        .from(projectsTable)
+        .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+        .orderBy(projectsTable.createdAt);
     res.json(rows);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects failed");
@@ -1300,7 +1336,10 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
 router.get("/erp/projects/:id", requireRole("Admin", "FactoryManager", "Employee", "Accountant"), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    const [project] = await db.select(projectSelectFields)
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(eq(projectsTable.id, id));
     if (!project) return notFound(res);
     const files = await db.select({
       id: projectFilesTable.id,
@@ -1328,18 +1367,95 @@ router.get("/erp/projects/:id", requireRole("Admin", "FactoryManager", "Employee
 router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const allowed = ["name", "customerName", "phone", "location", "buildingType", "productInterest", "estimatedValue", "stageDisplay", "stageInternal", "assignedTo", "deliveryDeadline", "warrantyMonths", "warrantyStartDate", "warrantyEndDate", "notes"];
-    const updates: Record<string, unknown> = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    const sess = session(req);
+    const [existingProject] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    if (!existingProject) return notFound(res);
+
+    const projectUpdates: Record<string, unknown> = {};
+    const projectFieldMap: Record<string, string> = {
+      name: "name",
+      location: "location",
+      buildingType: "buildingType",
+      productInterest: "productInterest",
+      estimatedValue: "estimatedValue",
+      stageDisplay: "stageDisplay",
+      stageInternal: "stageInternal",
+      assignedTo: "assignedTo",
+      deliveryDeadline: "deliveryDeadline",
+      warrantyMonths: "warrantyMonths",
+      warrantyStartDate: "warrantyStartDate",
+      warrantyEndDate: "warrantyEndDate",
+      notes: "notes",
+    };
+    for (const [requestKey, columnKey] of Object.entries(projectFieldMap)) {
+      if (req.body[requestKey] !== undefined) projectUpdates[columnKey] = req.body[requestKey];
     }
-    if (Object.keys(updates).length === 0) {
+    if (projectUpdates.assignedTo !== undefined) projectUpdates.assignedTo = projectUpdates.assignedTo ? Number(projectUpdates.assignedTo) : null;
+    if (projectUpdates.estimatedValue !== undefined) projectUpdates.estimatedValue = projectUpdates.estimatedValue ? Number(projectUpdates.estimatedValue) : null;
+    if (projectUpdates.stageInternal !== undefined) projectUpdates.stageInternal = Number(projectUpdates.stageInternal);
+    if (projectUpdates.warrantyMonths !== undefined) projectUpdates.warrantyMonths = projectUpdates.warrantyMonths ? Number(projectUpdates.warrantyMonths) : null;
+
+    const requestedCustomerId = req.body.customerId ? Number(req.body.customerId) : null;
+    if ((req.body.customerId !== undefined && req.body.customerId !== null && req.body.customerId !== "") && Number.isNaN(requestedCustomerId)) {
+      res.status(400).json({ error: "customerId must be a valid number" });
+      return;
+    }
+
+    const hasCustomerUpdate =
+      req.body.customerId !== undefined ||
+      req.body.customerName !== undefined ||
+      req.body.phone !== undefined;
+
+    if (Object.keys(projectUpdates).length === 0 && !hasCustomerUpdate) {
       res.status(400).json({ error: "No valid fields to update" });
       return;
     }
-    const [row] = await db.update(projectsTable).set(updates).where(eq(projectsTable.id, id)).returning();
-    if (!row) return notFound(res);
-    res.json(row);
+
+    const updatedProject = await db.transaction(async (tx) => {
+      const finalProjectUpdates = { ...projectUpdates };
+      if (hasCustomerUpdate) {
+        const resolvedCustomer = await resolveCustomerLink(tx, {
+          createdBy: sess.userId,
+          customerId: requestedCustomerId,
+          customerName: req.body.customerName ?? null,
+          phone: req.body.phone ?? null,
+          fallbackCustomerId: existingProject.customerId ?? null,
+          legacyCustomerName: existingProject.customerName,
+          legacyPhone: existingProject.phone,
+        });
+        if ("error" in resolvedCustomer) return resolvedCustomer;
+
+        finalProjectUpdates.customerId = resolvedCustomer.customerId;
+        finalProjectUpdates.customerName = resolvedCustomer.customerName;
+        finalProjectUpdates.phone = resolvedCustomer.phone;
+      }
+
+      const [row] = await tx.update(projectsTable).set(finalProjectUpdates).where(eq(projectsTable.id, id)).returning();
+      return row;
+    });
+
+    if ("error" in updatedProject) {
+      if (updatedProject.error === "customer_not_found") {
+        res.status(404).json({ error: "Customer not found" });
+        return;
+      }
+      if (updatedProject.error === "phone_exists") {
+        res.status(409).json({ error: "phone_exists", existingCustomerId: updatedProject.existingCustomerId });
+        return;
+      }
+      if (updatedProject.error === "phone_invalid") {
+        res.status(400).json({ error: "phone must be a valid E.164 number" });
+        return;
+      }
+      res.status(400).json({ error: "customerName is required" });
+      return;
+    }
+
+    const [row] = await db.select(projectSelectFields)
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(eq(projectsTable.id, id));
+    res.json(row ?? updatedProject);
   } catch (err) {
     logger.error({ err }, "PATCH /erp/projects/:id failed");
     res.status(500).json({ error: "Internal error" });
@@ -2066,8 +2182,14 @@ router.get("/erp/phases/:id", async (req: Request, res: Response) => {
     if (Number.isNaN(id)) return notFound(res);
     const [phase] = await db.select().from(projectPhasesTable).where(eq(projectPhasesTable.id, id));
     if (!phase) return notFound(res);
-    const [proj] = await db.select({ id: projectsTable.id, name: projectsTable.name, customerName: projectsTable.customerName })
-      .from(projectsTable).where(eq(projectsTable.id, phase.projectId));
+    const [proj] = await db.select({
+      id: projectsTable.id,
+      name: projectsTable.name,
+      customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
+    })
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(eq(projectsTable.id, phase.projectId));
     res.json({ ...phase, projectName: proj?.name ?? '', customerName: proj?.customerName ?? '' });
   } catch (err) {
     logger.error({ err }, "GET /erp/phases/:id failed");
@@ -2146,9 +2268,10 @@ router.post(
         .select({
           id: projectsTable.id,
           name: projectsTable.name,
-          customerName: projectsTable.customerName,
+          customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
         })
-        .from(projectsTable);
+        .from(projectsTable)
+        .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id));
 
       const matches = findFuzzyMatches(metadata.projectName, allProjects);
 
@@ -2332,7 +2455,11 @@ router.get('/erp/projects/:id/contract', requireRole('Admin', 'FactoryManager', 
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
 
-    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+    const [project] = await db
+      .select(projectSelectFields)
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(eq(projectsTable.id, projectId));
     if (!project) return notFound(res);
 
     const [quotation] = await db.select().from(parsedQuotationsTable)
@@ -2637,9 +2764,10 @@ router.get("/erp/vendors/:id/purchase-orders", requireRole(...NO_SALES_NO_ACCT),
     const id = Number(req.params.id);
     if (Number.isNaN(id)) return notFound(res);
     const rows = await db.execute(sql`
-      SELECT po.*, p.name AS project_name, p.customer_name
+      SELECT po.*, p.name AS project_name, COALESCE(c.name, p.customer_name) AS customer_name
       FROM purchase_orders po
       JOIN projects p ON p.id = po.project_id
+      LEFT JOIN customers c ON c.id = p.customer_id
       WHERE po.vendor_id = ${id}
       ORDER BY po.created_at DESC
     `);
@@ -2926,9 +3054,10 @@ router.get("/erp/payments/all", requireRole("Admin", "Accountant"), async (req: 
       SELECT
         pm.*,
         p.name AS project_name,
-        p.customer_name
+        COALESCE(c.name, p.customer_name) AS customer_name
       FROM payment_milestones pm
       JOIN projects p ON p.id = pm.project_id
+      LEFT JOIN customers c ON c.id = p.customer_id
       ORDER BY
         CASE WHEN pm.status = 'overdue' THEN 0 ELSE 1 END,
         pm.due_date ASC NULLS LAST,
@@ -3091,8 +3220,10 @@ router.get("/erp/activity-feed", requireRole(...NO_SALES_NO_ACCT), async (req: R
   try {
     const result = await db.execute(sql`
       SELECT type, name, detail, time FROM (
-        SELECT 'project' AS type, name, customer_name AS detail, created_at AS time
-        FROM projects ORDER BY created_at DESC LIMIT 4
+        SELECT 'project' AS type, p.name, COALESCE(c.name, p.customer_name) AS detail, p.created_at AS time
+        FROM projects p
+        LEFT JOIN customers c ON c.id = p.customer_id
+        ORDER BY p.created_at DESC LIMIT 4
       ) proj
       UNION ALL
       SELECT type, name, detail, time FROM (
