@@ -4,6 +4,19 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.4] - April 2026 - Upload Error Visibility Hotfix
+
+### Fixed
+
+- **Upload 400 errors now show a toast to the user** - `uploadFile()` in `ProjectDetail.tsx` previously had no `!res.ok` guard, so any 400 or 500 response from the upload endpoint fell silently through to the success path. A guard is now in place: non-2xx responses display the server's `message` field (or a generic Arabic/English fallback) as an error toast.
+- **Structured server-side logging for all upload rejections** - `POST /api/erp/projects/:id/files` now emits a `logger.warn` with structured fields (`projectId`, `fileType`, `filename`, `reason`) before every `400` response, covering: `missing_file`, `deprecated_type`, `invalid_type`, `wrong_extension`, `no_positions`, `invalid_filetypes_json`, `filetypes_count_mismatch`.
+
+### Added
+
+- 4 new i18n keys (`erp_upload_failed`, `erp_upload_no_positions`, `erp_upload_wrong_format`, `erp_upload_deprecated_type`) in Arabic and English.
+
+---
+
 ## [4.0.3] - April 2026 - Stage 3: Customer-Linked Leads and Projects
 
 ### Changed
