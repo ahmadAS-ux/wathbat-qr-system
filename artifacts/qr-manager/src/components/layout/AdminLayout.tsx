@@ -47,7 +47,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           setSearchResults(data);
           setSearchOpen(true);
         }
-      } catch { /* ignore */ }
+      } catch (err) { console.error('sidebar search failed', err); }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQ, canSearch]);

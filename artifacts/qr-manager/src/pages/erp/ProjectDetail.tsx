@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
+import { useSimpleToast } from '@/components/Toast';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import {
   canDeleteProject,
@@ -912,6 +913,7 @@ function ManufacturingSection({ projectId, isRtl, t, user }: { projectId: number
 export default function ErpProjectDetail() {
   const { t, isRtl } = useLanguage();
   const { user } = useAuth();
+  const { showToast } = useSimpleToast();
   const [, navigate] = useLocation();
   const params = useParams() as { id: string };
   const id = Number(params.id);
@@ -1016,7 +1018,10 @@ export default function ErpProjectDetail() {
     try {
       const res = await fetch(`${API_BASE}/api/erp/projects/${id}/payments`);
       if (res.ok) setMilestones(await res.json());
-    } catch {}
+    } catch (err) {
+      console.error('loadMilestones failed', err);
+      showToast(t('erp_options_load_error'), 'error');
+    }
   };
 
   useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadAllFiles(); }, [id]);
@@ -1243,7 +1248,10 @@ export default function ErpProjectDetail() {
     try {
       const res = await fetch(`${API_BASE}/api/erp/projects/${id}/files?includeInactive=true`);
       if (res.ok) setAllFiles(await res.json());
-    } catch {}
+    } catch (err) {
+      console.error('loadAllFiles failed', err);
+      showToast(t('erp_options_load_error'), 'error');
+    }
   };
 
   const handleBatchSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
