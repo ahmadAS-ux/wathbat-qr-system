@@ -4,6 +4,18 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [3.5.2] - April 2026 — Stage 3: Backend Robustness
+
+### Fixed
+
+- **`erp.ts` — C2: Atomic project create**: project insert, lead status update, default phase/milestone inserts, and code generation now run inside a single `db.transaction()`. `generateAndSetProjectCode` refactored to accept a `tx` parameter; advisory lock is held for the full transaction lifetime. No orphan `code=NULL` project rows possible on failure.
+- **`app.ts` — M1: CORS scoped**: `cors()` replaced with `cors({ origin: process.env.FRONTEND_ORIGIN || true })`. `FRONTEND_ORIGIN` added to `.env.example` with production instructions.
+- **`ProjectDetail.tsx` — M2: Silent catches surfaced**: `loadMilestones` and `loadAllFiles` now call `console.error` + `showToast(t('erp_options_load_error'), 'error')` on network failure instead of swallowing the error silently.
+- **`AdminLayout.tsx` — M2: Silent catch surfaced**: sidebar search debounce catch now logs `console.error` instead of `/* ignore */`.
+- **`index.ts` — M6: Idempotent seed**: added `UNIQUE (category, value)` constraint on `dropdown_options` (idempotent `DO $$` guard). Dropdown seed replaced from `if (count === 0)` block to always-run `INSERT ... ON CONFLICT DO NOTHING` — partial seed states now recover on restart.
+
+---
+
 ## [3.5.1] - April 2026 — Stage 2: Permission Bug Fixes
 
 ### Fixed — Role enforcement correctness
