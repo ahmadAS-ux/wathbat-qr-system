@@ -4,6 +4,18 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.5] - April 2026 - Stage 4: Customer UI Foundation
+
+### Added
+
+- **Customer Records page** (`/erp/customers`) — read-only master-data page listing all canonical customer records with name, phone, email, location, status, and creation date. Supports live search (debounced by name or phone) and Active/All status tabs. Visible to Admin, FactoryManager, Employee, and SalesAgent.
+- **Customers sidebar entry** — "سجل العملاء / Customer Records" added to the Manufacturing System section of the sidebar, positioned above Leads. Uses `UserCheck` icon. Gated by `canViewLeads()` (same 4-role group as `CUSTOMER_ROLES`).
+- **`CustomerPicker` component** (`src/components/erp/CustomerPicker.tsx`) — reusable typeahead component for selecting a canonical customer by name or phone. Shows selected customer with clear button. Full Arabic/English + RTL support.
+- **`PhoneInput` component** (`src/components/erp/PhoneInput.tsx`) — reusable phone input with Saudi Arabia (+966) country picker as default. Paste normalization: accepts `05XXXXXXXX` or `5XXXXXXXX` input and outputs E.164 (`+966XXXXXXXXX`). Supports "Other" country fallback.
+- 25 new i18n keys covering all new UI strings in Arabic and English.
+
+---
+
 ## [4.0.4] - April 2026 - Upload Error Visibility Hotfix
 
 ### Fixed
