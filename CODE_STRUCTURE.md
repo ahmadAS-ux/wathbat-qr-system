@@ -108,7 +108,7 @@ lib/db/src/schema/
 ├── processed_docs.ts     # processed_docs table (QR reports)
 ├── leads.ts              # leads table (Phase 1)
 ├── lead_logs.ts          # lead_logs table (Phase 1)
-├── projects.ts           # projects table (Phase 1) — includes code TEXT (WT-YYYY-XXXX, Step 16)
+├── projects.ts           # projects table (Phase 1) — includes code TEXT (WT-TYPE-RANDOM5, Step 16)
 ├── project_files.ts      # project_files table (Phase 1)
 ├── dropdown_options.ts       # dropdown_options table (Phase 1) — has active, sort_order
 ├── system_settings.ts        # system_settings table (Phase 2) — key-value for contract template

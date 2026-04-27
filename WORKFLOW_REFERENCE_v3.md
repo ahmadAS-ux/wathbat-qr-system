@@ -163,7 +163,7 @@ export const projects = pgTable('projects', {
   warrantyStartDate: date('warranty_start_date'),
   warrantyEndDate: date('warranty_end_date'),   // auto-calculated from start + months
   notes: text('notes'),
-  code: text('code'),                              // WT-YYYY-XXXX, nullable, auto-generated on creation, unique
+  code: text('code'),                              // WT-TYPE-RANDOM5, nullable, auto-generated on creation, unique (TYPE=first 2 chars of buildingType uppercased, RANDOM5=5 random uppercase alphanumeric)
   createdAt: timestamp('created_at').notNull().defaultNow(),
   createdBy: integer('created_by').notNull().references(() => users.id),
 });
