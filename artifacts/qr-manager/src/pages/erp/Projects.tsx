@@ -106,7 +106,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_project_customer')} *</label>
-            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} />
+            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} onSearchChange={q => { if (!selectedCustomer) setNewName(q); }} />
           </div>
 
           {!selectedCustomer && (

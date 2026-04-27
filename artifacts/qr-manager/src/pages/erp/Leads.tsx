@@ -123,7 +123,7 @@ function CreateLeadModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('erp_lead_customer')} *</label>
-            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} />
+            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} onSearchChange={q => { if (!selectedCustomer) setNewName(q); }} />
           </div>
 
           {!selectedCustomer && (

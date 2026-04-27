@@ -15,6 +15,7 @@ interface CustomerPickerProps {
   value: CustomerOption | null;
   onChange: (customer: CustomerOption | null) => void;
   disabled?: boolean;
+  onSearchChange?: (query: string) => void;
 }
 
 function formatPhone(e164: string): string {
@@ -28,7 +29,7 @@ function formatPhone(e164: string): string {
   return e164;
 }
 
-export function CustomerPicker({ value, onChange, disabled = false }: CustomerPickerProps) {
+export function CustomerPicker({ value, onChange, disabled = false, onSearchChange }: CustomerPickerProps) {
   const { t, isRtl } = useLanguage();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CustomerOption[]>([]);
@@ -75,6 +76,7 @@ export function CustomerPicker({ value, onChange, disabled = false }: CustomerPi
     const val = e.target.value;
     setQuery(val);
     search(val);
+    onSearchChange?.(val);
   };
 
   const handleSelect = (c: CustomerOption) => {
