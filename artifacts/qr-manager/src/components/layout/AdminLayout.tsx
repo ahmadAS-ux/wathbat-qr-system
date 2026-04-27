@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
-import { canManageUsers, canViewVendors, canViewPayments, canViewLeads, canCreateProject } from '@/lib/permissions';
+import { canManageUsers, canViewVendors, canViewPayments, canViewLeads, canCreateProject, canViewQRSystem } from '@/lib/permissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@assets/image_1774733777220.png';
 
@@ -324,7 +324,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </button>
             {!qrCollapsed && (
               <div className="space-y-0.5">
-                {isAdmin && (
+                {canViewQRSystem(user?.role) && (
                   <Link href="/qr/upload">
                     <div onClick={() => handleNavClick('/qr/upload', true)} className={navItem(isActive('/qr/upload', true))} style={navItemStyle(isActive('/qr/upload', true))}>
                       <Upload className={navIcon(isActive('/qr/upload', true))} />
@@ -338,7 +338,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <span className="flex-1">{t('archive_title')}</span>
                   </div>
                 </Link>
-                {isAdmin && (
+                {canViewQRSystem(user?.role) && (
                   <Link href="/admin/users">
                     <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))} style={navItemStyle(isActive('/admin/users', false))}>
                       <Users className={navIcon(isActive('/admin/users', false))} />
@@ -346,7 +346,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     </div>
                   </Link>
                 )}
-                {isAdmin && (
+                {canViewQRSystem(user?.role) && (
                   <Link href="/admin/dropdowns">
                     <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))} style={navItemStyle(isActive('/admin/dropdowns', false))}>
                       <List className={navIcon(isActive('/admin/dropdowns', false))} />
