@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import AdmZip from "adm-zip";
-import { eq, and, lt, sql, ne, isNull, or, desc, inArray } from "drizzle-orm";
+import { eq, and, lt, sql, ne, isNull, or, desc, inArray, ilike } from "drizzle-orm";
 import {
   db,
+  customersTable,
   leadsTable,
   leadLogsTable,
   projectsTable,
@@ -45,6 +46,7 @@ import { logger } from "../lib/logger.js";
 import { parseAndInjectQR } from "./qr.js";
 import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
+import { normalizePhoneToE164 } from "../lib/phone.js";
 
 const router: IRouter = Router();
 
@@ -80,6 +82,7 @@ const uploadAny = multer({
 const NO_SALES_NO_ACCT = ["Admin", "FactoryManager", "Employee"];
 const ADMIN_FM = ["Admin", "FactoryManager"];
 const ADMIN_ONLY = ["Admin"];
+const CUSTOMER_ROLES = ["Admin", "FactoryManager", "Employee", "SalesAgent"];
 
 // File types that must be .docx (Orgadata outputs) — any other extension is rejected
 const ORGADATA_FILE_TYPES = new Set([
@@ -124,6 +127,27 @@ function session(req: Request) {
 
 function notFound(res: Response): void {
   res.status(404).json({ error: "Not found" });
+}
+
+function isCustomerStatus(value: string): boolean {
+  return ["active", "inactive", "archived"].includes(value);
+}
+
+function isUniqueConstraintError(err: unknown, constraintName: string): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: string }).code;
+  const constraint = (err as { constraint?: string }).constraint;
+  return code === "23505" && constraint === constraintName;
+}
+
+async function findCustomerByPhone(phone: string, excludeId?: number) {
+  const conditions = [eq(customersTable.phone, phone)];
+  if (excludeId !== undefined) conditions.push(ne(customersTable.id, excludeId));
+  const [row] = await db
+    .select({ id: customersTable.id, name: customersTable.name, phone: customersTable.phone })
+    .from(customersTable)
+    .where(and(...conditions));
+  return row;
 }
 
 // v3.0: 15-stage display mapping (SYSTEM_DESIGN_v3.md Section 1)
@@ -297,6 +321,195 @@ router.delete("/erp/options/:id", requireRole(...ADMIN_ONLY), async (req: Reques
 // ─── LEADS ────────────────────────────────────────────────────────────────────
 
 // GET /erp/leads — all roles except Accountant
+router.get("/erp/customers", requireRole(...CUSTOMER_ROLES), async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    const status = req.query.status ? String(req.query.status).trim() : "";
+    if (status && !isCustomerStatus(status)) {
+      res.status(400).json({ error: "status must be active, inactive, or archived" });
+      return;
+    }
+
+    const conditions = [];
+    if (status) conditions.push(eq(customersTable.status, status));
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(or(ilike(customersTable.name, pattern), ilike(customersTable.phone, pattern)));
+    }
+
+    const rows = conditions.length > 0
+      ? await db.select().from(customersTable).where(and(...conditions)).orderBy(asc(customersTable.name))
+      : await db.select().from(customersTable).orderBy(asc(customersTable.name));
+
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/customers failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.get("/erp/customers/search", requireRole(...CUSTOMER_ROLES), async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    if (!q || q.length < 2) {
+      res.json([]);
+      return;
+    }
+
+    const normalizedPhone = normalizePhoneToE164(q);
+    const pattern = `%${q}%`;
+    const rows = normalizedPhone
+      ? await db
+        .select({
+          id: customersTable.id,
+          name: customersTable.name,
+          phone: customersTable.phone,
+          status: customersTable.status,
+          email: customersTable.email,
+          location: customersTable.location,
+        })
+        .from(customersTable)
+        .where(or(eq(customersTable.phone, normalizedPhone), ilike(customersTable.name, pattern), ilike(customersTable.phone, pattern)))
+        .orderBy(desc(customersTable.updatedAt))
+        .limit(10)
+      : await db
+        .select({
+          id: customersTable.id,
+          name: customersTable.name,
+          phone: customersTable.phone,
+          status: customersTable.status,
+          email: customersTable.email,
+          location: customersTable.location,
+        })
+        .from(customersTable)
+        .where(or(ilike(customersTable.name, pattern), ilike(customersTable.phone, pattern)))
+        .orderBy(desc(customersTable.updatedAt))
+        .limit(10);
+
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/customers/search failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.get("/erp/customers/:id", requireRole(...CUSTOMER_ROLES), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+    const [row] = await db.select().from(customersTable).where(eq(customersTable.id, id));
+    if (!row) return notFound(res);
+    res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/customers/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/erp/customers", requireRole(...CUSTOMER_ROLES), async (req: Request, res: Response) => {
+  try {
+    const name = String(req.body.name ?? "").trim();
+    const status = req.body.status === undefined ? "active" : String(req.body.status).trim();
+    const normalizedPhone = normalizePhoneToE164(String(req.body.phone ?? ""));
+
+    if (name.length < 2) {
+      res.status(400).json({ error: "name is required (min 2 chars)" });
+      return;
+    }
+    if (!normalizedPhone) {
+      res.status(400).json({ error: "phone must be a valid E.164 number" });
+      return;
+    }
+    if (!isCustomerStatus(status)) {
+      res.status(400).json({ error: "status must be active, inactive, or archived" });
+      return;
+    }
+
+    const existing = await findCustomerByPhone(normalizedPhone);
+    if (existing) {
+      res.status(409).json({ error: "phone_exists", existingCustomerId: existing.id });
+      return;
+    }
+
+    const sess = session(req);
+    const [row] = await db.insert(customersTable).values({
+      name,
+      phone: normalizedPhone,
+      email: req.body.email ? String(req.body.email).trim() : null,
+      location: req.body.location ? String(req.body.location).trim() : null,
+      notes: req.body.notes ? String(req.body.notes).trim() : null,
+      status,
+      createdBy: sess.userId,
+    }).returning();
+
+    res.status(201).json(row);
+  } catch (err) {
+    if (isUniqueConstraintError(err, "customers_phone_unique")) {
+      res.status(409).json({ error: "phone_exists" });
+      return;
+    }
+    logger.error({ err }, "POST /erp/customers failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.patch("/erp/customers/:id", requireRole(...CUSTOMER_ROLES), async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return notFound(res);
+
+    const updates: Record<string, unknown> = {};
+    if (req.body.name !== undefined) {
+      const name = String(req.body.name).trim();
+      if (name.length < 2) {
+        res.status(400).json({ error: "name is required (min 2 chars)" });
+        return;
+      }
+      updates.name = name;
+    }
+    if (req.body.phone !== undefined) {
+      const normalizedPhone = normalizePhoneToE164(String(req.body.phone));
+      if (!normalizedPhone) {
+        res.status(400).json({ error: "phone must be a valid E.164 number" });
+        return;
+      }
+      const existing = await findCustomerByPhone(normalizedPhone, id);
+      if (existing) {
+        res.status(409).json({ error: "phone_exists", existingCustomerId: existing.id });
+        return;
+      }
+      updates.phone = normalizedPhone;
+    }
+    if (req.body.email !== undefined) updates.email = req.body.email ? String(req.body.email).trim() : null;
+    if (req.body.location !== undefined) updates.location = req.body.location ? String(req.body.location).trim() : null;
+    if (req.body.notes !== undefined) updates.notes = req.body.notes ? String(req.body.notes).trim() : null;
+    if (req.body.status !== undefined) {
+      const status = String(req.body.status).trim();
+      if (!isCustomerStatus(status)) {
+        res.status(400).json({ error: "status must be active, inactive, or archived" });
+        return;
+      }
+      updates.status = status;
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
+
+    updates.updatedAt = new Date();
+    const [row] = await db.update(customersTable).set(updates).where(eq(customersTable.id, id)).returning();
+    if (!row) return notFound(res);
+    res.json(row);
+  } catch (err) {
+    if (isUniqueConstraintError(err, "customers_phone_unique")) {
+      res.status(409).json({ error: "phone_exists" });
+      return;
+    }
+    logger.error({ err }, "PATCH /erp/customers/:id failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
     const { status, assignedTo, overdue } = req.query;
