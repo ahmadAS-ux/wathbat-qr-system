@@ -625,6 +625,7 @@ export const translations = {
     phone_other_label: "Other",
     phone_placeholder_sa: "05X XXXX XXXX",
     phone_placeholder_other: "+XX XXX...",
+    erp_new_customer_hint: "No match? Enter new customer details below",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1250,6 +1251,7 @@ export const translations = {
     phone_other_label: "أخرى",
     phone_placeholder_sa: "05X XXXX XXXX",
     phone_placeholder_other: "+XX XXX...",
+    erp_new_customer_hint: "لم تجد العميل؟ أدخل بيانات جديدة أدناه",
   }
 };
 
