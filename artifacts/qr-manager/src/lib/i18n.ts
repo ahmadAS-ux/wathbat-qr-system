@@ -626,6 +626,15 @@ export const translations = {
     phone_placeholder_sa: "05X XXXX XXXX",
     phone_placeholder_other: "+XX XXX...",
     erp_new_customer_hint: "No match? Enter new customer details below",
+    erp_customer_delete_btn: "Delete",
+    erp_customer_delete_title: "Delete Customer",
+    erp_customer_delete_nodeps_msg: "This action is permanent and cannot be undone.",
+    erp_customer_delete_deps_msg: "Deleting this customer will permanently remove all linked records.",
+    erp_customer_delete_leads_label: "Linked leads",
+    erp_customer_delete_projects_label: "Linked projects",
+    erp_customer_delete_qr_note: "QR order history will be preserved.",
+    erp_customer_delete_confirm_btn: "Delete Everything",
+    erp_customer_deleted: "Customer deleted",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1252,6 +1261,15 @@ export const translations = {
     phone_placeholder_sa: "05X XXXX XXXX",
     phone_placeholder_other: "+XX XXX...",
     erp_new_customer_hint: "لم تجد العميل؟ أدخل بيانات جديدة أدناه",
+    erp_customer_delete_btn: "حذف",
+    erp_customer_delete_title: "حذف العميل",
+    erp_customer_delete_nodeps_msg: "هذا الإجراء نهائي ولا يمكن التراجع عنه.",
+    erp_customer_delete_deps_msg: "حذف هذا العميل سيؤدي إلى حذف جميع السجلات المرتبطة نهائياً.",
+    erp_customer_delete_leads_label: "الفرص المرتبطة",
+    erp_customer_delete_projects_label: "المشاريع المرتبطة",
+    erp_customer_delete_qr_note: "سيتم الاحتفاظ بسجل طلبات QR.",
+    erp_customer_delete_confirm_btn: "حذف الكل",
+    erp_customer_deleted: "تم حذف العميل",
   }
 };
 

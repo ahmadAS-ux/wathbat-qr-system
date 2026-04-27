@@ -4,6 +4,15 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.9] - April 2026 - Stage 6: Customer Delete Warning UX
+
+### Added
+
+- **Customer delete with dependency warning** — Admin users now see a trash icon on each row of the Customer Records page. Clicking it immediately calls `DELETE /api/erp/customers/:id`. If the customer has no linked records, deletion is instant and the row is removed. If the customer has linked leads or projects (409 response), a modal opens showing: the list of linked projects (name + code), the count of linked leads, and a note that QR order history is preserved. The "Delete Everything" confirm button then calls `DELETE /api/erp/customers/:id?confirm=true` which runs the full cascading transaction. Non-admin users see no delete controls.
+- 9 new i18n keys (`erp_customer_delete_btn`, `erp_customer_delete_title`, `erp_customer_delete_nodeps_msg`, `erp_customer_delete_deps_msg`, `erp_customer_delete_leads_label`, `erp_customer_delete_projects_label`, `erp_customer_delete_qr_note`, `erp_customer_delete_confirm_btn`, `erp_customer_deleted`) in Arabic and English.
+
+---
+
 ## [4.0.8] - April 2026 - Stabilization: Cascade Delete and UX Fixes
 
 ### Fixed
