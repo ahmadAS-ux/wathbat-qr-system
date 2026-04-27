@@ -28,6 +28,7 @@ import ErpContractPage from "@/pages/erp/ContractPage";
 import ErpPayments from "@/pages/erp/Payments";
 import ErpVendors from "@/pages/erp/Vendors";
 import ErpPhaseConfirm from "@/pages/erp/PhaseConfirm";
+import ErpCustomers from "@/pages/erp/Customers";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ function AppRoutes() {
         <Route path="/admin/requests" component={P(AdminRequests)} />
         <Route path="/admin/users" component={P(AdminUsers, true)} />
         <Route path="/admin/dropdowns" component={P(AdminDropdowns, true)} />
+        <Route path="/erp/customers" component={P(ErpCustomers)} />
         <Route path="/erp/leads" component={P(ErpLeads)} />
         <Route path="/erp/leads/:id" component={P(ErpLeadDetail)} />
         <Route path="/erp/projects" component={P(ErpProjects)} />

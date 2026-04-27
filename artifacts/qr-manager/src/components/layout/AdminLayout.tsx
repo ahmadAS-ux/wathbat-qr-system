@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, X, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package,
+  Menu, X, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package, UserCheck,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -241,6 +241,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </button>
               {!mfgCollapsed && (
                 <div className="space-y-0.5">
+                  {canViewLeads(user?.role) && (
+                    <Link href="/erp/customers">
+                      <div
+                        onClick={() => handleNavClick('/erp/customers', false)}
+                        className={navItem(isActive('/erp/customers', false))}
+                        style={navItemStyle(isActive('/erp/customers', false))}
+                      >
+                        <UserCheck className={navIcon(isActive('/erp/customers', false))} />
+                        <span className="flex-1">{t('erp_customers_nav')}</span>
+                      </div>
+                    </Link>
+                  )}
                   {canViewLeads(user?.role) && (
                     <Link href="/erp/leads">
                       <div
