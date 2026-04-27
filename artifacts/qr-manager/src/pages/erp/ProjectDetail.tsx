@@ -14,6 +14,7 @@ import {
   canViewPayments,
   canViewContract as checkCanViewContract,
   canCreateMilestone as canCreateMilestoneHelper,
+  canViewPrices,
 } from '@/lib/permissions';
 
 interface ProjectFile {
@@ -1383,7 +1384,7 @@ export default function ErpProjectDetail() {
                 <dd className="font-medium text-slate-700 mt-0.5">{project.location}</dd>
               </div>
             )}
-            {project.estimatedValue && (
+            {project.estimatedValue && canViewPrices(user?.role) && (
               <div>
                 <dt className="text-slate-400">{t('erp_lead_value')}</dt>
                 <dd className="font-medium text-slate-700 mt-0.5" dir="ltr">{project.estimatedValue.toLocaleString()} SAR</dd>
