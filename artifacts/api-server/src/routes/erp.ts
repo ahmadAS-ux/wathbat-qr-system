@@ -614,20 +614,29 @@ router.patch("/erp/leads/:id/lose", requireRole("Admin", "FactoryManager", "Empl
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 
-type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function generateAndSetProjectCode(newProjectId: number, tx: DbTx): Promise<string> {
-  const year = new Date().getFullYear();
-  // Advisory lock serializes code generation per year across concurrent inserts.
+const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+export async function generateAndSetProjectCode(newProjectId: number, tx: DbTx): Promise<string> {
+  const projResult = await tx.execute(sql`SELECT building_type FROM projects WHERE id = ${newProjectId}`);
+  const buildingType = (projResult.rows[0] as any)?.building_type as string | null;
+  const typePrefix = buildingType && buildingType.length >= 1
+    ? buildingType.slice(0, 2).toUpperCase().padEnd(2, 'X')
+    : 'XX';
+
+  // Fixed advisory lock key serializes code generation across concurrent inserts.
   // Lock is held until the outer transaction commits.
-  await tx.execute(sql`SELECT pg_advisory_xact_lock(${year})`);
-  const result = await tx.execute(sql`
-    SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 9) AS INTEGER)), 0) + 1 AS next_n
-    FROM projects
-    WHERE code LIKE ${'WT-' + year + '-%'}
-  `);
-  const nextN = (result.rows[0] as any).next_n as number;
-  const code = `WT-${year}-${String(nextN).padStart(4, '0')}`;
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(20260101)`);
+
+  let code = '';
+  for (;;) {
+    const random5 = Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+    code = `WT-${typePrefix}-${random5}`;
+    const exists = await tx.execute(sql`SELECT 1 FROM projects WHERE code = ${code} AND id != ${newProjectId}`);
+    if (exists.rows.length === 0) break;
+  }
+
   await tx.execute(sql`UPDATE projects SET code = ${code} WHERE id = ${newProjectId}`);
   return code;
 }

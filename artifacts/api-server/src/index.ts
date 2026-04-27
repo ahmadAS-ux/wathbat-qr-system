@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
+import { generateAndSetProjectCode } from "./routes/erp.js";
 
 const rawPort = process.env["PORT"];
 
@@ -344,21 +345,16 @@ async function runStartupMigrations() {
 
     // Step 16: project codes (WT-YYYY-XXXX) — nullable until backfill, no default
     await db.execute(sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS code TEXT`);
-    // Backfill existing rows — idempotent (only targets rows where code IS NULL)
-    await db.execute(sql`
-      WITH ranked AS (
-        SELECT id,
-               EXTRACT(YEAR FROM created_at)::INTEGER AS yr,
-               ROW_NUMBER() OVER (
-                 PARTITION BY EXTRACT(YEAR FROM created_at)
-                 ORDER BY created_at ASC, id ASC
-               ) AS rn
-        FROM projects WHERE code IS NULL
-      )
-      UPDATE projects p
-      SET code = 'WT-' || ranked.yr::TEXT || '-' || LPAD(ranked.rn::TEXT, 4, '0')
-      FROM ranked WHERE p.id = ranked.id
-    `);
+    // Null out old sequential-format codes (WT-YYYY-NNNN) so they get regenerated
+    // in the new opaque format (WT-TYPE-RANDOM5) below.
+    await db.execute(sql`UPDATE projects SET code = NULL WHERE code ~ '^WT-\\d{4}-\\d{4}$'`);
+    // Backfill null-code projects one at a time using the same helper used at creation.
+    // Each call runs inside its own transaction with the advisory lock, preventing collisions.
+    const nullCodeRows = await db.execute(sql`SELECT id FROM projects WHERE code IS NULL ORDER BY created_at, id`);
+    for (const row of nullCodeRows.rows) {
+      const projectId = (row as any).id as number;
+      await db.transaction(async (tx) => { await generateAndSetProjectCode(projectId, tx); });
+    }
     // Add UNIQUE constraint after backfill — guarded DO block (idempotent)
     await db.execute(sql`
       DO $$
