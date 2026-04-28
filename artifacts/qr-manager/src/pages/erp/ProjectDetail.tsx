@@ -1720,30 +1720,33 @@ export default function ErpProjectDetail() {
                         isLoading={isUploading}
                       />
                     ) : hasQr ? (
-                      <div className="rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
-                        <div className="flex items-center gap-3 p-3">
-                          <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                          <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
-                          {canUpload && (
-                            <button onClick={() => triggerUpload('glass_order')} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={t('erp_file_replace')}>
-                              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                            </button>
-                          )}
-                        </div>
-                        <div className="border-t border-[#ECEAE2] p-3 bg-[#FAFAF7]">
-                          <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
-                            </div>
-                            <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
-                            <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
-                            <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
-                              <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
-                            </a>
+                      <>
+                        <FileSlot
+                          type="single"
+                          fileType="glass"
+                          label={{ ar: slot.labelAr, en: slot.labelEn }}
+                          files={[]}
+                          onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
+                          onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
+                          onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                          onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                          canDelete={canDeleteFileSlot}
+                          canReplace={canUpload}
+                          isLoading={isUploading}
+                        />
+                        {/* Legacy QR data — read-only, pre-v4.0.11 processed_docs row */}
+                        <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
                           </div>
+                          <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
+                          <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
+                          <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
+                            <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
+                          </a>
                         </div>
-                      </div>
+                      </>
                     ) : (
                       <FileSlot
                         type="single"

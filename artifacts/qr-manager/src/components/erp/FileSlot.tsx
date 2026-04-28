@@ -132,6 +132,7 @@ export function FileSlot({
   // ── Empty state ────────────────────────────────────────────────────────────
   const emptyState = (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
+      <p className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('file_slot_no_file')}</p>
       <button
         onClick={() => triggerInput()}
         disabled={uploading || isLoading}
