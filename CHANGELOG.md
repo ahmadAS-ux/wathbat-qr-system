@@ -4,6 +4,32 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.11] - April 2026 - Stage 6.6: File Slot Vocabulary + Original/Extracted Pipeline
+
+### Added
+
+- **`project_files` schema extended** — three new nullable columns: `file_mime VARCHAR(100)`, `extracted_file BYTEA`, `extracted_mime VARCHAR(100)`. Added via idempotent `ADD COLUMN IF NOT EXISTS` in `runStartupMigrations()`.
+- **`extractDocxToA4Html()` utility** (`artifacts/api-server/src/lib/docx-extractor.ts`) — converts a `.docx` buffer to an A4-sized HTML string using mammoth. Strips page-number-only paragraphs and "Page X of Y" patterns. Throws clearly on empty or malformed input.
+- **`GET /api/erp/projects/:id/files/:fileId/extracted`** — returns the extracted artifact inline (browser viewer, `Content-Disposition: inline`). Returns 404 if no extracted artifact exists for the row.
+- **`hasExtracted` field on `GET /api/erp/projects/:id/files`** — boolean derived from `extracted_file IS NOT NULL`; used by the frontend to decide whether the EXTRACTED tile is clickable.
+- **`<FileSlot>` component** (`artifacts/qr-manager/src/components/erp/FileSlot.tsx`) — unified single/bucket file slot. Empty state: one centered "رفع ملف" button. Filled single: header with status badge, 2 preview tiles (EXTRACTED | ORIGINAL, both clickable to browser viewer), 3 action buttons in RTL order (معاينة / تنزيل / استبدال). `...` menu for Admin-only delete. EXTRACTED tile greyed with "في انتظار الاستخراج" when `hasExtracted=false`. Glass type shows QrCode icon on EXTRACTED tile. Bucket mode: file rows + "+ إضافة ملف" at bottom.
+- **`<DeleteConfirmModal>` component** (`artifacts/qr-manager/src/components/erp/DeleteConfirmModal.tsx`) — mirrors `ReUploadConfirmModal`. Trash2 icon, Cancel default-focused, Delete border-red.
+- **15 new i18n keys** (EN + AR): `file_slot_preview`, `file_slot_uploaded`, `file_slot_extracted`, `file_slot_original`, `file_slot_pending_extraction`, `file_slot_no_file`, `file_slot_add_file`, `delete_file_title`, `delete_file_body`, `delete_file_confirm_btn`.
+
+### Changed
+
+- **Format enforcement on upload** — format violations now return bilingual 400 errors. Glass accepts `.docx`, `.pdf`, `.html`/`.htm`; Qoyod accepts `.pdf` only; all 6 Orgadata types and `vendor_order`/`other` accept `.docx` only.
+- **Glass order dual-write** — `.docx` glass uploads now write to **both** `project_files` and `processed_docs` in a single `db.transaction()`. QR parser (`parseAndInjectQR`) runs exactly once; its output (`outputBuffer`) is stored as `extracted_file` in `project_files` AND as `reportFile` in `processed_docs`. PDF/HTML glass uploads write to `project_files` only (`extracted_file = null`).
+- **Non-glass extraction** — Qoyod uploads store `extracted_file = original bytes` (passthrough PDF preview). All 6 `.docx` Orgadata uploads run `extractDocxToA4Html()`; failure logs a warning and sets `extracted_file = null` (upload never blocked by extraction failure).
+- **ProjectDetail Files tab** — all 9 file slots replaced with `<FileSlot>`. Glass slot uses 3-case fallback: FileSlot when `project_files` row exists (v4.0.11+), legacy QR card when only `processed_docs` exists (pre-v4.0.11), empty FileSlot when neither. Version history toggles and parsed data panels (Assembly List, Cut Optimisation) preserved below each single slot.
+- `vendor_order` and `other` added to the `.docx`-only enforcement set (`ORGADATA_FILE_TYPES`).
+
+### Dependency
+
+- `mammoth ^1.12.0` added to `artifacts/api-server/package.json`.
+
+---
+
 ## [4.0.10] - April 2026 - Stage 6.5: Upload Safety Hardening
 
 ### Changed
