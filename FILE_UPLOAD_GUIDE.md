@@ -1,7 +1,7 @@
 # FILE_UPLOAD_GUIDE.md — Complete File Upload Mechanism Reference
 
-> Last updated: April 2026 — v4.0.10
-> Source files: `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` · `artifacts/api-server/src/routes/erp.ts`
+> Last updated: April 2026 — v4.0.13
+> Source files: `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` · `artifacts/api-server/src/routes/erp.ts` · `artifacts/api-server/src/lib/docx-extractor.ts` · `artifacts/qr-manager/src/components/erp/FileSlot.tsx` · `artifacts/api-server/src/app.ts` (isPublic list)
 > Claude Code: Update this file when upload logic changes.
 
 ---
@@ -31,6 +31,60 @@
 21. [Backend — Orgadata Name Mismatch Logic](#21-name-mismatch-logic)
 22. [Database Schemas](#22-database-schemas)
 23. [Data Flow Diagrams](#23-data-flow-diagrams)
+
+---
+
+## 0. Core Architecture (v4.0.11+)
+
+### The two-layer model
+
+The upload system has two layers that must be understood separately:
+
+**LAYER 1 — Upload mechanism (unchanged since v3.x):**
+`triggerUpload()` → `handleFileChange()` → `uploadFile()` → `POST /files`
+This is identical for all 9 file types. The slot determines the `fileType`. The filename is never used to determine type.
+
+**LAYER 2 — UI rendering (added in Stage 6.6 / v4.0.11):**
+Every file slot renders via the `<FileSlot>` component (`artifacts/qr-manager/src/components/erp/FileSlot.tsx`).
+- **Empty state:** one centered `رفع ملف` button + hint text "لم يتم رفع ملف بعد"
+- **Filled state:** 2 preview tiles (EXTRACTED | ORIGINAL) + 3 buttons (`معاينة` / `تنزيل` / `استبدال`) in RTL order
+
+The 3 buttons always operate on the Original file for every slot type. No file type changes this.
+
+### The Original vs Extracted artifact (v4.0.11+)
+
+Every file slot stores two artifacts in `project_files`:
+
+| Column | Purpose |
+|--------|---------|
+| `file_data` (BYTEA) | The Original — exactly what the user uploaded |
+| `extracted_file` (BYTEA) | The Extracted — server-derived on every upload/replace |
+| `extracted_mime` | MIME type of the Extracted |
+
+**Extracted artifact by file type:**
+
+| Slot type | Extracted artifact |
+|-----------|-------------------|
+| `glass_order` | QR-enhanced HTML (v1 parser output, dual-written to both `processed_docs` and `project_files` in v4.0.11+) |
+| `qoyod` | Byte-identical copy of original (no transformation until v4.3.0) |
+| Other 7 types | A4 HTML via `extractDocxToA4Html()` in `artifacts/api-server/src/lib/docx-extractor.ts` (images excluded) |
+
+### Public file-serving endpoints (v4.0.12+)
+
+Two GET endpoints are public (no auth required). Listed in the `isPublic` check in `artifacts/api-server/src/app.ts`. This mirrors the existing `/api/qr/download/:fileId` public pattern:
+
+| Endpoint | Serves | isPublic regex |
+|----------|--------|----------------|
+| `GET /api/erp/projects/:id/files/:fileId` | `file_data` (Original) inline with stored `fileMime` | `/^\/erp\/projects\/\d+\/files\/\d+$/` |
+| `GET /api/erp/projects/:id/files/:fileId/extracted` | `extracted_file` inline with `extractedMime` | `/^\/erp\/projects\/\d+\/files\/\d+\/extracted$/` |
+
+Both are GET-only — POST and DELETE still require auth.
+
+### Delete permissions (v4.0.11+, Rule 10)
+
+File deletion is **Admin-only**. This supersedes the v4.0.10 behavior where FactoryManager could also delete files.
+The `canDeleteFile(role)` helper in `lib/permissions.ts` returns `true` for Admin only.
+The backend `DELETE /files/:fileId` endpoint enforces this server-side.
 
 ---
 
@@ -659,7 +713,7 @@ Returns the 9-slot status array. For each slot in `KNOWN_FILE_TYPES`:
 
 **Route:** `DELETE /api/erp/projects/:id/files/:fileId`
 **Route-level middleware:** `requireRole('Admin', 'FactoryManager')`
-**Runtime check:** Also allows `Accountant` or the original uploader (`file.uploadedBy === sess.userId`)
+**Permission as of v4.0.11 (Rule 10):** Check: role is Admin only. FactoryManager and Accountant can no longer delete files. The frontend `canDeleteFile(role)` helper in `lib/permissions.ts` enforces this at the UI layer (hides the delete option for non-Admin). The route-level middleware still lists FactoryManager to avoid breaking existing tokens; the actual deletion guard in the handler is Admin-only.
 
 ```typescript
 await db.delete(projectFilesTable).where(eq(projectFilesTable.id, fileId));
@@ -993,7 +1047,7 @@ deleteFile(fileId)                          [ProjectDetail.tsx:1156]
   └─ DELETE /api/erp/projects/42/files/17
 
     [BACKEND]
-    ├─ Check: uploader is sess.userId OR role is Admin/FactoryManager/Accountant
+    ├─ Check: role is Admin only (Rule 10 — v4.0.11+; FactoryManager/Accountant no longer delete)
     ├─ DELETE FROM project_files WHERE id = 17
     └─ 204 No Content
 
@@ -1006,4 +1060,4 @@ deleteFile(fileId)                          [ProjectDetail.tsx:1156]
 
 ---
 
-*This guide reflects the codebase as of v3.3.0 (April 2026). Update when upload logic changes.*
+*This guide reflects the codebase as of v4.0.13 (April 2026) — keep in sync with STAGE_6_5_PHILOSOPHY_ALIGNMENT.md Rules 10–12. Update when upload logic changes.*
