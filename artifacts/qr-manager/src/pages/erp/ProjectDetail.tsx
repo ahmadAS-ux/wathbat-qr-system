@@ -13,6 +13,7 @@ import { useSimpleToast } from '@/components/Toast';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import {
   canDeleteProject,
+  canDeleteFile,
   canCreateProject,
   canViewPayments,
   canViewContract as checkCanViewContract,
@@ -976,6 +977,7 @@ export default function ErpProjectDetail() {
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = canDeleteProject(user?.role);
+  const canDeleteFileSlot = canDeleteFile(user?.role);
   const canUpload = canCreateProject(user?.role);
   const canManagePayments = canViewPayments(user?.role);
   const canCreateMilestone = canCreateMilestoneHelper(user?.role);
@@ -1688,8 +1690,8 @@ export default function ErpProjectDetail() {
                     onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
                     onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
                     onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                    onDelete={canDelete ? deleteFile : undefined}
-                    canDelete={canDelete}
+                    onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                    canDelete={canDeleteFileSlot}
                     canReplace={false}
                     isLoading={isUploading}
                   />
@@ -1712,8 +1714,8 @@ export default function ErpProjectDetail() {
                         onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
                         onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
                         onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                        onDelete={canDelete ? deleteFile : undefined}
-                        canDelete={canDelete}
+                        onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                        canDelete={canDeleteFileSlot}
                         canReplace={canUpload}
                         isLoading={isUploading}
                       />
@@ -1751,8 +1753,8 @@ export default function ErpProjectDetail() {
                         onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
                         onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
                         onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                        onDelete={canDelete ? deleteFile : undefined}
-                        canDelete={canDelete}
+                        onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                        canDelete={canDeleteFileSlot}
                         canReplace={canUpload}
                         isLoading={isUploading}
                       />
@@ -1796,8 +1798,8 @@ export default function ErpProjectDetail() {
                     onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
                     onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
                     onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                    onDelete={canDelete ? deleteFile : undefined}
-                    canDelete={canDelete}
+                    onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                    canDelete={canDeleteFileSlot}
                     canReplace={canUpload}
                     isLoading={isUploading}
                   />

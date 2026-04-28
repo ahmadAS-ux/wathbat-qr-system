@@ -38,6 +38,9 @@ export const canViewPayments = (role: AnyRole): boolean =>
 export const canCreateMilestone = (role: AnyRole): boolean =>
   role === 'Admin' || role === 'Accountant';
 
+export const canDeleteFile = (role: AnyRole): boolean =>
+  role === 'Admin';
+
 export const canManageUsers = (role: AnyRole): boolean =>
   role === 'Admin';
 
