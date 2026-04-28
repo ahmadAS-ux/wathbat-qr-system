@@ -507,6 +507,15 @@ async function runStartupMigrations() {
     // QR upload flow is being retired in Stage 6.5, so orphaned rows serve no purpose.
     await db.execute(sql`DELETE FROM processed_docs WHERE project_id IS NULL`);
 
+    // v4.0.11: Stage 6.6 — Original/Extracted pipeline columns on project_files.
+    // extracted_file: derived artifact (A4 HTML for .docx types, QR HTML for glass, copy for Qoyod).
+    // extracted_mime: MIME type of the extracted artifact.
+    // file_mime: MIME type of the original uploaded file.
+    // All three are nullable — legacy rows have no extracted content.
+    await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS extracted_file BYTEA`);
+    await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS extracted_mime VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS file_mime VARCHAR(100)`);
+
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 
