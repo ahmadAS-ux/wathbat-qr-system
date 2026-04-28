@@ -15,10 +15,7 @@ const PAGE_NUM_PATTERN = /^\s*\d+\s*$/;
 export async function extractDocxToA4Html(docxBuffer: Buffer): Promise<string> {
   let result: { value: string; messages: unknown[] };
   try {
-    result = await mammoth.convertToHtml(
-      { buffer: docxBuffer },
-      { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) },
-    );
+    result = await mammoth.convertToHtml({ buffer: docxBuffer });
   } catch (err) {
     throw new Error(`docx extraction failed: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -48,8 +45,6 @@ export async function extractDocxToA4Html(docxBuffer: Buffer): Promise<string> {
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
     th, td { border: 1px solid #ccc; padding: 4px 8px; }
     th { background: #f4f4f4; font-weight: 600; }
-    img { display: none; }
-    header, footer { display: none; }
     p { margin: 4px 0; }
   </style>
 </head>
