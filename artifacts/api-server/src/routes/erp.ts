@@ -47,6 +47,7 @@ import { parseAndInjectQR } from "./qr.js";
 import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
 import { normalizePhoneToE164 } from "../lib/phone.js";
+import { extractDocxToA4Html } from "../lib/docx-extractor.js";
 
 const router: IRouter = Router();
 
@@ -84,9 +85,12 @@ const ADMIN_FM = ["Admin", "FactoryManager"];
 const ADMIN_ONLY = ["Admin"];
 const CUSTOMER_ROLES = ["Admin", "FactoryManager", "Employee", "SalesAgent"];
 
-// File types that must be .docx (Orgadata outputs) — any other extension is rejected
+// File types that must be .docx (Orgadata outputs) — any other extension is rejected.
+// Note: glass_order has its own format check (accepts .docx, .pdf, .html).
+//       qoyod has its own format check (accepts .pdf only).
 const ORGADATA_FILE_TYPES = new Set([
-  'glass_order', 'quotation', 'section', 'assembly_list', 'cut_optimisation', 'material_analysis',
+  'quotation', 'section', 'assembly_list', 'cut_optimisation', 'material_analysis',
+  'vendor_order', 'other',
 ]);
 
 function requiresDocx(fileType: string): boolean {
@@ -96,6 +100,24 @@ function requiresDocx(fileType: string): boolean {
 function isDocx(filename: string): boolean {
   return filename.toLowerCase().endsWith('.docx');
 }
+
+function isPdf(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.pdf');
+}
+
+function isHtml(filename: string): boolean {
+  const lc = filename.toLowerCase();
+  return lc.endsWith('.html') || lc.endsWith('.htm');
+}
+
+function isGlassFormat(filename: string): boolean {
+  return isDocx(filename) || isPdf(filename) || isHtml(filename);
+}
+
+// Bilingual format error messages
+const ERR_DOCX_ONLY = 'هذا الحقل يقبل ملفات Word (.docx) فقط / This field accepts Word (.docx) files only';
+const ERR_PDF_ONLY  = 'هذا الحقل يقبل ملفات PDF فقط / This field accepts PDF files only';
+const ERR_GLASS_FMT = 'هذا الحقل يقبل ملفات PDF أو HTML فقط / This field accepts PDF or HTML files only';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1631,8 +1653,16 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
           continue;
         }
 
+        if (ft === 'glass_order' && !isGlassFormat(f.originalname)) {
+          results.push({ filename: f.originalname, error: ERR_GLASS_FMT, fileType: ft });
+          continue;
+        }
+        if (ft === 'qoyod' && !isPdf(f.originalname)) {
+          results.push({ filename: f.originalname, error: ERR_PDF_ONLY, fileType: ft });
+          continue;
+        }
         if (requiresDocx(ft) && !isDocx(f.originalname)) {
-          results.push({ filename: f.originalname, error: `Only .docx files are accepted for ${ft}`, fileType: ft });
+          results.push({ filename: f.originalname, error: ERR_DOCX_ONLY, fileType: ft });
           continue;
         }
 
@@ -1703,85 +1733,173 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
     // Use singleFile (already confirmed non-null above) as a typed local reference
     const uploadedFile = singleFile;
 
+    // ── Format validation (bilingual errors) ─────────────────────────────────
+    if (fileType === 'glass_order' && !isGlassFormat(uploadedFile.originalname)) {
+      logger.warn({ projectId, fileType, filename: uploadedFile.originalname, reason: 'wrong_extension' }, 'Upload rejected: glass_order requires .docx, .pdf, or .html');
+      res.status(400).json({ error: ERR_GLASS_FMT });
+      return;
+    }
+    if (fileType === 'qoyod' && !isPdf(uploadedFile.originalname)) {
+      logger.warn({ projectId, fileType, filename: uploadedFile.originalname, reason: 'wrong_extension' }, 'Upload rejected: qoyod requires .pdf');
+      res.status(400).json({ error: ERR_PDF_ONLY });
+      return;
+    }
     if (requiresDocx(fileType) && !isDocx(uploadedFile.originalname)) {
       logger.warn({ projectId, fileType, filename: uploadedFile.originalname, reason: 'wrong_extension' }, 'Upload rejected: non-docx file for docx slot');
-      res.status(400).json({ error: `Only .docx files are accepted for ${fileType}` });
+      res.status(400).json({ error: ERR_DOCX_ONLY });
       return;
     }
 
-    // ── Glass order: QR pipeline → processed_docs ──────────────────────────
+    // ── Glass order: dual-write to project_files + processed_docs ─────────
     if (fileType === "glass_order") {
-      const confirm = req.query.confirm === "true";
+      const uploadMime = uploadedFile.mimetype ?? 'application/octet-stream';
+      const isDocxGlass = isDocx(uploadedFile.originalname);
 
-      const orgadataName = extractProjectNameFromDocx(uploadedFile.buffer);
+      if (isDocxGlass) {
+        // .docx glass: name-mismatch check + QR pipeline + dual-write in transaction
+        const confirm = req.query.confirm === "true";
+        const orgadataName = extractProjectNameFromDocx(uploadedFile.buffer);
 
-      if (!confirm) {
-        const [project] = await db
-          .select({ name: projectsTable.name })
-          .from(projectsTable)
-          .where(eq(projectsTable.id, projectId));
-        if (!project) return notFound(res);
+        if (!confirm) {
+          const [project] = await db
+            .select({ name: projectsTable.name })
+            .from(projectsTable)
+            .where(eq(projectsTable.id, projectId));
+          if (!project) return notFound(res);
 
-        if (
-          orgadataName &&
-          orgadataName.toLowerCase().trim() !== project.name.toLowerCase().trim()
-        ) {
-          res.status(409).json({
-            conflict: true,
-            orgadataName,
-            systemName: project.name,
-            message: "Project name in file differs from system name",
-          });
-          return;
+          if (orgadataName && orgadataName.toLowerCase().trim() !== project.name.toLowerCase().trim()) {
+            res.status(409).json({
+              conflict: true,
+              orgadataName,
+              systemName: project.name,
+              message: "Project name in file differs from system name",
+            });
+            return;
+          }
         }
-      }
 
-      let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
-      try {
-        result = await parseAndInjectQR(uploadedFile.buffer);
-      } catch (err: any) {
-        if (err?.message === "NO_POSITIONS") {
-          logger.warn({ projectId, fileType: 'glass_order', filename: uploadedFile.originalname, reason: 'no_positions' }, 'Upload rejected: glass order file has no positions');
-          res.status(400).json({
-            error: "ParseError",
-            message: "No positions found. Upload a valid Orgadata glass order (.docx).",
-          });
-          return;
+        let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
+        try {
+          result = await parseAndInjectQR(uploadedFile.buffer);
+        } catch (err: any) {
+          if (err?.message === "NO_POSITIONS") {
+            logger.warn({ projectId, fileType: 'glass_order', filename: uploadedFile.originalname, reason: 'no_positions' }, 'Upload rejected: glass order file has no positions');
+            res.status(400).json({
+              error: "ParseError",
+              message: "No positions found. Upload a valid Orgadata glass order (.docx).",
+            });
+            return;
+          }
+          throw err;
         }
-        throw err;
-      }
 
-      const originalName = uploadedFile.originalname.replace(/\.docx$/i, "");
-      const reportFilename = `${originalName}_QR_Report.html`;
+        const originalName = uploadedFile.originalname.replace(/\.docx$/i, "");
+        const reportFilename = `${originalName}_QR_Report.html`;
 
-      const [saved] = await db
-        .insert(processedDocsTable)
-        .values({
+        // Dual-write in a single transaction — both rows succeed or both fail
+        const dualResult = await db.transaction(async (tx) => {
+          // 1. Mark previous glass_order project_files row(s) inactive
+          await tx.update(projectFilesTable)
+            .set({ isActive: false })
+            .where(and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, 'glass_order'), eq(projectFilesTable.isActive, true)));
+
+          // 2. Insert new project_files row (Original + Extracted side-by-side)
+          const [pfRow] = await tx.insert(projectFilesTable).values({
+            projectId,
+            fileType: 'glass_order',
+            originalFilename: uploadedFile.originalname,
+            fileData: uploadedFile.buffer,
+            fileMime: uploadMime,
+            extractedFile: result.outputBuffer,
+            extractedMime: 'text/html',
+            uploadedBy: sess.userId,
+            isActive: true,
+          }).returning();
+
+          // 3. Insert processed_docs row (existing QR scan flow — unchanged)
+          const [pdRow] = await tx.insert(processedDocsTable).values({
+            originalFilename: uploadedFile.originalname,
+            reportFilename,
+            projectName: result.projectName || null,
+            processingDate: result.date || null,
+            positionCount: result.positions.length,
+            originalFile: uploadedFile.buffer,
+            reportFile: result.outputBuffer,
+            projectId,
+          }).returning({ id: processedDocsTable.id });
+
+          return { pfRow, pdRow };
+        });
+
+        const [projForGlass] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, projectId));
+        if (projForGlass) await autoAdvanceStage(projectId, 'glass_order', projForGlass.stageInternal ?? 1);
+
+        res.status(201).json({
+          id: dualResult.pfRow.id,
+          fileType: 'glass_order',
           originalFilename: uploadedFile.originalname,
-          reportFilename,
-          projectName: result.projectName || null,
-          processingDate: result.date || null,
-          positionCount: result.positions.length,
-          originalFile: uploadedFile.buffer,
-          reportFile: result.outputBuffer,
-          projectId,
-        })
-        .returning({ id: processedDocsTable.id });
+          uploadedAt: dualResult.pfRow.uploadedAt,
+          projectName: result.projectName,
+          totalPositions: result.positions.length,
+          positions: result.positions,
+        });
+        return;
+      }
 
-      // Stage auto-advance for glass_order
+      // PDF or HTML glass: store as Original in project_files only (no QR pipeline)
+      const glassExtracted = isHtml(uploadedFile.originalname) ? uploadedFile.buffer : null;
+      const glassExtractedMime = isHtml(uploadedFile.originalname) ? 'text/html' : null;
+
+      const [pfRow] = await db.transaction(async (tx) => {
+        await tx.update(projectFilesTable)
+          .set({ isActive: false })
+          .where(and(eq(projectFilesTable.projectId, projectId), eq(projectFilesTable.fileType, 'glass_order'), eq(projectFilesTable.isActive, true)));
+
+        return tx.insert(projectFilesTable).values({
+          projectId,
+          fileType: 'glass_order',
+          originalFilename: uploadedFile.originalname,
+          fileData: uploadedFile.buffer,
+          fileMime: uploadMime,
+          extractedFile: glassExtracted,
+          extractedMime: glassExtractedMime,
+          uploadedBy: sess.userId,
+          isActive: true,
+        }).returning();
+      });
+
       const [projForGlass] = await db.select({ stageInternal: projectsTable.stageInternal }).from(projectsTable).where(eq(projectsTable.id, projectId));
       if (projForGlass) await autoAdvanceStage(projectId, 'glass_order', projForGlass.stageInternal ?? 1);
 
       res.status(201).json({
-        fileId: saved.id,
-        projectName: result.projectName,
-        totalPositions: result.positions.length,
-        positions: result.positions,
+        id: pfRow.id,
+        fileType: 'glass_order',
+        originalFilename: uploadedFile.originalname,
+        uploadedAt: pfRow.uploadedAt,
       });
       return;
     }
 
     // ── All other file types → project_files ────────────────────────────────
+    // Run the appropriate extractor first (failure logged but does NOT block upload)
+    let extractedFile: Buffer | null = null;
+    let extractedMime: string | null = null;
+
+    if (fileType === 'qoyod') {
+      // Qoyod: extracted = byte-identical copy of original (no transformation until v4.3.0)
+      extractedFile = uploadedFile.buffer;
+      extractedMime = uploadedFile.mimetype ?? 'application/pdf';
+    } else if (isDocx(uploadedFile.originalname)) {
+      // All .docx types: A4 HTML extractor
+      try {
+        const html = await extractDocxToA4Html(uploadedFile.buffer);
+        extractedFile = Buffer.from(html, 'utf-8');
+        extractedMime = 'text/html';
+      } catch (err) {
+        logger.warn({ err, projectId, fileType, filename: uploadedFile.originalname }, '[v4.0.11] docx extractor failed — original saved, extracted skipped');
+      }
+    }
+
     // Multi-file types accumulate; single-file types: mark old version inactive
     if (!(MULTI_FILE_TYPES as readonly string[]).includes(fileType)) {
       await db.update(projectFilesTable)
@@ -1794,6 +1912,9 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
       fileType,
       originalFilename: uploadedFile.originalname,
       fileData: uploadedFile.buffer,
+      fileMime: uploadedFile.mimetype ?? null,
+      extractedFile,
+      extractedMime,
       uploadedBy: sess.userId,
       isActive: true,
     }).returning();
@@ -2031,6 +2152,33 @@ router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), 
     res.send(file.fileData);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/files/:fileId failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /erp/projects/:id/files/:fileId/extracted — serve extracted artifact inline
+// Opens in browser viewer (inline disposition). Auth: same as original file endpoint.
+// Returns 404 if no extracted artifact exists (legacy rows).
+router.get("/erp/projects/:id/files/:fileId/extracted", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+  try {
+    const fileId = Number(req.params.fileId);
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(fileId) || Number.isNaN(projectId)) return notFound(res);
+    const [file] = await db
+      .select({ extractedFile: projectFilesTable.extractedFile, extractedMime: projectFilesTable.extractedMime, originalFilename: projectFilesTable.originalFilename })
+      .from(projectFilesTable)
+      .where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
+    if (!file) return notFound(res);
+    if (!file.extractedFile) {
+      res.status(404).json({ error: "No extracted artifact available for this file" });
+      return;
+    }
+    const mime = file.extractedMime ?? 'application/octet-stream';
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `inline; filename="${file.originalFilename.replace(/\.[^.]+$/, '')}_extracted.html"`);
+    res.send(file.extractedFile);
+  } catch (err) {
+    logger.error({ err }, "GET /erp/projects/:id/files/:fileId/extracted failed");
     res.status(500).json({ error: "Internal error" });
   }
 });
