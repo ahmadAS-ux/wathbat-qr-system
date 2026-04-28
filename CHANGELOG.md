@@ -4,6 +4,36 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.14] - April 2026 - Patch: Revert extractor image suppression
+
+### Fixed
+
+- **EXTRACTED tile blank white page** — Clicking the EXTRACTED tile on a filled Quotation, Section, Assembly List, or any other Orgadata `.docx` slot opened a blank page. Root cause: Orgadata `.docx` files embed their entire document content as rasterized full-page JPEG images stored in `<p><img src="data:image/jpeg;base64,...">` elements — not as text paragraphs. The v4.0.13 `convertImage` option suppressed ALL images (replacing `src` with an empty string), making the entire document content invisible. The CSS rule `img { display: none }` compounded this by hiding the now-empty `<img>` tags.
+
+### What Orgadata .docx files actually contain
+
+Orgadata exports (Quotation, Section, Assembly List, etc.) store each page as a rasterized JPEG image embedded in a Word paragraph. mammoth extracts these as `<p><img src="data:image/jpeg;base64,..."></p>` elements. This IS the document content — not a header logo issue. The EXTRACTED tile for these files correctly shows the full-page JPEG previews, including the Wathbah logo at the top of each page (part of the Orgadata page template).
+
+### Changes
+
+- Removed `convertImage` option from `mammoth.convertToHtml()` call — default behavior restored
+- Removed `img { display: none }` from A4 scaffold CSS
+- Removed `header, footer { display: none }` from A4 scaffold CSS (was always a no-op — mammoth never emits these HTML elements)
+- All other extractor behavior unchanged (A4 sizing, fonts, `stripStructuralNoise`)
+
+### Known gap (not fixed in this patch)
+
+- `glass_order` uploaded as PDF stores `extracted_file = null` permanently (no PDF extraction pipeline exists). The EXTRACTED tile shows "في انتظار الاستخراج" for PDF Glass Orders. This is a known limitation — fix deferred.
+
+### Unchanged
+
+- Glass Order QR pipeline — untouched
+- All auth layer changes from v4.0.12 — intact
+- All FileSlot wiring from v4.0.13 — intact
+- Database schema — no changes
+
+---
+
 ## [4.0.13] - April 2026 - Patch: Stage 6.6 regressions + guide sync
 
 ### Fixed
