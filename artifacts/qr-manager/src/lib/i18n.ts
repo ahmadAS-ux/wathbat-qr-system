@@ -364,7 +364,7 @@ export const translations = {
     // Sidebar section labels
     qr_section_label: "Document System",
     settings_section_label: "Settings",
-    erp_settings_nav: "Settings",
+    erp_settings_nav: "Contract Structure",
     erp_view_project: "View Project →",
     erp_view_lead: "View Lead →",
     // Email modal
@@ -1003,7 +1003,7 @@ export const translations = {
     // Sidebar section labels
     qr_section_label: "نظام المستندات",
     settings_section_label: "الإعدادات",
-    erp_settings_nav: "الإعدادات",
+    erp_settings_nav: "هيكل العقد",
     erp_view_project: "← عرض المشروع",
     erp_view_lead: "← عرض العميل",
     // Email modal
