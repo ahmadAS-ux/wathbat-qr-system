@@ -29,6 +29,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [adminCollapsed, setAdminCollapsed] = useState(false);
   const [mfgCollapsed, setMfgCollapsed] = useState(false);
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
 
   // TODO Stage 2: canSearch has no 1:1 helper (negative check: role !== 'Accountant') — left as-is
   const canSearch = user?.role !== 'Accountant';
@@ -120,6 +121,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const next = !qrCollapsed;
     setQrCollapsed(next);
     localStorage.setItem('sidebar_qr_collapsed', String(next));
+  };
+
+  const toggleSettings = () => {
+    const next = !settingsCollapsed;
+    setSettingsCollapsed(next);
+    localStorage.setItem('sidebar_settings_collapsed', String(next));
   };
 
   const navItem = (active: boolean) =>
@@ -311,72 +318,75 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       </div>
                     </Link>
                   )}
-                  {isAdmin && (
-                    <Link href="/erp/settings">
-                      <div
-                        onClick={() => handleNavClick('/erp/settings', false)}
-                        className={navItem(isActive('/erp/settings', false))}
-                        style={navItemStyle(isActive('/erp/settings', false))}
-                      >
-                        <Settings className={navIcon(isActive('/erp/settings', false))} />
-                        <span className="flex-1">{t('erp_settings_nav')}</span>
-                      </div>
-                    </Link>
-                  )}
                 </div>
               )}
             </>
           )}
 
-          {/* ── QR SYSTEM ── */}
-          <>
-            <button onClick={toggleQr} className={sectionBtn}>
-              <span className="flex-1 text-start">{t('qr_section_label')}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${qrCollapsed ? '-rotate-90' : ''}`} />
-            </button>
-            {!qrCollapsed && (
-              <div className="space-y-0.5">
-                {isAdmin && (
+          {/* ── DOCUMENT SYSTEM ── */}
+          {isAdmin && (
+            <>
+              <button onClick={toggleQr} className={sectionBtn}>
+                <span className="flex-1 text-start">{t('qr_section_label')}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${qrCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!qrCollapsed && (
+                <div className="space-y-0.5">
                   <Link href="/admin/history">
                     <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
                       <Archive className={navIcon(isActive('/admin/history', false))} />
                       <span className="flex-1">{t('archive_title')}</span>
                     </div>
                   </Link>
-                )}
-                {canViewQRSystem(user?.role) && (
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── SETTINGS ── */}
+          {canViewQRSystem(user?.role) && (
+            <>
+              <button onClick={toggleSettings} className={sectionBtn}>
+                <span className="flex-1 text-start">{t('settings_section_label')}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${settingsCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!settingsCollapsed && (
+                <div className="space-y-0.5">
+                  {isAdmin && (
+                    <Link href="/erp/settings">
+                      <div onClick={() => handleNavClick('/erp/settings', false)} className={navItem(isActive('/erp/settings', false))} style={navItemStyle(isActive('/erp/settings', false))}>
+                        <Settings className={navIcon(isActive('/erp/settings', false))} />
+                        <span className="flex-1">{t('erp_settings_nav')}</span>
+                      </div>
+                    </Link>
+                  )}
                   <Link href="/admin/users">
                     <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))} style={navItemStyle(isActive('/admin/users', false))}>
                       <Users className={navIcon(isActive('/admin/users', false))} />
                       <span className="flex-1">{t('users_nav')}</span>
                     </div>
                   </Link>
-                )}
-                {canViewQRSystem(user?.role) && (
                   <Link href="/admin/dropdowns">
                     <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))} style={navItemStyle(isActive('/admin/dropdowns', false))}>
                       <List className={navIcon(isActive('/admin/dropdowns', false))} />
                       <span className="flex-1">{t('dropdown_editor_title')}</span>
                     </div>
                   </Link>
-                )}
-              </div>
-            )}
-          </>
+                  <button
+                    onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+                    className={navItem(false)}
+                  >
+                    <Globe className={navIcon(false)} />
+                    <span className="flex-1">{language === 'en' ? 'العربية' : 'English'}</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </nav>
 
         {/* Footer */}
         <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-          <button
-            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-            className="w-full flex items-center gap-3 px-3 min-h-[44px] rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.07] transition-all group"
-          >
-            <Globe className="w-5 h-5 shrink-0 text-white/30 group-hover:text-white/60" />
-            <span>{language === 'en' ? 'العربية' : 'English'}</span>
-          </button>
-
-          <div className="border-t border-white/[0.08] my-1" />
-
           {user && (() => {
             const roleLabels: Record<string, string> = {
               Admin: t('role_admin'),
