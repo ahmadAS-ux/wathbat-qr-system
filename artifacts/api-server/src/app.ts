@@ -38,6 +38,8 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
     (req.method === "POST" && req.path === "/admin/requests") || // scan form
     (req.method === "GET"  && req.path.startsWith("/erp/options/")) || // dropdown options used by public forms
     (req.method === "GET"  && req.path.startsWith("/qr/download/")) || // QR HTML reports — no sensitive data
+    (req.method === "GET"  && /^\/erp\/projects\/\d+\/files\/\d+$/.test(req.path)) || // Original file — public for browser viewer
+    (req.method === "GET"  && /^\/erp\/projects\/\d+\/files\/\d+\/extracted$/.test(req.path)) || // Extracted artifact — public for browser viewer
     (req.method === "GET"  && /^\/erp\/phases\/\d+$/.test(req.path)) || // phase info for customer confirm page
     (req.method === "POST" && /^\/erp\/phases\/\d+\/confirm$/.test(req.path)); // customer QR confirmation
   if (isPublic) return next();

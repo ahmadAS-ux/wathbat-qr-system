@@ -2141,15 +2141,16 @@ router.post("/erp/projects/:id/files/detect", requireRole(...NO_SALES_NO_ACCT), 
   }
 });
 
-// GET /erp/projects/:id/files/:fileId — download file
-router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+// GET /erp/projects/:id/files/:fileId — serve Original inline (public — browser new-tab viewer)
+router.get("/erp/projects/:id/files/:fileId", async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
     const projectId = Number(req.params.id);
+    if (Number.isNaN(fileId) || Number.isNaN(projectId)) return notFound(res);
     const [file] = await db.select().from(projectFilesTable).where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
     if (!file) return notFound(res);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.originalFilename}"`);
-    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Type", file.fileMime || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${file.originalFilename}"`);
     res.send(file.fileData);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/files/:fileId failed");
@@ -2157,10 +2158,9 @@ router.get("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), 
   }
 });
 
-// GET /erp/projects/:id/files/:fileId/extracted — serve extracted artifact inline
-// Opens in browser viewer (inline disposition). Auth: same as original file endpoint.
+// GET /erp/projects/:id/files/:fileId/extracted — serve extracted artifact inline (public — browser new-tab viewer)
 // Returns 404 if no extracted artifact exists (legacy rows).
-router.get("/erp/projects/:id/files/:fileId/extracted", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
+router.get("/erp/projects/:id/files/:fileId/extracted", async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
     const projectId = Number(req.params.id);
