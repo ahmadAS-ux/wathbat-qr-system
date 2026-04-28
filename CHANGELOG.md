@@ -4,6 +4,15 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.12] - April 2026 - Hotfix: Public file-serving endpoints
+
+### Fixed
+
+- **File tiles returning 401 in new-tab viewer** — `GET /api/erp/projects/:id/files/:fileId` and `GET /api/erp/projects/:id/files/:fileId/extracted` are now public (no `Authorization` header required). Both endpoints added to the `isPublic` list in `app.ts`, mirroring the existing `/api/qr/download/:fileId` pattern.
+- **Original tile downloading instead of rendering** — Original endpoint now sets `Content-Type: file.fileMime` (was `application/octet-stream`) and `Content-Disposition: inline` (was `attachment`). Browser renders the file in-tab rather than triggering a download.
+
+---
+
 ## [4.0.11] - April 2026 - Stage 6.6: File Slot Vocabulary + Original/Extracted Pipeline
 
 ### Added
