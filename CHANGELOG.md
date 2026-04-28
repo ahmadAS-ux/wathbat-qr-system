@@ -4,6 +4,37 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.10] - April 2026 - Stage 6.5: Upload Safety Hardening
+
+### Changed
+
+- **Unified NameMismatchModal (2 buttons)** — all 6 Orgadata file types (glass_order, quotation, price_quotation, section, assembly_list, cut_optimisation, material_analysis) now use a single `NameMismatchModal` with two buttons: **Keep** (default focus, dark background) and **Update** (border style). The old 3-choice modal (`cancel / proceed / proceedAndUpdate`) is replaced. Glass-order conflicts no longer open a separate inline dialog — they route through the same modal.
+- **Upload handler no longer mutates project name** — removed `UPDATE projects SET name = orgadataName` from the glass 409 confirm path and `UPDATE projects SET name = parsed.projectName` from the quotation path. Name updates are now a separate `PATCH /api/erp/projects/:id` call issued by the frontend after the user explicitly clicks "Update".
+- **ReUploadConfirmModal for single-file slot replacement** — clicking Upload on a slot that already has an active file now shows a confirmation modal before the file picker opens. Default-focused button is **Cancel**; the user must click **Replace** to proceed. Multi-file slots (vendor_order, qoyod, other) are exempt.
+- **Standalone QR upload page retired** — `Home.tsx` (`/qr/upload` route) and the `/api/erp/create-project-from-file` endpoint are removed. All uploads happen inside ERP Project Detail → Files tab. No orphan files; every file has a project_id.
+- **AdminHistory repurposed as ERP File Audit Log** — the page now fetches `GET /api/erp/files/audit` (Admin-only, JOINs project_files + projects + users) and displays all active uploaded files with project name, file type, filename, date, and uploader. Accessible only to Admin role.
+
+### Fixed
+
+- **Orphaned `processed_docs` rows cleaned on startup** — `runStartupMigrations()` now runs `DELETE FROM processed_docs WHERE project_id IS NULL` (idempotent) to remove rows created by the old standalone upload page.
+
+### Added
+
+- `GET /api/erp/files/audit` — Admin-only endpoint; returns up to 1000 active project_files rows with project and user JOINs, sorted newest-first.
+- `ReUploadConfirmModal` component (`artifacts/qr-manager/src/components/erp/ReUploadConfirmModal.tsx`)
+- i18n keys: `name_mismatch_keep`, `name_mismatch_update`, `reupload_title`, `reupload_body`, `reupload_confirm`, `audit_col_project`, `audit_col_file_type`, `audit_col_filename`, `audit_col_uploaded_at`, `audit_col_uploaded_by`, `audit_empty`, `audit_view_project`, `archive_title` (updated) — in Arabic and English.
+
+### Removed
+
+- `Home.tsx` page and `/qr/upload` route
+- `POST /api/erp/create-project-from-file` endpoint
+- `/qr/upload` sidebar link from `AdminLayout.tsx`
+- `GlassDetectResult` interface and `glassDetect` state from `ProjectDetail.tsx`
+- `handleGlassConfirm()` function and inline glass conflict dialog JSX
+- i18n keys: `qr_upload_nav`, `home_admin_only_title`, `home_admin_only_desc`, `home_admin_only_banner`, `name_mismatch_cancel`, `name_mismatch_proceed`, `name_mismatch_proceed_update`
+
+---
+
 ## [4.0.9] - April 2026 - Stage 6: Customer Delete Warning UX
 
 ### Added

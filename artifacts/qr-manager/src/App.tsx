@@ -10,7 +10,6 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
-import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 import AdminHistory from "@/pages/AdminHistory";
 import AdminRequests from "@/pages/AdminRequests";
@@ -62,8 +61,6 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
   return <Component />;
 }
 
-const QrUpload = () => <AdminLayout><Home /></AdminLayout>;
-
 function AppRoutes() {
   const [location] = useLocation();
   const { user, isLoading } = useAuth();
@@ -88,9 +85,8 @@ function AppRoutes() {
         <Route path="/scan" component={Scan} />
         <Route path="/confirm/:phaseId" component={ErpPhaseConfirm} />
         <Route path="/" component={P(Admin)} />
-        <Route path="/qr/upload" component={P(QrUpload)} />
         <Route path="/admin" component={P(Admin)} />
-        <Route path="/admin/history" component={P(AdminHistory)} />
+        <Route path="/admin/history" component={P(AdminHistory, true)} />
         <Route path="/admin/requests" component={P(AdminRequests)} />
         <Route path="/admin/users" component={P(AdminUsers, true)} />
         <Route path="/admin/dropdowns" component={P(AdminDropdowns, true)} />

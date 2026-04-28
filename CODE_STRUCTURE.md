@@ -53,9 +53,8 @@ artifacts/qr-manager/src/
 ├── main.tsx              # Entry: API base URL, global fetch JWT patch
 ├── App.tsx               # Router: all routes (incl. public /confirm/:phaseId), auth/language providers
 ├── pages/
-│   ├── Home.tsx          # DOCX upload page
-│   ├── Admin.tsx         # Admin dashboard — metrics, archive preview, requests preview
-│   ├── AdminHistory.tsx  # Full document archive
+│   ├── Admin.tsx         # Admin dashboard — metrics, audit preview, requests preview
+│   ├── AdminHistory.tsx  # ERP file audit log (Admin only) — all active project_files
 │   ├── AdminRequests.tsx # Full service requests table
 │   ├── AdminUsers.tsx    # User management (Admin only)
 │   ├── AdminDropdowns.tsx # Dropdown editor (Admin only)
@@ -77,7 +76,8 @@ artifacts/qr-manager/src/
 │   │   ├── AdminLayout.tsx   # Sidebar nav layout — add new items here
 │   │   └── Header.tsx        # Top nav bar (hidden on /scan, /confirm/*, /login)
 │   ├── erp/
-│   │   └── NameMismatchModal.tsx  # Modal for Orgadata project name conflict (Phase 2)
+│   │   ├── NameMismatchModal.tsx    # Unified 2-button modal for all Orgadata name conflicts (v4.0.10)
+│   │   └── ReUploadConfirmModal.tsx # Confirm before replacing a single-file slot (v4.0.10)
 │   ├── RequireRole.tsx       # Route guard component — redirects unauthorised roles to /admin
 │   ├── FileUpload.tsx        # Drag-and-drop DOCX uploader
 │   ├── ResultsView.tsx       # QR results table
@@ -261,7 +261,7 @@ uploadFile(file, fileType)
   — Builds FormData: fd.append('file', file) + fd.append('fileType', fileType)
   — POST /api/erp/projects/:id/files (JWT auto-injected by main.tsx fetch patch)
   — On 409 for quotation/price_quotation → setNameMismatch({...}) → shows NameMismatchModal
-  — On 409 for glass_order → setGlassDetect({...}) → shows glass conflict modal
+  — On 409 for glass_order → setNameMismatch({...}) → shows same unified NameMismatchModal (v4.0.10)
   — On success for glass_order → loadQrOrders() + loadProject()
   — On success for other types → loadProject() + loadParsedData() (if assembly_list/cut_optimisation)
   — Always: loadExpectedFiles() + loadAllFiles()
@@ -326,22 +326,19 @@ deleteFile(fileId)
   — All three loaders called to keep slot status indicators current
 ```
 
-#### 409 Conflict Handling
+#### 409 Conflict Handling (v4.0.10 — Unified)
 
 ```
-Quotation / price_quotation 409:
-  — Backend detects project name in .docx != project name in DB
-  — Returns: { error, message, nameInFile, nameInSystem, hint }
-  — Frontend: shows NameMismatchModal with 3 choices:
-      "Keep DB name" → re-upload with ?confirmNameMismatch=true
-      "Update to file name" → re-upload with ?confirmNameMismatch=true&updateProjectName=true
-      "Cancel" → abort upload
+All Orgadata file types (quotation, glass_order, etc.) 409:
+  — Backend returns name mismatch info; quotation: { nameInFile, nameInSystem };
+    glass_order: { orgadataName, systemName } (mapped to same shape on frontend)
+  — Frontend: setNameMismatch({nameInFile, nameInSystem, pendingFile, fileType})
+  — Shows unified NameMismatchModal with 2 choices:
+      "Keep" (default focus) → re-upload with ?confirmNameMismatch=true (or ?confirm=true for glass)
+      "Update" → re-upload same query, then PATCH /api/erp/projects/:id { name: nameInFile }
+      X / backdrop → cancel
 
-Glass_order 409:
-  — Backend detects Orgadata project name != ERP project name
-  — Returns: { conflict: true, orgadataName, systemName, message }
-  — Frontend: shows glass conflict modal (setGlassDetect)
-  — User confirms → re-upload with ?confirm=true&updateName=true/false
+  Upload handler (erp.ts) does NOT mutate projects.name. Name update is a separate PATCH call.
 ```
 
 ### How Lead → Project Conversion Works
@@ -366,15 +363,16 @@ Glass_order 409:
 The Glass/Panel Order is the primary cross-system handoff point between Layer 1 (QR) and Layer 2 (ERP). It can originate from two different upload paths and lands in two different tables. Both paths must remain visible in Project Detail.
 
 ```
-PATH A — QR Upload (Home.tsx → processed_docs table):
-  1. User uploads a .docx on the QR Upload page (Home.tsx)
-  2. POST /api/qr/process → parseAndInjectQR() → saves to processed_docs
-     — Columns used: originalFilename, reportFilename, projectName, projectId (nullable),
+PATH A — QR Upload (processed_docs table — v4.0.10: standalone page removed):
+  — The /qr/upload page (Home.tsx) was retired in v4.0.10. All uploads happen inside Project Detail.
+  — Legacy processed_docs rows (created before v4.0.10) may still exist with projectId set.
+  — v4.0.10 startup migration: DELETE FROM processed_docs WHERE project_id IS NULL
+  1. POST /api/qr/process → parseAndInjectQR() → saves to processed_docs
+     — Columns used: originalFilename, reportFilename, projectName, projectId (non-nullable since v4.0.10),
        positionCount, reportFile (HTML blob), originalFile (docx blob)
-  3. If the user selected a project before uploading: projectId is set in processed_docs
-  4. ERP Project Detail fetches:
+  2. ERP Project Detail fetches:
      GET /api/erp/projects/:id/qr-orders → returns rows from processed_docs WHERE project_id = :id
-  5. "Glass/Panel Order" file slot in ProjectDetail.tsx:
+  3. "Glass/Panel Order" file slot in ProjectDetail.tsx:
      — Checks project_files first (fileFor('glass_order'))
      — If no project_files entry: falls back to qrOrders[0] (most recent)
      — Shows filename + "QR" badge; download opens GET /api/qr/download/:reportFileId

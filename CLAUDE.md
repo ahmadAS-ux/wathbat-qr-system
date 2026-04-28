@@ -47,7 +47,7 @@ NEVER: guess the fix from docs alone, combine multiple fixes, or refactor while 
 
 ## Project Overview
 
-**Wathbah Manufacturing System (v3.2.0)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
+**Wathbah Manufacturing System (v4.0.10)** — a full-stack TypeScript monorepo that manages aluminum & glass manufacturing projects from first customer contact through warranty.
 
 Built in two layers:
 - **Layer 1 (v1.0):** QR Asset Manager — processes Orgadata DOCX files, generates QR codes, tracks customer service requests
@@ -186,9 +186,61 @@ Full permissions matrix: **WORKFLOW_REFERENCE_v3.md Section 4**
 
 ---
 
+## FILE UPLOAD RULES (MANDATORY — READ BEFORE TOUCHING ANY UPLOAD CODE)
+
+These rules are permanent. They apply to every session, every stage, every hotfix.
+Violating any of these rules corrupts data. No exceptions.
+
+### The 5 Never Rules
+
+1. NEVER modify `customers.name` from any file upload, parser, or detection logic.
+   Customer name changes only from: manual edit on Customer Records page, or Qoyod sync (v4.3.0) with explicit user confirmation.
+
+2. NEVER modify `projects.name` silently from any file upload.
+   If a file's project name differs from the system project name, show the unified NameMismatchModal.
+   Default button must always be "Keep current name". User must explicitly click "Update" to overwrite.
+
+3. NEVER upload files outside of a project context.
+   The standalone /qr/upload page was killed in v4.0.10. All uploads happen inside Project Detail → Files tab.
+   There are no orphan files. Every file has a project_id. Every project has a customer_id.
+
+4. NEVER add per-file-type special cases to the mismatch modal.
+   All 6 Orgadata file types (glass_order, quotation, section, assembly_list, cut_optimisation, material_analysis)
+   use the same unified NameMismatchModal with the same two buttons. No Glass-specific modal. No Quotation-specific modal.
+
+5. NEVER silently replace a file in a single-file slot.
+   Always show ReUploadConfirmModal first. Default button is "Cancel". User must click "Replace" to proceed.
+   Multi-file slots (vendor_order, qoyod, other) are exempt — they accumulate by design.
+
+### The Upload Config (Single Source of Truth)
+
+File type behavior is defined in FILE_SLOT_CONFIG in lib/db/src/constants/file-types.ts.
+Before adding logic for a specific file type anywhere in the codebase, check the config first.
+If the behavior you need isn't in the config, add it to the config — not as an if/else in the handler.
+
+### What the Upload Handler Is Allowed to Do
+
+✅ Insert file into project_files
+✅ Run Glass parser to inject QR codes (parseAndInjectQR) — output unchanged
+✅ Save HTML report to processed_docs (with project_id set — never NULL)
+✅ Trigger autoAdvanceStage
+✅ Return 409 with mismatch info so the frontend can show the unified modal
+✅ Return 400 with specific error message for validation failures
+
+### What the Upload Handler Is NOT Allowed to Do
+
+❌ UPDATE projects SET name = anything
+❌ UPDATE customers SET name = anything
+❌ UPDATE projects SET customer_name = anything
+❌ INSERT into processed_docs WHERE project_id IS NULL
+❌ Read customer name from any file field
+❌ Read "Person in Charge" and use it as a project or customer identifier
+
+---
+
 ## Version & Phase Status
 
-- **Current:** v3.2.0 — Phase 4 complete (Delivery, Installation, Sign-off, Warranty)
+- **Current:** v4.0.10 — Stage 6.5 complete (upload safety hardening, unified name-mismatch modal)
 - **Previous:** v3.1.0 — Phase 3 complete (Vendors, Purchase Orders, Manufacturing)
 - **Baseline:** v1.0 (tag `v1.0`, commit `c3ee916`) — original QR Asset Manager, safe rollback point
 
@@ -252,7 +304,8 @@ Key implementation details (all in `ProjectDetail.tsx`):
 - `handleFileChange` always calls `uploadFile(file, pendingFileType)` — no detection ever runs here
 - `deleteFile` calls `loadProject()` + `loadAllFiles()` + `loadExpectedFiles()` — all three required
 - `glass_order` upload success: `loadQrOrders()` + `loadProject()` — both required (stage may auto-advance)
-- 409 for quotation → `NameMismatchModal`; 409 for glass_order → glass conflict modal
+- 409 for quotation OR glass_order → unified `NameMismatchModal` (2 buttons: Keep / Update) — v4.0.10
+- Single-file slot re-upload → `ReUploadConfirmModal` intercepts before file picker opens — v4.0.10
 
 ---
 

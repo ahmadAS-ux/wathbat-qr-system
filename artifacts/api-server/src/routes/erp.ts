@@ -1712,7 +1712,6 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
     // ── Glass order: QR pipeline → processed_docs ──────────────────────────
     if (fileType === "glass_order") {
       const confirm = req.query.confirm === "true";
-      const updateName = req.query.updateName === "true";
 
       const orgadataName = extractProjectNameFromDocx(uploadedFile.buffer);
 
@@ -1735,13 +1734,6 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
           });
           return;
         }
-      }
-
-      if (confirm && updateName && orgadataName) {
-        await db
-          .update(projectsTable)
-          .set({ name: orgadataName })
-          .where(eq(projectsTable.id, projectId));
       }
 
       let result: Awaited<ReturnType<typeof parseAndInjectQR>>;
@@ -1829,9 +1821,6 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
               hint: 'Re-submit with ?confirmNameMismatch=true to proceed, or cancel the upload',
             });
             return;
-          }
-          if (req.query.updateProjectName === 'true') {
-            await db.update(projectsTable).set({ name: parsed.projectName }).where(eq(projectsTable.id, projectId));
           }
         }
 
@@ -2386,98 +2375,32 @@ router.post(
   }
 );
 
-// POST /erp/files/create-project-from-file — create new project with Orgadata name + user-provided fields
-router.post(
-  '/erp/files/create-project-from-file',
-  requireRole(...NO_SALES_NO_ACCT),
-  async (req: Request, res: Response) => {
-    try {
-      const {
-        name,
-        customerName,
-        customerId: rawCustomerId,
-        phone,
-        buildingType,
-        productInterest,
-        personInCharge,
-      } = req.body;
-      const customerId = rawCustomerId ? Number(rawCustomerId) : null;
-
-      if (!name || name.trim().length < 2) {
-        res.status(400).json({ error: 'Project name is required (min 2 chars)' });
-        return;
-      }
-      if ((rawCustomerId !== undefined && rawCustomerId !== null && rawCustomerId !== '') && Number.isNaN(customerId)) {
-        res.status(400).json({ error: 'customerId must be a valid number' });
-        return;
-      }
-      if (!customerId && (!customerName || customerName.trim().length < 2)) {
-        res.status(400).json({ error: 'Customer name is required (min 2 chars)' });
-        return;
-      }
-      if (!buildingType) {
-        res.status(400).json({ error: 'Building type is required' });
-        return;
-      }
-      if (!productInterest) {
-        res.status(400).json({ error: 'Product interest is required' });
-        return;
-      }
-      const sess = session(req);
-      const createdProject = await db.transaction(async (tx) => {
-        const resolvedCustomer = await resolveCustomerLink(tx, {
-          createdBy: sess.userId,
-          customerId,
-          customerName: customerName?.trim() ?? null,
-          phone: phone ?? null,
-        });
-        if ("error" in resolvedCustomer) return resolvedCustomer;
-
-        const [newProject] = await tx
-          .insert(projectsTable)
-          .values({
-            name: name.trim(),
-            customerId: resolvedCustomer.customerId,
-            customerName: resolvedCustomer.customerName,
-            phone: resolvedCustomer.phone,
-            buildingType,
-            productInterest,
-            stageDisplay: 'new',
-            stageInternal: 2,
-            notes: personInCharge
-              ? `Auto-created from Orgadata file. Person in charge: ${personInCharge}`
-              : 'Auto-created from Orgadata file',
-            createdBy: sess.userId,
-          })
-          .returning();
-
-        return newProject;
-      });
-
-      if ("error" in createdProject) {
-        if (createdProject.error === "customer_not_found") {
-          res.status(404).json({ error: "Customer not found" });
-          return;
-        }
-        if (createdProject.error === "phone_exists") {
-          res.status(409).json({ error: "phone_exists", existingCustomerId: createdProject.existingCustomerId });
-          return;
-        }
-        if (createdProject.error === "phone_invalid") {
-          res.status(400).json({ error: "phone must be a valid E.164 number" });
-          return;
-        }
-        res.status(400).json({ error: "customerName is required" });
-        return;
-      }
-
-      res.status(201).json(createdProject);
-    } catch (err) {
-      logger.error(err, 'create-project-from-file failed');
-      res.status(500).json({ error: 'Internal server error' });
-    }
+// GET /erp/files/audit — flat log of all active ERP project files (Admin only)
+router.get("/erp/files/audit", requireRole('Admin'), async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        pf.id,
+        pf.project_id,
+        p.name        AS project_name,
+        p.code        AS project_code,
+        pf.file_type,
+        pf.original_filename,
+        pf.uploaded_at,
+        u.username    AS uploaded_by_name
+      FROM project_files pf
+      JOIN projects p ON p.id = pf.project_id
+      JOIN users    u ON u.id = pf.uploaded_by
+      WHERE pf.is_active = true
+      ORDER BY pf.uploaded_at DESC
+      LIMIT 1000
+    `);
+    res.json(rows.rows);
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/files/audit failed');
+    res.status(500).json({ error: 'Internal server error' });
   }
-);
+});
 
 // GET /erp/projects/:id/parsed-quotation — returns latest parsed quotation for the project
 router.get("/erp/projects/:id/parsed-quotation", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {

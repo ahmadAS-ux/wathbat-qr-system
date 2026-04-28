@@ -1,6 +1,6 @@
 # FILE_UPLOAD_GUIDE.md — Complete File Upload Mechanism Reference
 
-> Last updated: April 2026 — v3.3.0
+> Last updated: April 2026 — v4.0.10
 > Source files: `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` · `artifacts/api-server/src/routes/erp.ts`
 > Claude Code: Update this file when upload logic changes.
 
@@ -149,27 +149,17 @@ const uploadFile = async (file: File, fileType: string, extraQuery = '') => {
       { method: 'POST', body: fd }
     );
 
-    // 409 for quotation/price_quotation → open name mismatch dialog
+    // 409 for quotation/price_quotation → unified NameMismatchModal (v4.0.10)
     if (res.status === 409 && (fileType === 'price_quotation' || fileType === 'quotation')) {
       const conflict = await res.json();
-      setNameMismatch({
-        nameInFile: conflict.nameInFile,
-        nameInSystem: conflict.nameInSystem,
-        pendingFile: file,
-        fileType
-      });
+      setNameMismatch({ nameInFile: conflict.nameInFile, nameInSystem: conflict.nameInSystem, pendingFile: file, fileType });
       return;
     }
 
-    // 409 for glass_order → open glass conflict dialog
+    // 409 for glass_order → same unified NameMismatchModal (v4.0.10 — glass-specific dialog removed)
     if (res.status === 409 && fileType === 'glass_order') {
       const conflict = await res.json();
-      setGlassDetect({
-        orgadataName: conflict.orgadataName ?? '',
-        orgadataPerson: null,
-        pendingFile: file,
-        nameMatches: false
-      });
+      setNameMismatch({ nameInFile: conflict.orgadataName ?? '', nameInSystem: conflict.systemName ?? '', pendingFile: file, fileType });
       return;
     }
 
@@ -288,88 +278,74 @@ const handleUploadAll = async () => {
 
 ---
 
-## 6. Frontend — 409 Quotation Name Mismatch Dialog
+## 6. Frontend — 409 Unified Name Mismatch Dialog (v4.0.10)
 
-**When triggered:** `uploadFile()` receives a 409 response for `quotation` or `price_quotation` file types.
+**When triggered:** `uploadFile()` receives a 409 for any Orgadata file type (`quotation`, `price_quotation`, or `glass_order`).
 
 **State set:** `setNameMismatch({ nameInFile, nameInSystem, pendingFile, fileType })`
+- Quotation 409: `nameInFile = conflict.nameInFile`, `nameInSystem = conflict.nameInSystem`
+- Glass 409: `nameInFile = conflict.orgadataName`, `nameInSystem = conflict.systemName`
 
-**Component rendered:** `<NameMismatchModal>` (`src/components/erp/NameMismatchModal.tsx`), mounted at line 2087:
-```tsx
-{nameMismatch && (
-  <NameMismatchModal
-    nameInFile={nameMismatch.nameInFile}
-    nameInSystem={nameMismatch.nameInSystem}
-    onChoice={handleNameMismatchChoice}
-  />
-)}
-```
+**Component rendered:** `<NameMismatchModal>` (`src/components/erp/NameMismatchModal.tsx`):
 
 **What the modal shows:**
-- Name in the uploaded file (`nameInFile`)
-- Name in the system (`nameInSystem`)
-- Three buttons: **Keep Current Name**, **Update System Name**, **Cancel**
+- Name in the uploaded file
+- Name in the system
+- **Two buttons:** **Keep** (default/focused) | **Update**
+- × closes without uploading
 
-**Handler — `handleNameMismatchChoice(choice)` (line 1118):**
+**Handler — `handleNameMismatchChoice(choice)`:**
 ```typescript
 const handleNameMismatchChoice = async (choice: NameMismatchChoice) => {
   if (!nameMismatch) return;
-  const { pendingFile } = nameMismatch;
-  setNameMismatch(null);          // close dialog immediately
+  const { pendingFile, fileType, nameInFile } = nameMismatch;
+  setNameMismatch(null);
   if (choice === 'cancel') return;
-
-  const params = choice === 'proceedAndUpdate'
-    ? '?confirmNameMismatch=true&updateProjectName=true'  // "Update System Name"
-    : '?confirmNameMismatch=true';                         // "Keep Current Name"
-
-  await uploadFile(pendingFile, nameMismatch.fileType, params);  // retry upload with params
-};
-```
-
-| Button | `choice` value | Query params sent | What backend does |
-|---|---|---|---|
-| Keep Current Name | `'proceed'` | `?confirmNameMismatch=true` | Saves file; keeps project name unchanged |
-| Update System Name | `'proceedAndUpdate'` | `?confirmNameMismatch=true&updateProjectName=true` | Saves file; updates `projects.name` to name from file |
-| Cancel | `'cancel'` | (no request) | Discards upload |
-
----
-
-## 7. Frontend — 409 Glass Order Conflict Dialog
-
-**When triggered:** `uploadFile()` receives a 409 response for `glass_order` file type.
-
-**State set:** `setGlassDetect({ orgadataName, orgadataPerson: null, pendingFile, nameMatches: false })`
-
-**Dialog renders inline** (lines 2096–2201). Shows:
-- The project name extracted from the Orgadata file (`orgadataName`)
-- The current system project name
-- **Three buttons** when names differ:
-  - **"Update to Orgadata name"** → `handleGlassConfirm(true)`
-  - **"Keep current name"** → `handleGlassConfirm(false)`
-  - **Cancel** → `setGlassDetect(null)` (discard)
-
-**Handler — `handleGlassConfirm(updateName)` (line 1137):**
-```typescript
-const handleGlassConfirm = async (updateName: boolean) => {
-  if (!glassDetect) return;
-  const { pendingFile } = glassDetect;
-  setGlassDetect(null);           // close dialog
-
-  await uploadFile(pendingFile, 'glass_order', `?confirm=true&updateName=${updateName}`);
-
-  if (updateName) {
-    // Extra loadProject() because name changed — need to refresh display
-    const scrollY = window.scrollY;
+  const extraQuery = fileType === 'glass_order' ? '?confirm=true' : '?confirmNameMismatch=true';
+  await uploadFile(pendingFile, fileType, extraQuery);
+  if (choice === 'update') {
+    // Name update is now a separate PATCH call — upload endpoint no longer mutates project name
+    await fetch(`${API_BASE}/api/erp/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameInFile }),
+    });
     await loadProject();
-    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 };
 ```
 
-| Button | `updateName` | Query params | What backend does |
-|---|---|---|---|
-| Update to Orgadata name | `true` | `?confirm=true&updateName=true` | Saves QR file + updates `projects.name` |
-| Keep current name | `false` | `?confirm=true&updateName=false` | Saves QR file; name unchanged |
+| Button | `choice` | What happens |
+|---|---|---|
+| Keep (default) | `'keep'` | Confirms upload; project name unchanged |
+| Update | `'update'` | Confirms upload; then PATCHes project name |
+| × / backdrop | `'cancel'` | Discards upload |
+
+**⚠️ v4.0.10 rule: The upload endpoint NEVER mutates `projects.name`. Name updates are always a separate PATCH.**
+
+---
+
+## 7. Frontend — Re-upload Confirmation Dialog (v4.0.10)
+
+**When triggered:** User clicks the upload button on a single-file slot that already has an active file (`fileFor(fileType) !== null`).
+
+**Component:** `<ReUploadConfirmModal>` (`src/components/erp/ReUploadConfirmModal.tsx`)
+
+**Default button: Cancel** (user must explicitly click "Replace" to proceed).
+
+**Logic in `triggerUpload()`:**
+```typescript
+const triggerUpload = (fileType: string) => {
+  const isMulti = ['vendor_order', 'qoyod', 'other'].includes(fileType);
+  if (!isMulti && fileFor(fileType) !== null) {
+    setPendingReUploadFileType(fileType);  // show confirm modal
+    return;
+  }
+  // otherwise open file picker directly
+};
+```
+
+Multi-file slots (`vendor_order`, `qoyod`, `other`) are exempt — they accumulate files by design.
 
 ---
 

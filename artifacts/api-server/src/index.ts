@@ -502,6 +502,11 @@ async function runStartupMigrations() {
         AND l.customer_id IS NOT NULL
     `);
 
+    // v4.0.10: remove processed_docs rows that were never linked to an ERP project.
+    // These are v1.0-era QR uploads that pre-date the ERP system. The standalone
+    // QR upload flow is being retired in Stage 6.5, so orphaned rows serve no purpose.
+    await db.execute(sql`DELETE FROM processed_docs WHERE project_id IS NULL`);
+
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 

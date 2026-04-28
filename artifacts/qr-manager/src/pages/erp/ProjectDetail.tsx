@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
+import { ReUploadConfirmModal } from '@/components/erp/ReUploadConfirmModal';
 import { useSimpleToast } from '@/components/Toast';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import {
@@ -99,13 +100,6 @@ interface PaymentMilestone {
   paidAt: string | null;
   qoyodDocFileId: number | null;
   notes: string | null;
-}
-
-interface GlassDetectResult {
-  orgadataName: string;
-  orgadataPerson: string | null;
-  pendingFile: File;
-  nameMatches: boolean;
 }
 
 interface NameMismatchData {
@@ -927,7 +921,6 @@ export default function ErpProjectDetail() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFileType, setPendingFileType] = useState<string>('');
-  const [glassDetect, setGlassDetect] = useState<GlassDetectResult | null>(null);
   const [qrOrders, setQrOrders] = useState<QROrder[]>([]);
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
@@ -945,6 +938,7 @@ export default function ErpProjectDetail() {
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<number | null>(null);
+  const [pendingReUploadFileType, setPendingReUploadFileType] = useState<string | null>(null);
 
   // Smart batch upload
   const batchInputRef = useRef<HTMLInputElement>(null);
@@ -1136,11 +1130,22 @@ export default function ErpProjectDetail() {
   };
 
   const triggerUpload = (fileType: string) => {
-    if (fileInputRef.current) {
-      const isMulti = ['vendor_order', 'qoyod', 'other'].includes(fileType);
-      fileInputRef.current.accept = isMulti ? '*/*' : '.docx';
+    const isMulti = ['vendor_order', 'qoyod', 'other'].includes(fileType);
+    if (!isMulti && fileFor(fileType) !== null) {
+      setPendingReUploadFileType(fileType);
+      return;
     }
+    if (fileInputRef.current) fileInputRef.current.accept = isMulti ? '*/*' : '.docx';
     setPendingFileType(fileType);
+    fileInputRef.current?.click();
+  };
+
+  const confirmReUpload = () => {
+    if (!pendingReUploadFileType) return;
+    const ft = pendingReUploadFileType;
+    setPendingReUploadFileType(null);
+    if (fileInputRef.current) fileInputRef.current.accept = '.docx';
+    setPendingFileType(ft);
     fileInputRef.current?.click();
   };
 
@@ -1161,7 +1166,7 @@ export default function ErpProjectDetail() {
       }
       if (res.status === 409 && fileType === 'glass_order') {
         const conflict = await res.json();
-        setGlassDetect({ orgadataName: conflict.orgadataName ?? '', orgadataPerson: null, pendingFile: file, nameMatches: false });
+        setNameMismatch({ nameInFile: conflict.orgadataName ?? '', nameInSystem: conflict.systemName ?? '', pendingFile: file, fileType });
         return;
       }
       if (!res.ok) {
@@ -1190,13 +1195,21 @@ export default function ErpProjectDetail() {
 
   const handleNameMismatchChoice = async (choice: NameMismatchChoice) => {
     if (!nameMismatch) return;
-    const { pendingFile } = nameMismatch;
+    const { pendingFile, fileType, nameInFile } = nameMismatch;
     setNameMismatch(null);
     if (choice === 'cancel') return;
-    const params = choice === 'proceedAndUpdate'
-      ? '?confirmNameMismatch=true&updateProjectName=true'
-      : '?confirmNameMismatch=true';
-    await uploadFile(pendingFile, nameMismatch.fileType, params);
+    const extraQuery = fileType === 'glass_order' ? '?confirm=true' : '?confirmNameMismatch=true';
+    await uploadFile(pendingFile, fileType, extraQuery);
+    if (choice === 'update') {
+      await fetch(`${API_BASE}/api/erp/projects/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameInFile }),
+      });
+      const scrollY = window.scrollY;
+      await loadProject();
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1205,18 +1218,6 @@ export default function ErpProjectDetail() {
     if (fileInputRef.current) fileInputRef.current.value = '';
     // Always use the slot's fileType directly — never auto-detect from filename
     await uploadFile(file, pendingFileType);
-  };
-
-  const handleGlassConfirm = async (updateName: boolean) => {
-    if (!glassDetect) return;
-    const { pendingFile } = glassDetect;
-    setGlassDetect(null);
-    await uploadFile(pendingFile, 'glass_order', `?confirm=true&updateName=${updateName}`);
-    if (updateName) {
-      const scrollY = window.scrollY;
-      await loadProject();
-      requestAnimationFrame(() => window.scrollTo(0, scrollY));
-    }
   };
 
   const downloadFile = (fileId: number, filename: string) => {
@@ -2302,121 +2303,21 @@ export default function ErpProjectDetail() {
       <input ref={fileInputRef} type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
       <input ref={batchInputRef} type="file" className="hidden" accept=".docx" multiple onChange={handleBatchSelect} />
 
-      {/* Quotation Name Mismatch Modal */}
+      {/* Re-upload confirmation — shown when user clicks upload on a slot that already has a file */}
+      {pendingReUploadFileType && (
+        <ReUploadConfirmModal
+          onConfirm={confirmReUpload}
+          onCancel={() => setPendingReUploadFileType(null)}
+        />
+      )}
+
+      {/* Name Mismatch Modal — unified for all Orgadata file types */}
       {nameMismatch && (
         <NameMismatchModal
           nameInFile={nameMismatch.nameInFile}
           nameInSystem={nameMismatch.nameInSystem}
           onChoice={handleNameMismatchChoice}
         />
-      )}
-
-      {/* Glass Order Confirmation Dialog */}
-      {glassDetect && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          onClick={() => setGlassDetect(null)}
-        >
-          <div
-            className="bg-[#FAFAF7] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] w-full max-w-md border border-[#ECEAE2] overflow-hidden"
-            dir={isRtl ? 'rtl' : 'ltr'}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b border-[#ECEAE2] ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                {glassDetect.nameMatches ? (
-                  <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                )}
-                <h3 className={`font-semibold text-slate-900 text-sm ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                  {glassDetect.nameMatches ? t('glass_confirm_title') : t('qr_conflict_title')}
-                </h3>
-              </div>
-              <button
-                onClick={() => setGlassDetect(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-[#ECEAE2] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-6 py-5 space-y-4">
-              {/* Orgadata name pill */}
-              <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <span className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                  {t('detect_orgadata_label')}:
-                </span>
-                <span
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#141A24]/8 border border-[#1B2A4A]/12 text-[#141A24] text-xs font-semibold"
-                  dir="ltr"
-                >
-                  {glassDetect.orgadataName}
-                </span>
-                {glassDetect.orgadataPerson && (
-                  <span className="text-xs text-slate-400" dir="ltr">{glassDetect.orgadataPerson}</span>
-                )}
-              </div>
-
-              {/* Name comparison (only when names differ) */}
-              {!glassDetect.nameMatches && (
-                <div className="rounded-xl bg-[#F4F2EB] border border-[#ECEAE2] p-4 space-y-3 text-sm">
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_system_name')}</p>
-                    <p className="font-semibold text-[#141A24]">"{project.name}"</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">{t('qr_conflict_orgadata_name')}</p>
-                    <p className="font-semibold text-slate-700" dir="ltr">"{glassDetect.orgadataName}"</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className={`flex flex-wrap gap-2 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                {glassDetect.nameMatches ? (
-                  <>
-                    <button
-                      onClick={() => handleGlassConfirm(false)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                    >
-                      {t('glass_confirm_upload')}
-                    </button>
-                    <button
-                      onClick={() => setGlassDetect(null)}
-                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                    >
-                      {t('detect_cancel')}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => handleGlassConfirm(true)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                    >
-                      {t('qr_conflict_update')}
-                    </button>
-                    <button
-                      onClick={() => handleGlassConfirm(false)}
-                      className={`flex-1 px-4 py-2 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                    >
-                      {t('qr_conflict_keep')}
-                    </button>
-                    <button
-                      onClick={() => setGlassDetect(null)}
-                      className={`px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                    >
-                      {t('qr_conflict_cancel')}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Delete Project Modal */}

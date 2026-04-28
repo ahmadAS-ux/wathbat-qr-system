@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, X, FolderOpen, CreditCard, List, Settings, Upload, ChevronDown, Search, Package, UserCheck,
+  Menu, X, FolderOpen, CreditCard, List, Settings, ChevronDown, Search, Package, UserCheck,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -336,20 +336,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </button>
             {!qrCollapsed && (
               <div className="space-y-0.5">
-                {canViewQRSystem(user?.role) && (
-                  <Link href="/qr/upload">
-                    <div onClick={() => handleNavClick('/qr/upload', true)} className={navItem(isActive('/qr/upload', true))} style={navItemStyle(isActive('/qr/upload', true))}>
-                      <Upload className={navIcon(isActive('/qr/upload', true))} />
-                      <span className="flex-1">{t('qr_upload_nav')}</span>
+                {isAdmin && (
+                  <Link href="/admin/history">
+                    <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
+                      <Archive className={navIcon(isActive('/admin/history', false))} />
+                      <span className="flex-1">{t('archive_title')}</span>
                     </div>
                   </Link>
                 )}
-                <Link href="/admin/history">
-                  <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
-                    <Archive className={navIcon(isActive('/admin/history', false))} />
-                    <span className="flex-1">{t('archive_title')}</span>
-                  </div>
-                </Link>
                 {canViewQRSystem(user?.role) && (
                   <Link href="/admin/users">
                     <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))} style={navItemStyle(isActive('/admin/users', false))}>

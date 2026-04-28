@@ -1,7 +1,7 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 
-export type NameMismatchChoice = 'cancel' | 'proceed' | 'proceedAndUpdate';
+export type NameMismatchChoice = 'cancel' | 'keep' | 'update';
 
 interface Props {
   nameInFile: string;
@@ -55,24 +55,19 @@ export function NameMismatchModal({ nameInFile, nameInSystem, onChoice }: Props)
             </div>
           </div>
 
-          <div className={`flex flex-col gap-2 pt-1`}>
+          <div className={`flex gap-3 pt-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <button
-              onClick={() => onChoice('proceedAndUpdate')}
-              className={`w-full px-4 py-2.5 text-sm font-semibold bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              autoFocus
+              onClick={() => onChoice('keep')}
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
             >
-              {t('name_mismatch_proceed_update')}
+              {t('name_mismatch_keep')}
             </button>
             <button
-              onClick={() => onChoice('proceed')}
-              className={`w-full px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+              onClick={() => onChoice('update')}
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold border border-[#ECEAE2] text-slate-700 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
             >
-              {t('name_mismatch_proceed')}
-            </button>
-            <button
-              onClick={() => onChoice('cancel')}
-              className={`w-full px-4 py-2 text-sm text-slate-400 hover:text-slate-600 rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-            >
-              {t('name_mismatch_cancel')}
+              {t('name_mismatch_update')}
             </button>
           </div>
         </div>
