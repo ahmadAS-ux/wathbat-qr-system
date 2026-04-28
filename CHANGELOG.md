@@ -4,6 +4,32 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.0.13] - April 2026 - Patch: Stage 6.6 regressions + guide sync
+
+### Fixed
+
+- **Empty slot styling** — Section, Assembly List, Cut Optimisation, Material Analysis, Vendor Order, Qoyod, and Other slots were not rendering via the unified `<FileSlot>` component in all cases. The legacy Glass Order QR branch (`hasQr=true`, `hasGlassProjectFile=false`) used an ad-hoc bare card with a raw `triggerUpload` button. All slots now render through `<FileSlot>` for both empty and filled states, matching Philosophy Rule 10.
+- **Empty state hint text** — `FileSlot.tsx` `emptyState` was missing the "لم يتم رفع ملف بعد" / "No file uploaded yet" hint text required by Rule 10 and the UI/UX Checklist. The `file_slot_no_file` i18n key is now rendered above the upload button.
+- **Extractor logo repetition** — `extractDocxToA4Html()` was rendering document header images (Wathbat logo) into the A4 HTML extract via mammoth, once per page/section. Images are now suppressed with `mammoth.images.imgElement(async () => ({ src: '' }))`. CSS scaffold adds `img { display: none }` and `header, footer { display: none }` for defence-in-depth. Document body text and tables are unaffected.
+- **Glass Order delete** — The legacy QR branch (`hasQr=true`) had no `<FileSlot>` and therefore no "..." menu. Admin can now delete Glass Order files via the "..." menu in all three Glass Order branches (hasGlassProjectFile, hasQr legacy, neither). `canDelete={canDeleteFileSlot}` was already correct on the two non-legacy branches; the legacy branch gained a FileSlot in this patch.
+
+### Documentation
+
+- **FILE_UPLOAD_GUIDE.md** updated to v4.0.13:
+  - Added **Section 0** covering: two-layer architecture (upload mechanism + FileSlot UI), Original vs Extracted artifact table by file type, public file-serving endpoints (v4.0.12), and corrected delete permissions (Admin-only, Rule 10)
+  - Corrected Section 18 delete permission description (Admin-only; FactoryManager/Accountant no longer delete)
+  - Updated data flow diagram in Section 23 to match
+  - Updated header, source file list, and footer version references
+
+### Unchanged
+
+- Auth layer (`app.ts` isPublic list) — v4.0.12 fix intact
+- Glass QR parser and `processed_docs` — untouched
+- Database schema — no changes
+- SmartUpload routing (`triggerUpload`, `handleBatchSelect`, `detectFileType`, `uploadFile`) — untouched
+
+---
+
 ## [4.0.12] - April 2026 - Hotfix: Public file-serving endpoints
 
 ### Fixed
