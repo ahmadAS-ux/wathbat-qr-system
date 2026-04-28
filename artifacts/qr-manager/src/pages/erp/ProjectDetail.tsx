@@ -8,6 +8,7 @@ import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 import { ReUploadConfirmModal } from '@/components/erp/ReUploadConfirmModal';
+import { FileSlot, type FileRecord, type FileSlotFileType } from '@/components/erp/FileSlot';
 import { useSimpleToast } from '@/components/Toast';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import {
@@ -28,6 +29,7 @@ interface ProjectFile {
   uploadedBy: number;
   uploadedByName?: string | null;
   isActive?: boolean;
+  hasExtracted?: boolean;
 }
 
 interface DetectionItem {
@@ -170,6 +172,18 @@ const FILE_SLOTS = [
   { fileType: 'qoyod',             labelAr: 'قيود',                labelEn: 'Qoyod',                 multiFile: true  },
   { fileType: 'other',             labelAr: 'أخرى',               labelEn: 'Other',                 multiFile: true  },
 ];
+
+const FILE_TYPE_TO_SLOT: Record<string, FileSlotFileType> = {
+  glass_order:       'glass',
+  quotation:         'quotation',
+  section:           'sections',
+  assembly_list:     'assembly',
+  cut_optimisation:  'cut-optimisation',
+  material_analysis: 'material-analysis',
+  vendor_order:      'vendor',
+  qoyod:             'qoyod',
+  other:             'other',
+};
 
 interface Phase {
   id: number;
@@ -1721,58 +1735,67 @@ export default function ErpProjectDetail() {
                 );
               }
 
-              // ── Glass Order: dual display ─────────────────────────────────
+              // ── Glass Order ───────────────────────────────────────────────
               if (slot.fileType === 'glass_order') {
-                const existing = fileFor('glass_order');
-                const hasOriginal = !!existing;
+                const glassFiles = allFiles.filter(f => f.fileType === 'glass_order' && f.isActive !== false);
+                const hasGlassProjectFile = glassFiles.length > 0;
                 const hasQr = qrOrders.length > 0;
                 return (
                   <div key="glass_order" className="space-y-1">
-                    <div className="rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
-                      <div className="flex items-center gap-3 p-3">
-                        <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                        <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
-                        {canUpload && (
-                          <button onClick={() => triggerUpload('glass_order')} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
-                            {(isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                          </button>
-                        )}
+                    {hasGlassProjectFile ? (
+                      <FileSlot
+                        type="single"
+                        fileType="glass"
+                        label={{ ar: slot.labelAr, en: slot.labelEn }}
+                        files={glassFiles as FileRecord[]}
+                        onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
+                        onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
+                        onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                        onDelete={canDelete ? deleteFile : undefined}
+                        canDelete={canDelete}
+                        canReplace={canUpload}
+                        isLoading={isUploading}
+                      />
+                    ) : hasQr ? (
+                      <div className="rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
+                        <div className="flex items-center gap-3 p-3">
+                          <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                          <p className="flex-1 text-sm font-medium text-slate-700">{label}</p>
+                          {canUpload && (
+                            <button onClick={() => triggerUpload('glass_order')} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={t('erp_file_replace')}>
+                              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            </button>
+                          )}
+                        </div>
+                        <div className="border-t border-[#ECEAE2] p-3 bg-[#FAFAF7]">
+                          <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
+                            <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
+                            <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
+                              <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
+                            </a>
+                          </div>
+                        </div>
                       </div>
-                      {(hasOriginal || hasQr) && (
-                        <div className={`border-t border-[#ECEAE2] p-3 bg-[#FAFAF7] ${hasOriginal && hasQr ? 'grid grid-cols-2 gap-3' : ''}`}>
-                          {hasOriginal && (
-                            <div className="rounded-lg border border-[#ECEAE2] p-2.5">
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#141A24]/8 text-[#141A24] border border-[#1B2A4A]/10">{t('files_glass_original')}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 truncate" dir="ltr">{existing!.originalFilename}</p>
-                              <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(existing!.uploadedAt).toLocaleDateString()}</p>
-                              <button onClick={() => downloadFile(existing!.id, existing!.originalFilename)} className="mt-1.5 flex items-center gap-1 text-xs text-slate-400 hover:text-[#141A24] transition-colors">
-                                <Download className="w-3 h-3" />{t('erp_file_download')}
-                              </button>
-                            </div>
-                          )}
-                          {hasQr && (
-                            <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
-                              <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
-                              <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
-                                <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {!hasOriginal && !hasQr && (
-                        <div className="border-t border-[#ECEAE2] px-3 py-2 bg-[#FAFAF7]">
-                          <p className="text-xs text-slate-300">{t('project_file_no_upload')}</p>
-                        </div>
-                      )}
-                    </div>
+                    ) : (
+                      <FileSlot
+                        type="single"
+                        fileType="glass"
+                        label={{ ar: slot.labelAr, en: slot.labelEn }}
+                        files={[]}
+                        onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
+                        onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
+                        onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                        onDelete={canDelete ? deleteFile : undefined}
+                        canDelete={canDelete}
+                        canReplace={canUpload}
+                        isLoading={isUploading}
+                      />
+                    )}
                     {inactive.length > 0 && (
                       <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
                         {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1799,48 +1822,24 @@ export default function ErpProjectDetail() {
               }
 
               // ── Standard single-file slot ─────────────────────────────────
-              const existing = fileFor(slot.fileType);
-              const parsedBadge = slot.fileType === 'assembly_list' && parsedAssemblyList
-                ? t('assembly_list_parsed_positions').replace('{count}', String(parsedAssemblyList.positionCount))
-                : slot.fileType === 'cut_optimisation' && parsedCutOptimisation
-                ? t('cut_opt_parsed_profiles').replace('{count}', String(parsedCutOptimisation.profileCount))
-                : null;
+              const slotFiles = allFiles.filter(f => f.fileType === slot.fileType && f.isActive !== false);
+              const slotFileType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
 
               return (
                 <div key={slot.fileType} className="space-y-1">
-                  <div className="flex items-center gap-3 p-3 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
-                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-slate-700">{label}</p>
-                        {parsedBadge && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-600 border border-teal-100">{parsedBadge}</span>
-                        )}
-                      </div>
-                      {existing ? (
-                        <p className="text-xs text-slate-400 truncate mt-0.5" dir="ltr">{existing.originalFilename}</p>
-                      ) : (
-                        <p className="text-xs text-slate-300 mt-0.5">{t('project_file_no_upload')}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {existing && (
-                        <button onClick={() => downloadFile(existing.id, existing.originalFilename)} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors" title={t('erp_file_download')}>
-                          <Download className="w-4 h-4" />
-                        </button>
-                      )}
-                      {existing && canDelete && (
-                        <button onClick={() => setConfirmDeleteFileId(existing.id)} disabled={deletingFileId === existing.id} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40" title={t('project_file_delete')}>
-                          {deletingFileId === existing.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      )}
-                      {canUpload && (
-                        <button onClick={() => triggerUpload(slot.fileType)} disabled={isUploading} className="p-1.5 rounded-lg text-slate-400 hover:text-[#141A24] hover:bg-[#FAFAF7] transition-colors disabled:opacity-40" title={existing ? t('erp_file_replace') : t('erp_file_upload')}>
-                          {(isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <FileSlot
+                    type="single"
+                    fileType={slotFileType}
+                    label={{ ar: slot.labelAr, en: slot.labelEn }}
+                    files={slotFiles as FileRecord[]}
+                    onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
+                    onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
+                    onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                    onDelete={canDelete ? deleteFile : undefined}
+                    canDelete={canDelete}
+                    canReplace={canUpload}
+                    isLoading={isUploading}
+                  />
 
                   {/* Version history */}
                   {inactive.length > 0 && (

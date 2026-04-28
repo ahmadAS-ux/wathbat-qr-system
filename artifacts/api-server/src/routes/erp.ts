@@ -2069,6 +2069,7 @@ router.get("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), async (r
       uploadedAt: projectFilesTable.uploadedAt,
       uploadedBy: projectFilesTable.uploadedBy,
       isActive: projectFilesTable.isActive,
+      hasExtracted: sql<boolean>`(${projectFilesTable.extractedFile} IS NOT NULL)`,
     }).from(projectFilesTable)
       .where(
         includeInactive
