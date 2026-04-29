@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** April 2026 — v4.1.0: resolved H-5 and M-4 (LibreOffice extractor)
+> **Last updated:** April 2026 — v4.1.1: H-5 deprecated by design, M-4 documentation aligned
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -170,9 +170,10 @@ See `V4_4_PERMISSIONS_ROADMAP.md` Commit 7.
 ### H-5 — Mammoth is the wrong tool for Orgadata .docx (extractor produces near-empty output)
 
 **Source:** Codex deep-dive investigation (April 2026, against v4.0.14)
-**Status:** Resolved — v4.1.0
+**Status:** Deprecated — v4.1.1
 **Discovered:** Codex inspected the actual `word/document.xml` of an Orgadata sample file
 **Fixed in:** v4.1.0 — Option Medium chosen: LibreOffice headless DOCX→PDF extraction, deployed via Docker on Render
+**Deprecated in:** v4.1.1 — The extractor concept itself was deprecated for the 7 Orgadata .docx slots. Upload-time extraction no longer happens. The contract feature (forthcoming) handles Quotation conversion at contract-generation time using the same LibreOffice infrastructure shipped in v4.1.0.
 
 **The discovery (Codex's findings):**
 
@@ -351,7 +352,7 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
-| H-5 | Mammoth is the wrong tool for Orgadata .docx | v4.1.0 — LibreOffice DOCX→PDF |
+| H-5 | Mammoth is the wrong tool for Orgadata .docx | Resolved in v4.1.0 then Deprecated in v4.1.1 — extraction concept removed for non-Glass/non-Qoyod slots |
 | M-4 | FILE_UPLOAD_GUIDE.md still describes v4.0.13 extractor behavior | v4.1.0 — docs updated |
 
 Full issue text remains in their original severity sections above for audit history.

@@ -4,6 +4,29 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.1.1] - April 2026 - Upload simplification
+
+### Changed
+- EXTRACTED column hidden in FileSlot UI for the 7 Orgadata `.docx` slot types (Quotation, Section, Assembly List, Cut Optimisation, Material Analysis, Vendor Order, Other). These slots now show a full-width ORIGINAL tile only, with no "Pending extraction" placeholder.
+- Backend no longer calls `extractDocxToPdf` for these slots at upload time. `extracted_file` stays NULL on new uploads. Uploads complete faster (no LibreOffice conversion in the upload path).
+
+### Unchanged
+- Glass Order: EXTRACTED tile renders the QR HTML report via existing QR pipeline (`parseAndInjectQR` + dual-write to `processed_docs` and `project_files`)
+- Qoyod: EXTRACTED tile renders byte-identical PDF copy; multi-file behavior unchanged
+- LibreOffice infrastructure (Docker base, apt-installed LibreOffice + fonts in `artifacts/api-server/Dockerfile`, `render.yaml` docker runtime) retained for the forthcoming contract feature
+- `extractDocxToPdf` function in `docx-extractor.ts` unchanged and still exported
+- Contract template system in `AdminSettings.tsx` unchanged
+- Database schema unchanged (`extracted_file` column kept; old rows not migrated, intentionally orphaned in UI for affected slot types)
+- Auth, SmartUpload, FileSlot 3-button semantics unchanged
+
+### Why
+After design review, the EXTRACTED tile for non-Glass/non-Qoyod slots was assessed as providing no business value. The contract feature (planned for a future v4.x release) will combine the contract template with the project's Quotation file at contract-generation time, not at upload time. This patch simplifies uploads now and preserves the LibreOffice infrastructure for the future contract feature.
+
+### Known
+- Existing `project_files` rows uploaded under v4.1.0 that have non-NULL `extracted_file` for the 7 Orgadata slots are intentionally orphaned in the UI. The `/api/erp/projects/:id/files/:fileId/extracted` endpoint still serves them if accessed directly via URL, but the slot UI no longer surfaces them. No migration is performed.
+
+---
+
 ## [4.1.0] - April 2026 - Stage 7: LibreOffice DOCX→PDF extraction
 
 ### Changed

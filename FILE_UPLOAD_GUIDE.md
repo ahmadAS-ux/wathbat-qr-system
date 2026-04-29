@@ -1,6 +1,6 @@
 # FILE_UPLOAD_GUIDE.md — Complete File Upload Mechanism Reference
 
-> Last updated: April 2026 — v4.1.0
+> Last updated: April 2026 — v4.1.1
 > Source files: `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` · `artifacts/api-server/src/routes/erp.ts` · `artifacts/api-server/src/lib/docx-extractor.ts` · `artifacts/qr-manager/src/components/erp/FileSlot.tsx` · `artifacts/api-server/src/app.ts` (isPublic list)
 > Claude Code: Update this file when upload logic changes.
 
@@ -47,7 +47,8 @@ This is identical for all 9 file types. The slot determines the `fileType`. The 
 **LAYER 2 — UI rendering (added in Stage 6.6 / v4.0.11):**
 Every file slot renders via the `<FileSlot>` component (`artifacts/qr-manager/src/components/erp/FileSlot.tsx`).
 - **Empty state:** one centered `رفع ملف` button + hint text "لم يتم رفع ملف بعد"
-- **Filled state:** 2 preview tiles (EXTRACTED | ORIGINAL) + 3 buttons (`معاينة` / `تنزيل` / `استبدال`) in RTL order
+- **Filled state (Glass / Qoyod):** 2 preview tiles (EXTRACTED | ORIGINAL) + 3 buttons (`معاينة` / `تنزيل` / `استبدال`) in RTL order
+- **Filled state (all other 7 slots):** 1 full-width ORIGINAL tile + 3 buttons (v4.1.1 — no EXTRACTED tile, no "Pending extraction" placeholder)
 
 The 3 buttons always operate on the Original file for every slot type. No file type changes this.
 
@@ -61,13 +62,15 @@ Every file slot stores two artifacts in `project_files`:
 | `extracted_file` (BYTEA) | The Extracted — server-derived on every upload/replace |
 | `extracted_mime` | MIME type of the Extracted |
 
-**Extracted artifact by file type:**
+**Extracted artifact by file type (v4.1.1):**
 
-| Slot type | Extracted artifact |
-|-----------|-------------------|
-| `glass_order` | QR-enhanced HTML (v1 parser output, dual-written to both `processed_docs` and `project_files` in v4.0.11+) |
-| `qoyod` | Byte-identical copy of original (no transformation until v4.3.0) |
-| Other 7 types | PDF via `extractDocxToPdf()` in `artifacts/api-server/src/lib/docx-extractor.ts` (LibreOffice headless DOCX→PDF, v4.1.0) |
+| Slot type | Extracted artifact | EXTRACTED tile in UI |
+|-----------|-------------------|----------------------|
+| `glass_order` | QR-enhanced HTML (v1 parser output, dual-written to both `processed_docs` and `project_files` in v4.0.11+) | ✅ Shown |
+| `qoyod` | Byte-identical copy of original (no transformation until v4.3.0) | ✅ Shown |
+| Other 7 types | NULL — no upload-time extraction (v4.1.1). `extractDocxToPdf()` is retained in `docx-extractor.ts` for future contract-generation use. | ❌ Hidden |
+
+**Why no extraction for the 7 Orgadata slots?** See [KNOWN_ISSUES.md H-5 deprecation note](KNOWN_ISSUES.md). The EXTRACTED preview tile was removed because the forthcoming contract feature uses the Quotation file at contract-generation time, not a pre-extracted upload-time copy. The LibreOffice infrastructure (`artifacts/api-server/Dockerfile`, `extractDocxToPdf` in `docx-extractor.ts`) is intentionally retained for that future use.
 
 ### Public file-serving endpoints (v4.0.12+)
 
@@ -112,7 +115,15 @@ const FILE_SLOTS = [
 
 **Orgadata files** (require `.docx`): `glass_order`, `quotation`, `section`, `assembly_list`, `cut_optimisation`, `material_analysis`
 
-**Multi-file types** (accept any file format): `vendor_order`, `qoyod`, `other`
+**Multi-file types and their accepted formats** (backend-enforced):
+
+| File type | Multi-file | Accepted format |
+|-----------|-----------|----------------|
+| `vendor_order` | ✅ Yes | `.docx` only |
+| `other` | ✅ Yes | `.docx` only |
+| `qoyod` | ✅ Yes | `.pdf` only |
+
+Note: the frontend previously set `accept='*/*'` for these slots, but the backend rejects non-`.docx` uploads for `vendor_order` and `other`, and non-`.pdf` uploads for `qoyod`. The actual constraint is backend-enforced, not frontend-enforced.
 
 ---
 
@@ -1060,4 +1071,4 @@ deleteFile(fileId)                          [ProjectDetail.tsx:1156]
 
 ---
 
-*This guide reflects the codebase as of v4.0.13 (April 2026) — keep in sync with STAGE_6_5_PHILOSOPHY_ALIGNMENT.md Rules 10–12. Update when upload logic changes.*
+*This guide reflects the codebase as of v4.1.1 (April 2026) — keep in sync with STAGE_6_5_PHILOSOPHY_ALIGNMENT.md Rules 10–12. Update when upload logic changes.*

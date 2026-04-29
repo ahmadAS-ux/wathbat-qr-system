@@ -5,7 +5,7 @@
 > Every feature, every refactor, every Claude Code prompt must respect these rules.
 > This file is mandatory reading at the start of any session.
 
-> **Last updated:** v4.0.11 (Stage 6.6 — added Rules 10–12 for file slot visual contract)
+> **Last updated:** v4.1.1 (Upload simplification — Rule 11 revised: EXTRACTED tile deprecated for the 7 Orgadata .docx slot types)
 
 ---
 
@@ -74,9 +74,11 @@ exactly these states:
 - Status badge: `مرفوع` (Uploaded)
 - Type icon + type label (e.g., `QUOTATION`, `GLASS ORDER`)
 - Filename + upload date
-- Two preview tiles side-by-side: **EXTRACTED** | **ORIGINAL**
-  - Click `ORIGINAL` tile → opens original in browser viewer (no download)
-  - Click `EXTRACTED` tile → opens extracted HTML in browser viewer (no download)
+- Preview tile(s) — varies by slot type (see Rule 11):
+  - **Glass and Qoyod:** two tiles side-by-side: **EXTRACTED** | **ORIGINAL**
+    - Click `ORIGINAL` tile → opens original in browser viewer (no download)
+    - Click `EXTRACTED` tile → opens extracted artifact in browser viewer (no download)
+  - **All other 7 slots:** single full-width **ORIGINAL** tile only
 
 **Loading state** — inline skeleton or spinner.
 
@@ -93,45 +95,49 @@ replace flow. Custom behavior is passed via props, not re-implemented.
 
 ---
 
-### Rule 11 — Original vs Extracted: Two Artifacts Per Slot
+### Rule 11 — Original vs Extracted: Artifacts by Slot Type (v4.1.1)
 
-Every file slot stores **two artifacts**:
+Every file slot stores the Original artifact. Select slot types also
+store a server-derived Extracted artifact.
 
 1. **Original** — exactly what the user uploaded. Untouched. The 3
    buttons (Preview, Download, Replace) always act on this.
 
-2. **Extracted** — a derived artifact produced automatically by the
-   server on every upload and every replace. Used for embedding into
-   contracts (future feature) and, for Glass, for QR scanning.
+2. **Extracted** — a derived artifact, where applicable. Used for QR
+   scanning (Glass), Qoyod filing, and future contract generation.
 
-**The Extracted artifact differs by file type as follows:**
+**Extracted artifact and UI tile visibility by file type:**
 
-| Slot type | Original format | Extracted artifact |
-|---|---|---|
-| Glass Order | PDF or HTML | HTML with QR codes injected (existing v1 parser) |
-| Quotation | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Sections | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Assembly List | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Cut Optimisation | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Material Analysis | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Vendor Orders | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Other | `.docx` only | PDF — LibreOffice headless DOCX→PDF (v4.1.0) |
-| Qoyod | PDF only | Identical copy of original (no transformation, until v4.3.0) |
+| Slot type | Original format | Extracted artifact | EXTRACTED tile shown? |
+|---|---|---|---|
+| Glass Order | `.docx`, PDF, or HTML | QR-enhanced HTML (existing v1 parser, dual-written to `processed_docs` and `project_files`) | ✅ Yes |
+| Qoyod | `.pdf` only | Byte-identical copy of original (no transformation until v4.3.0) | ✅ Yes |
+| Quotation | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Sections | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Assembly List | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Cut Optimisation | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Material Analysis | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Vendor Orders | `.docx` only | NULL — no upload-time extraction | ❌ No |
+| Other | `.docx` only | NULL — no upload-time extraction | ❌ No |
+
+**Why no extraction for the 7 Orgadata .docx slots (v4.1.1 decision):**
+After design review, the EXTRACTED preview tile for these slots provides
+no business value. The forthcoming contract feature will use the
+Quotation file converted to PDF at contract-generation time using the
+same LibreOffice infrastructure (`extractDocxToPdf` in
+`docx-extractor.ts`), not a pre-extracted upload-time artifact. The
+LibreOffice infrastructure is retained for that purpose.
 
 **Format enforcement:** The 7 non-Glass, non-Qoyod slots accept
 **only `.docx`**. Uploads of any other format are rejected by the
-backend with a clear error message. Glass accepts PDF/HTML. Qoyod
-accepts PDF.
+backend with a clear error message. Glass accepts `.docx`, PDF, or
+HTML. Qoyod accepts `.pdf` only.
 
-**Re-extraction on replace:** When the user replaces a file, the
-server automatically re-runs the appropriate extractor on the new
-Original. Old Original and old Extracted are kept as previous versions
-per Rule 7.
-
-**The two preview tiles in the filled-state UI are visual indicators
-that both artifacts exist. They are clickable to open the respective
-artifact in a browser viewer. They never trigger a download — only the
-Download button does that.**
+**UI layout rule (v4.1.1):**
+- Glass and Qoyod slots: two-column grid — EXTRACTED tile | ORIGINAL tile.
+- All other 7 slots: single full-width ORIGINAL tile. No "Pending
+  extraction" placeholder is shown. The `showsExtractedTile()` helper
+  in `FileSlot.tsx` (whitelist: `['glass', 'qoyod']`) controls this.
 
 ---
 
@@ -166,10 +172,10 @@ backend endpoints. The frontend may not invent a parallel API.
 
 - Insert file into `project_files`
 - Run the appropriate extractor based on file type and write the
-  result to `project_files.extracted_artifact` (or equivalent column)
+  result to `project_files.extracted_file`
 - For Glass: run the QR parser to inject QR codes into the HTML
 - For Qoyod: copy original bytes verbatim to the extracted slot
-- For other 7 types: run the `.docx` → PDF extractor (LibreOffice headless, v4.1.0)
+- For other 7 types: no extraction at upload time (v4.1.1 — `extracted_file` stays NULL)
 - Save processed HTML report to `processed_docs` (with `project_id` set,
   never NULL)
 - Trigger `autoAdvanceStage`
@@ -187,7 +193,6 @@ backend endpoints. The frontend may not invent a parallel API.
 - Use "Person in Charge" as a project or customer identifier
 - Accept non-`.docx` files for the 7 .docx-only slot types
 - Accept non-PDF files for the Qoyod slot
-- Skip the extraction step on replace
 
 ---
 
@@ -204,7 +209,7 @@ backend endpoints. The frontend may not invent a parallel API.
 └─────────────────────────────────────────┘
 ```
 
-### Filled state (every file type — single-file slot)
+### Filled state — Glass Order or Qoyod slot
 
 ```
 ┌─────────────────────────────────────────┐
@@ -221,11 +226,22 @@ backend endpoints. The frontend may not invent a parallel API.
 └─────────────────────────────────────────┘
 ```
 
-The only visual variation between file types is what is **drawn inside
-the EXTRACTED tile**:
-- Glass Order → QR code thumbnail (the HTML output)
-- Qoyod → thumbnail identical to ORIGINAL tile (since extracted is a copy)
-- All others → thumbnail of the header-stripped HTML
+### Filled state — all other 7 .docx slot types (v4.1.1)
+
+```
+┌─────────────────────────────────────────┐
+│ [مرفوع badge]   [icon] TYPE LABEL       │
+│                       filename-v2.docx  │
+│                       Apr 12 · 11:08    │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │           ORIGINAL               │  │
+│  │           (preview)              │  │
+│  └──────────────────────────────────┘  │
+│                                         │
+│   [استبدال] [⬇ تنزيل] [👁 معاينة]       │
+└─────────────────────────────────────────┘
+```
 
 The arrangement, button order, and labels never change.
 
@@ -267,3 +283,11 @@ and requires:
 - **v4.1.0** — Rule 11 updated: extracted artifact for the 7 Orgadata
   `.docx` slot types changed from A4 HTML (mammoth) to PDF (LibreOffice
   headless DOCX→PDF). Resolves H-5.
+- **v4.1.1** — Rule 11 revised: upload-time extraction deprecated for
+  the 7 Orgadata `.docx` slot types. `extracted_file` stays NULL on
+  new uploads. EXTRACTED tile and "Pending extraction" placeholder
+  hidden in FileSlot UI for those slots (whitelist: `['glass', 'qoyod']`).
+  Full-width ORIGINAL tile shown instead. LibreOffice infrastructure
+  retained for future contract-generation feature. Rule 10 visual anatomy
+  updated to show two distinct filled-state layouts. "Skip the extraction
+  step on replace" removed from FORBIDDEN list (no longer applicable).
