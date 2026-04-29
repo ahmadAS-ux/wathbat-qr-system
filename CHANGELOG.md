@@ -4,6 +4,42 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## [4.1.0] - April 2026 - Stage 7: LibreOffice DOCX→PDF extraction
+
+### Changed
+
+- **Extracted artifact format for Orgadata `.docx` files** — The 7 Orgadata slot types (Quotation, Sections, Assembly List, Cut Optimisation, Material Analysis, Vendor Orders, Other) previously used mammoth to produce an A4 HTML extract. mammoth is fundamentally the wrong tool for Orgadata files (H-5): the files embed content as structured tables and text runs that mammoth renders poorly, and the earlier "rasterized JPEG" diagnosis was incorrect. The extracted artifact is now a real PDF produced by LibreOffice headless running server-side during upload.
+- **Deployment runtime** — API service on Render switched from native Node runtime to Docker runtime. A new `artifacts/api-server/Dockerfile` installs LibreOffice (writer + core + common), fontconfig, and five Arabic-capable open font families (Noto, DejaVu, Liberation2, Carlito, Caladea). No proprietary fonts. No apt packages beyond the locked minimum set.
+- **Extracted endpoint filename** — `GET /api/erp/projects/:id/files/:fileId/extracted` previously hardcoded `_extracted.html` in `Content-Disposition` regardless of actual content. Now derives the suffix from `extractedMime`: `application/pdf` → `_extracted.pdf`, `text/html` → `_extracted.html` (legacy rows), anything else → `_extracted.bin`.
+
+### Removed
+
+- `mammoth` removed from `artifacts/api-server/package.json`. Bundle size reduced from 3.9 MB to 2.8 MB.
+
+### Resolved
+
+- **H-5** — Mammoth wrong tool for Orgadata .docx (extractor produces poor/empty output). Fixed: LibreOffice DOCX→PDF replaces mammoth entirely.
+- **M-4** — FILE_UPLOAD_GUIDE.md and STAGE_6_5_PHILOSOPHY_ALIGNMENT.md Rule 11 updated to reflect PDF extraction.
+
+### Unchanged
+
+- Glass Order QR pipeline — untouched (still mammoth-free HTML with QR injection)
+- Qoyod extraction — untouched (byte-identical copy of original PDF)
+- All auth layer changes from v4.0.12 — intact
+- All FileSlot wiring from v4.0.13 — intact
+- Database schema — no changes (`extracted_file` BYTEA and `extracted_mime` VARCHAR(100) already existed)
+- Frontend — no UI changes; FileSlot.tsx untouched
+- Existing rows — not backfilled; old mammoth HTML extracts remain as-is; re-upload triggers LibreOffice on new rows
+
+### Technical notes
+
+- LibreOffice binary: `process.env.LIBREOFFICE_BIN || 'soffice'`
+- Conversion timeout: 30 seconds (`SIGKILL` on breach)
+- Failure behavior: logs warning with filename/fileType/projectId, upload still succeeds, `extracted_file = NULL`
+- Arabic rendering quality: accepted as manual QA risk post-deploy (no proprietary Tahoma available on Render Linux)
+
+---
+
 ## [4.0.14] - April 2026 - Patch: Revert extractor image suppression
 
 ### Fixed
