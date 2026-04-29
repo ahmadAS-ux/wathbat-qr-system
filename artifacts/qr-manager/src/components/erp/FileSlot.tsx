@@ -25,6 +25,17 @@ export type FileSlotFileType =
   | 'cut-optimisation' | 'material-analysis'
   | 'vendor' | 'qoyod' | 'other';
 
+// FileSlot UI aliases (NOT backend file_type strings) where
+// the EXTRACTED column is meaningful.
+// - 'glass'  → QR-enhanced HTML report (Glass Order pipeline)
+// - 'qoyod'  → byte-identical PDF copy (Qoyod pipeline)
+// All other UI aliases hide the entire EXTRACTED column,
+// INCLUDING the "Pending extraction" placeholder.
+const EXTRACTED_TILE_FILE_TYPES = ['glass', 'qoyod'] as const;
+
+const showsExtractedTile = (ft: string): boolean =>
+  (EXTRACTED_TILE_FILE_TYPES as readonly string[]).includes(ft);
+
 const ACCEPT_MAP: Record<FileSlotFileType, string> = {
   glass:              '.docx,.pdf,.html,.htm',
   quotation:          '.docx',
@@ -197,61 +208,83 @@ export function FileSlot({
         </div>
 
         {/* Preview tiles */}
-        <div className="grid grid-cols-2 gap-2 px-4 pb-3">
-          {/* EXTRACTED tile */}
-          {file.hasExtracted ? (
+        {showsExtractedTile(fileType) ? (
+          <div className="grid grid-cols-2 gap-2 px-4 pb-3">
+            {/* EXTRACTED tile — Glass (QR HTML) and Qoyod (PDF copy) only */}
+            {file.hasExtracted ? (
+              <a
+                href={extractedUrl(file.id, file.projectId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB] p-2.5 hover:bg-[#ECEAE2] transition-colors cursor-pointer group"
+              >
+                <div className={`flex items-center gap-1.5 mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  {fileType === 'glass' ? (
+                    <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
+                  ) : (
+                    <FileText className="w-3 h-3 text-teal-500 shrink-0" />
+                  )}
+                  <span className={`text-[9px] font-bold text-slate-500 group-hover:text-slate-700 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    {t('file_slot_extracted')}
+                  </span>
+                </div>
+                <p className={`text-[10px] text-teal-600 group-hover:text-teal-700 transition-colors ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                  {t('file_slot_preview')} →
+                </p>
+              </a>
+            ) : (
+              <div className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB]/50 p-2.5 opacity-50 cursor-not-allowed">
+                <div className={`flex items-center gap-1.5 mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <FileText className="w-3 h-3 text-slate-300 shrink-0" />
+                  <span className={`text-[9px] font-bold text-slate-400 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                    {t('file_slot_extracted')}
+                  </span>
+                </div>
+                <p className={`text-[10px] text-slate-300 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                  {t('file_slot_pending_extraction')}
+                </p>
+              </div>
+            )}
+
+            {/* ORIGINAL tile */}
             <a
-              href={extractedUrl(file.id, file.projectId)}
+              href={originalUrl(file.id, file.projectId)}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB] p-2.5 hover:bg-[#ECEAE2] transition-colors cursor-pointer group"
             >
               <div className={`flex items-center gap-1.5 mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                {fileType === 'glass' ? (
-                  <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
-                ) : (
-                  <FileText className="w-3 h-3 text-teal-500 shrink-0" />
-                )}
+                <FileText className="w-3 h-3 text-slate-500 shrink-0" />
                 <span className={`text-[9px] font-bold text-slate-500 group-hover:text-slate-700 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                  {t('file_slot_extracted')}
+                  {t('file_slot_original')}
                 </span>
               </div>
-              <p className={`text-[10px] text-teal-600 group-hover:text-teal-700 transition-colors ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+              <p className={`text-[10px] text-slate-600 group-hover:text-slate-700 transition-colors ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
                 {t('file_slot_preview')} →
               </p>
             </a>
-          ) : (
-            <div className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB]/50 p-2.5 opacity-50 cursor-not-allowed">
+          </div>
+        ) : (
+          <div className="px-4 pb-3">
+            {/* ORIGINAL tile — full width for the 7 Orgadata .docx slots */}
+            <a
+              href={originalUrl(file.id, file.projectId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB] p-2.5 hover:bg-[#ECEAE2] transition-colors cursor-pointer group block"
+            >
               <div className={`flex items-center gap-1.5 mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <FileText className="w-3 h-3 text-slate-300 shrink-0" />
-                <span className={`text-[9px] font-bold text-slate-400 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                  {t('file_slot_extracted')}
+                <FileText className="w-3 h-3 text-slate-500 shrink-0" />
+                <span className={`text-[9px] font-bold text-slate-500 group-hover:text-slate-700 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {t('file_slot_original')}
                 </span>
               </div>
-              <p className={`text-[10px] text-slate-300 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
-                {t('file_slot_pending_extraction')}
+              <p className={`text-[10px] text-slate-600 group-hover:text-slate-700 transition-colors ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
+                {t('file_slot_preview')} →
               </p>
-            </div>
-          )}
-
-          {/* ORIGINAL tile */}
-          <a
-            href={originalUrl(file.id, file.projectId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg border border-[#ECEAE2] bg-[#F4F2EB] p-2.5 hover:bg-[#ECEAE2] transition-colors cursor-pointer group"
-          >
-            <div className={`flex items-center gap-1.5 mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <FileText className="w-3 h-3 text-slate-500 shrink-0" />
-              <span className={`text-[9px] font-bold text-slate-500 group-hover:text-slate-700 tracking-wide ${isRtl ? 'font-[Tajawal]' : ''}`}>
-                {t('file_slot_original')}
-              </span>
-            </div>
-            <p className={`text-[10px] text-slate-600 group-hover:text-slate-700 transition-colors ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
-              {t('file_slot_preview')} →
-            </p>
-          </a>
-        </div>
+            </a>
+          </div>
+        )}
 
         {/* 3 action buttons — RTL order: معاينة | تنزيل | استبدال */}
         <div className={`flex items-center gap-2 px-4 pb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
