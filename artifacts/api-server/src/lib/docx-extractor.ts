@@ -1,76 +1,84 @@
-import mammoth from "mammoth";
+import { spawn } from "child_process";
+import { mkdir, writeFile, readFile, rm } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import { randomUUID } from "crypto";
 
-const PAGE_PATTERN = /page\s+\d+\s+of\s+\d+/i;
-const PAGE_NUM_PATTERN = /^\s*\d+\s*$/;
+const LIBREOFFICE_BIN = process.env.LIBREOFFICE_BIN || "soffice";
+const TIMEOUT_MS = 30_000;
 
 /**
- * Converts a .docx buffer to an A4-sized HTML string suitable for browser preview.
+ * Converts a .docx buffer to a PDF buffer using LibreOffice headless.
  *
- * The output has project-name headers and page-number footers stripped
- * (conservative heuristic — only removes elements that are clearly structural).
- * The returned HTML is a complete document ready to serve with Content-Type: text/html.
+ * Writes the buffer to a temp file, runs soffice --convert-to pdf,
+ * reads back the output PDF, then cleans up.
  *
- * Throws with a clear English message if the buffer is unreadable.
+ * Throws with a descriptive message if conversion fails or times out.
  */
-export async function extractDocxToA4Html(docxBuffer: Buffer): Promise<string> {
-  let result: { value: string; messages: unknown[] };
+export async function extractDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
+  const tmpDir = join(tmpdir(), `docx-extract-${randomUUID()}`);
+  const inputPath = join(tmpDir, "input.docx");
+  const outputPath = join(tmpDir, "input.pdf");
+
+  await mkdir(tmpDir, { recursive: true });
   try {
-    result = await mammoth.convertToHtml({ buffer: docxBuffer });
-  } catch (err) {
-    throw new Error(`docx extraction failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
+    await writeFile(inputPath, docxBuffer);
 
-  if (!result.value || result.value.trim().length === 0) {
-    throw new Error("docx extraction produced empty output — file may be malformed or empty");
-  }
+    await runLibreOffice(inputPath, tmpDir);
 
-  const stripped = stripStructuralNoise(result.value);
+    const pdfBuffer = await readFile(outputPath).catch(() => {
+      throw new Error("LibreOffice completed but output PDF was not created");
+    });
 
-  return `<!DOCTYPE html>
-<html dir="auto">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    @page { size: A4; margin: 20mm; }
-    body {
-      font-family: 'Tajawal', 'DM Sans', Arial, sans-serif;
-      max-width: 170mm;
-      margin: 0 auto;
-      padding: 8px;
-      color: #1a1a1a;
-      font-size: 13px;
-      line-height: 1.6;
+    if (pdfBuffer.length === 0) {
+      throw new Error("LibreOffice produced an empty PDF");
     }
-    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-    th, td { border: 1px solid #ccc; padding: 4px 8px; }
-    th { background: #f4f4f4; font-weight: 600; }
-    p { margin: 4px 0; }
-  </style>
-</head>
-<body>
-${stripped}
-</body>
-</html>`;
+
+    return pdfBuffer;
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true });
+  }
 }
 
-/**
- * Strips elements that are structurally noise in Orgadata exports:
- * - Page-number-only paragraphs ("1", "2 / 5", "Page 1 of 3")
- * - Paragraphs matching "Page X of Y" pattern
- *
- * Does NOT strip the project name header — that removal is intentionally
- * conservative because the project name may appear mid-document in tables.
- * The NameMismatchModal handles project name conflicts at the upload layer.
- */
-function stripStructuralNoise(html: string): string {
-  return html
-    .split(/(?<=<\/p>)/)
-    .filter(segment => {
-      const text = segment.replace(/<[^>]+>/g, "").trim();
-      if (PAGE_NUM_PATTERN.test(text)) return false;
-      if (PAGE_PATTERN.test(text)) return false;
-      return true;
-    })
-    .join("");
+function runLibreOffice(inputPath: string, outDir: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--headless",
+      "--nologo",
+      "--nodefault",
+      "--nofirststartwizard",
+      "--nolockcheck",
+      "--convert-to", "pdf:writer_pdf_Export",
+      "--outdir", outDir,
+      inputPath,
+    ];
+
+    const proc = spawn(LIBREOFFICE_BIN, args, { stdio: ["ignore", "pipe", "pipe"] });
+
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    proc.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    proc.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+      reject(new Error(`LibreOffice conversion timed out after ${TIMEOUT_MS}ms`));
+    }, TIMEOUT_MS);
+
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve();
+      } else {
+        const out = Buffer.concat(stdout).toString("utf8").trim();
+        const err = Buffer.concat(stderr).toString("utf8").trim();
+        reject(new Error(`LibreOffice exited with code ${code}. stdout: ${out} stderr: ${err}`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`Failed to spawn LibreOffice (${LIBREOFFICE_BIN}): ${err.message}`));
+    });
+  });
 }

@@ -47,7 +47,7 @@ import { parseAndInjectQR } from "./qr.js";
 import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
 import { normalizePhoneToE164 } from "../lib/phone.js";
-import { extractDocxToA4Html } from "../lib/docx-extractor.js";
+import { extractDocxToPdf } from "../lib/docx-extractor.js";
 
 const router: IRouter = Router();
 
@@ -1890,13 +1890,12 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
       extractedFile = uploadedFile.buffer;
       extractedMime = uploadedFile.mimetype ?? 'application/pdf';
     } else if (isDocx(uploadedFile.originalname)) {
-      // All .docx types: A4 HTML extractor
+      // All .docx types: LibreOffice PDF extractor (v4.1.0)
       try {
-        const html = await extractDocxToA4Html(uploadedFile.buffer);
-        extractedFile = Buffer.from(html, 'utf-8');
-        extractedMime = 'text/html';
+        extractedFile = await extractDocxToPdf(uploadedFile.buffer);
+        extractedMime = 'application/pdf';
       } catch (err) {
-        logger.warn({ err, projectId, fileType, filename: uploadedFile.originalname }, '[v4.0.11] docx extractor failed — original saved, extracted skipped');
+        logger.warn({ err, projectId, fileType, filename: uploadedFile.originalname }, '[v4.1.0] docx→pdf extractor failed — original saved, extracted skipped');
       }
     }
 
@@ -2175,8 +2174,11 @@ router.get("/erp/projects/:id/files/:fileId/extracted", async (req: Request, res
       return;
     }
     const mime = file.extractedMime ?? 'application/octet-stream';
+    const ext = mime === 'application/pdf' ? '_extracted.pdf'
+              : mime === 'text/html'       ? '_extracted.html'
+              :                              '_extracted.bin';
     res.setHeader("Content-Type", mime);
-    res.setHeader("Content-Disposition", `inline; filename="${file.originalFilename.replace(/\.[^.]+$/, '')}_extracted.html"`);
+    res.setHeader("Content-Disposition", `inline; filename="${file.originalFilename.replace(/\.[^.]+$/, '')}${ext}"`);
     res.send(file.extractedFile);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/files/:fileId/extracted failed");
