@@ -17,11 +17,11 @@ services:
   # ── 1. API Server ────────────────────────────────────────────────────────
   - type: web
     name: qr-asset-manager-api
-    env: node
+    runtime: docker
     plan: free
     region: oregon        # change to: frankfurt, singapore, ohio, virginia
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build
-    startCommand: pnpm --filter @workspace/api-server start
+    dockerfilePath: ./artifacts/api-server/Dockerfile
+    dockerContext: .
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
