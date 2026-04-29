@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** April 2026 — added H-5 (Codex extractor deep-dive)
+> **Last updated:** April 2026 — v4.1.0: resolved H-5 and M-4 (LibreOffice extractor)
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -170,9 +170,9 @@ See `V4_4_PERMISSIONS_ROADMAP.md` Commit 7.
 ### H-5 — Mammoth is the wrong tool for Orgadata .docx (extractor produces near-empty output)
 
 **Source:** Codex deep-dive investigation (April 2026, against v4.0.14)
-**Status:** Open — blocking v4.1.0 ship per Ahmad's direction
+**Status:** Resolved — v4.1.0
 **Discovered:** Codex inspected the actual `word/document.xml` of an Orgadata sample file
-**Planned fix:** v4.1.0 — decision pending between Option Small and Option Medium
+**Fixed in:** v4.1.0 — Option Medium chosen: LibreOffice headless DOCX→PDF extraction, deployed via Docker on Render
 
 **The discovery (Codex's findings):**
 
@@ -319,8 +319,8 @@ No additional action needed beyond what's already planned.
 ### M-4 — FILE_UPLOAD_GUIDE.md still describes v4.0.13 extractor behavior
 
 **Source:** Codex external audit (April 2026)
-**Status:** Open
-**Planned fix:** Whichever version resolves H-5 — guide must be updated alongside the extractor change
+**Status:** Resolved — v4.1.0
+**Fixed in:** v4.1.0 — FILE_UPLOAD_GUIDE.md and STAGE_6_5_PHILOSOPHY_ALIGNMENT.md updated alongside H-5 resolution
 
 **The gap:**
 `FILE_UPLOAD_GUIDE.md:70` still says the .docx extractor excludes images. This was true in v4.0.13 (briefly) and was reverted in v4.0.14. The guide is now stale on this specific topic.
@@ -347,9 +347,14 @@ Schedule with v4.4.0 since the user management dashboard is being rebuilt then.
 
 ## Resolved (audit log)
 
-*(empty — issues will be moved here as they are fixed)*
-
 When resolving an issue, change its status to **Resolved**, add the version that fixed it, and move it to this section. Do not delete the issue text — keep it for audit history.
+
+| ID | Title | Resolved in |
+|----|-------|-------------|
+| H-5 | Mammoth is the wrong tool for Orgadata .docx | v4.1.0 — LibreOffice DOCX→PDF |
+| M-4 | FILE_UPLOAD_GUIDE.md still describes v4.0.13 extractor behavior | v4.1.0 — docs updated |
+
+Full issue text remains in their original severity sections above for audit history.
 
 ---
 

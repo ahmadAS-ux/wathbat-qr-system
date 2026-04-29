@@ -1,6 +1,6 @@
 # FILE_UPLOAD_GUIDE.md — Complete File Upload Mechanism Reference
 
-> Last updated: April 2026 — v4.0.13
+> Last updated: April 2026 — v4.1.0
 > Source files: `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` · `artifacts/api-server/src/routes/erp.ts` · `artifacts/api-server/src/lib/docx-extractor.ts` · `artifacts/qr-manager/src/components/erp/FileSlot.tsx` · `artifacts/api-server/src/app.ts` (isPublic list)
 > Claude Code: Update this file when upload logic changes.
 
@@ -67,7 +67,7 @@ Every file slot stores two artifacts in `project_files`:
 |-----------|-------------------|
 | `glass_order` | QR-enhanced HTML (v1 parser output, dual-written to both `processed_docs` and `project_files` in v4.0.11+) |
 | `qoyod` | Byte-identical copy of original (no transformation until v4.3.0) |
-| Other 7 types | A4 HTML via `extractDocxToA4Html()` in `artifacts/api-server/src/lib/docx-extractor.ts` (images excluded) |
+| Other 7 types | PDF via `extractDocxToPdf()` in `artifacts/api-server/src/lib/docx-extractor.ts` (LibreOffice headless DOCX→PDF, v4.1.0) |
 
 ### Public file-serving endpoints (v4.0.12+)
 
