@@ -1890,13 +1890,16 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
       extractedFile = uploadedFile.buffer;
       extractedMime = uploadedFile.mimetype ?? 'application/pdf';
     } else if (isDocx(uploadedFile.originalname)) {
-      // All .docx types: LibreOffice PDF extractor (v4.1.0)
-      try {
-        extractedFile = await extractDocxToPdf(uploadedFile.buffer);
-        extractedMime = 'application/pdf';
-      } catch (err) {
-        logger.warn({ err, projectId, fileType, filename: uploadedFile.originalname }, '[v4.1.0] docx→pdf extractor failed — original saved, extracted skipped');
-      }
+      // v4.1.1: extraction at upload time deprecated for the 7 Orgadata .docx
+      // slot types. Glass Order and Qoyod are handled by their own earlier
+      // branches and remain unchanged. The Quotation file will be converted to
+      // PDF at contract-generation time using the same extractDocxToPdf function
+      // (which remains exported in docx-extractor.ts for that purpose).
+      // extracted_file stays NULL for these uploads.
+      logger.debug(
+        { fileType, filename: uploadedFile.originalname },
+        '[v4.1.1] non-Glass/non-Qoyod docx upload — no extraction at upload time'
+      );
     }
 
     // Multi-file types accumulate; single-file types: mark old version inactive
