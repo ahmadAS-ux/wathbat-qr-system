@@ -1,7 +1,7 @@
 # V4_1_x_ROADMAP.md
 
-**Last updated:** May 2026 (after v4.1.3 ship)
-**Current production version:** v4.1.3
+**Last updated:** May 2026 (after v4.1.4 ship)
+**Current production version:** v4.1.4
 **Author context:** Three patches planned in sequence. Each independent, each safe to ship on its own. Designed during overnight session that produced v4.1.0 → v4.1.1 → v4.1.2.
 
 ---
@@ -11,7 +11,7 @@
 The three patches must be done in this order because each builds on the last:
 
 1. ~~**v4.1.3** — Preview modal~~ ✅ shipped
-2. **v4.1.4** — Download save-as dialog (changes Download button behavior)
+2. ~~**v4.1.4** — Download save-as dialog~~ ✅ shipped
 3. **v4.1.5** — Multi-file Replace button (adds new backend endpoint)
 
 Stage 7 (drop legacy customer columns) follows after these, with prep work first.
@@ -295,7 +295,8 @@ If anything ships and breaks, here are the safe rollback points:
 
 | Tag/Commit | What | Rollback command |
 |---|---|---|
-| v4.1.3 | Current production | n/a (this is current) |
+| v4.1.4 | Current production | n/a (this is current) |
+| v4.1.3 | Pre-v4.1.4 (no save-as download) | `git reset --hard v4.1.3` then force-push |
 | v4.1.2 (174ab0e) | Pre-v4.1.3 (no preview modal) | `git reset --hard v4.1.2` then force-push |
 | v4.1.1 (daa946f) | Pre-v4.1.2 (parsed tables visible, broken logo) | `git reset --hard v4.1.1` then force-push |
 | v4.1.0 (e98a79f) | Pre-simplification (EXTRACTED tile for everything) | `git reset --hard v4.1.0` then force-push |

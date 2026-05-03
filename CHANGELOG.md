@@ -4,6 +4,23 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.1.4 — Download always triggers Save As dialog
+
+### Changed
+- **Download button** now always triggers a browser Save As dialog.
+  - Backend: `GET /erp/projects/:id/files/:fileId?download=1` serves with
+    `Content-Disposition: attachment` instead of `inline`.
+  - Frontend: `downloadFile()` appends `?download=1` to the URL.
+- **Preview button** is unaffected — still opens the file inline in a new
+  tab (no query param, `Content-Disposition: inline` unchanged).
+
+### Unchanged
+- All v4.1.3 work (Preview modal) preserved.
+- Multi-file Replace button still missing (deferred to v4.1.5).
+- Backend parsing pipelines unchanged.
+
+---
+
 ## v4.1.3 — Preview modal for parsed file data
 
 ### Added
