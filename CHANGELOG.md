@@ -4,6 +4,42 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.1.3 — Preview modal for parsed file data
+
+### Added
+- **Parsed data preview modal** — clicking Preview on Quotation, Section,
+  Assembly List, or Cut Optimisation slots now opens a modal showing the
+  parsed data extracted from the uploaded DOCX file.
+  - Quotation: shows quotation number, date, positions table (code /
+    description / qty / unit price / total), and grand total footer.
+  - Section: shows system name, drawing count, and drawing list with
+    position codes and filenames.
+  - Assembly List: shows positions with codes, quantities, dimensions,
+    and glass item descriptions.
+  - Cut Optimisation: shows profiles table (number / description / qty /
+    wastage %), capped at 10 rows with "+N more" indicator.
+  - Empty state: "No parsed data available yet — click Download to view
+    the original file."
+  - Error state: "Could not load preview — click Download to view original."
+  - Closes on backdrop click or Escape key.
+  - Full bilingual (Arabic / English) and RTL support.
+- `ParsedDataPreviewModal` component at
+  `artifacts/qr-manager/src/components/erp/ParsedDataPreviewModal.tsx`.
+- `onPreview` optional prop added to `FileSlot` — when provided renders a
+  `<button>` instead of `<a>` for the Preview action; all other slot types
+  are unchanged.
+- 12 new i18n keys: `file_preview_*`, `quotation_*`, `section_*` (both
+  Arabic and English).
+
+### Unchanged
+- Backend parsing pipeline unchanged.
+- Download button behavior unchanged (deferred to v4.1.4).
+- Multi-file Replace button unchanged (deferred to v4.1.5).
+- All non-parsed slot types (Glass, Material Analysis, Vendor Order,
+  Qoyod, Other) keep the existing open-in-new-tab Preview behavior.
+
+---
+
 ## v4.1.2 — Files tab cleanup + logo stopgap
 
 ### Changed
