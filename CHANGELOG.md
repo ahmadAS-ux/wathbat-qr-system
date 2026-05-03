@@ -4,6 +4,52 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.1.2 — Files tab cleanup + logo stopgap
+
+### Changed
+- Removed auto-displayed parsed-data tables for Assembly List
+  and Cut Optimisation slots. Backend parsing remains active
+  server-side; data is preserved in the database for v4.1.3
+  Preview modal feature.
+- Replaced logo asset (attached_assets/image_1774733777220.png)
+  with transparent-background PNG version of the real Wathbah
+  brand logo. Light surfaces (Header, ContractPage) now
+  display logo correctly. Dark surfaces (Sidebar, Login)
+  continue to use existing CSS inversion as a stopgap.
+
+### Unchanged
+- Glass Order EXTRACTED tile (QR HTML)
+- Qoyod EXTRACTED tile (byte-copy PDF)
+- All file slot Preview / Download / Replace button behavior
+  (Download attachment dialog deferred to v4.1.4; multi-file
+  Replace deferred to v4.1.5)
+- Backend parsing pipeline
+- LibreOffice infrastructure
+- Stage 7 customer column drop (deferred — 6+ COALESCE
+  fallbacks still depend on legacy columns)
+- parsed_quotations and parsed_sections (used by ContractPage)
+- All 4 logo import paths and CSS inversion classes
+  (file-replacement-only approach)
+
+### Why
+- Auto-displayed parsed tables were not part of the requested
+  design. Files tab now shows consistent slot cards.
+- Broken logo was an asset problem, not a path problem. Single
+  file replacement is sufficient as a stopgap until proper
+  dual-asset variants are ready.
+
+### Operational note
+- Frontend-only patch. api-server source files unchanged;
+  api-server package.json NOT bumped to avoid unnecessary
+  API redeploy. Only qr-manager (and root) bumped to 4.1.2.
+
+### Future
+- v4.1.3 will: (a) add on-demand Preview modal using the
+  preserved parsing; (b) replace logo stopgap with proper
+  dual-asset variants when designer assets are ready.
+
+---
+
 ## [4.1.1] - April 2026 - Upload simplification
 
 ### Changed

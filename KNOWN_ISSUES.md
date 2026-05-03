@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** April 2026 — v4.1.1: H-5 deprecated by design, M-4 documentation aligned
+> **Last updated:** May 2026 — v4.1.2: L-2 parsed tables resolved, L-3 logo stopgap
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -343,6 +343,49 @@ The default `admin/admin123` account is created on every fresh DB. This is inten
 2. Or generate a random password printed to logs once
 
 Schedule with v4.4.0 since the user management dashboard is being rebuilt then.
+
+---
+
+### L-2 — Auto-displayed parsed tables on Files tab (RESOLVED v4.1.2)
+
+**Description:** ProjectDetail.tsx auto-fetched and rendered
+inline parsed-data tables for Assembly List ("22 positions"
+table) and Cut Optimisation ("21 profiles" table) under their
+respective slot cards. The user never requested these displays.
+
+**Status:** Resolved — v4.1.2
+
+**Resolution:** Frontend display removed (loadParsedData
+function, useState, useEffect, render blocks, interfaces all
+cleaned up). Backend parsing infrastructure preserved. v4.1.3
+plans to add an on-demand Preview modal that uses this data.
+
+**Reversibility:** High. To restore display, re-add the chain
+in ProjectDetail.tsx.
+
+---
+
+### L-3 — Logo asset display issues (PARTIAL — stopgap v4.1.2)
+
+**Description:** Company logo (image_1774733777220.png) had a
+white background. Sidebar (AdminLayout.tsx:157) and Login
+(Login.tsx:46) used CSS inversion to render it on dark
+surfaces, producing artifacts. Header (Header.tsx:35-37) and
+ContractPage (ContractPage.tsx:373) rendered the white-
+background logo on light surfaces, where it appeared invisible
+(white-on-white).
+
+**Status:** Partially resolved (stopgap) — v4.1.2
+
+**Resolution (v4.1.2 stopgap):** Replaced the logo file with a
+transparent-background PNG version of the real Wathbah brand
+logo. CSS inversion on dark surfaces retained. Light surfaces
+now display the logo correctly without inversion.
+
+**Future work:** v4.1.3 or later — replace stopgap with
+proper dual-asset approach (separate light-color logo for
+dark surfaces, no CSS inversion). Requires designer-provided
+light-variant asset.
 
 ---
 

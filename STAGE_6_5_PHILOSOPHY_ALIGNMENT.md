@@ -291,3 +291,8 @@ and requires:
   retained for future contract-generation feature. Rule 10 visual anatomy
   updated to show two distinct filled-state layouts. "Skip the extraction
   step on replace" removed from FORBIDDEN list (no longer applicable).
+- **v4.1.2** — No rule changes. Frontend-only patch: auto-displayed parsed
+  tables (Assembly List, Cut Optimisation) removed from Files tab UI per
+  Rule 11 alignment (user never requested inline display). Backend parsing
+  pipeline preserved for v4.1.3 on-demand Preview modal. Logo asset
+  replaced (transparent background stopgap).
