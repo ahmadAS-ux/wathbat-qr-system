@@ -2143,7 +2143,9 @@ router.post("/erp/projects/:id/files/detect", requireRole(...NO_SALES_NO_ACCT), 
   }
 });
 
-// GET /erp/projects/:id/files/:fileId — serve Original inline (public — browser new-tab viewer)
+// GET /erp/projects/:id/files/:fileId — serve Original file
+// ?download=1 → Content-Disposition: attachment (Save As dialog)
+// no param    → Content-Disposition: inline  (browser viewer / Preview)
 router.get("/erp/projects/:id/files/:fileId", async (req: Request, res: Response) => {
   try {
     const fileId = Number(req.params.fileId);
@@ -2151,8 +2153,9 @@ router.get("/erp/projects/:id/files/:fileId", async (req: Request, res: Response
     if (Number.isNaN(fileId) || Number.isNaN(projectId)) return notFound(res);
     const [file] = await db.select().from(projectFilesTable).where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
     if (!file) return notFound(res);
+    const disposition = req.query.download === '1' ? 'attachment' : 'inline';
     res.setHeader("Content-Type", file.fileMime || "application/octet-stream");
-    res.setHeader("Content-Disposition", `inline; filename="${file.originalFilename}"`);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${file.originalFilename}"`);
     res.send(file.fileData);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects/:id/files/:fileId failed");
