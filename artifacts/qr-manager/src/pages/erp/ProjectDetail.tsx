@@ -1183,7 +1183,7 @@ export default function ErpProjectDetail() {
 
   const downloadFile = (fileId: number, filename: string) => {
     const a = document.createElement('a');
-    a.href = `${API_BASE}/api/erp/projects/${id}/files/${fileId}`;
+    a.href = `${API_BASE}/api/erp/projects/${id}/files/${fileId}?download=1`;
     a.download = filename;
     a.click();
   };
