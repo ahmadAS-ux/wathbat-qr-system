@@ -57,6 +57,7 @@ export interface FileSlotProps {
   onReplace: (fileId: number, newFile: File) => Promise<void>;
   onDownload: (fileId: number) => void;
   onDelete?: (fileId: number) => Promise<void>;
+  onPreview?: () => void;
   canDelete?: boolean;
   canReplace?: boolean;
   isLoading?: boolean;
@@ -71,6 +72,7 @@ export function FileSlot({
   onReplace,
   onDownload,
   onDelete,
+  onPreview,
   canDelete = false,
   canReplace = true,
   isLoading = false,
@@ -288,16 +290,26 @@ export function FileSlot({
 
         {/* 3 action buttons — RTL order: معاينة | تنزيل | استبدال */}
         <div className={`flex items-center gap-2 px-4 pb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          {/* معاينة — opens original in browser (no download) */}
-          <a
-            href={originalUrl(file.id, file.projectId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#ECEAE2] text-slate-700 hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal] flex-row-reverse' : ''}`}
-          >
-            <Eye className="w-3.5 h-3.5 shrink-0" />
-            {t('file_slot_preview')}
-          </a>
+          {/* معاينة — opens parsed data modal if available, else original URL */}
+          {onPreview !== undefined ? (
+            <button
+              onClick={onPreview}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#ECEAE2] text-slate-700 hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal] flex-row-reverse' : ''}`}
+            >
+              <Eye className="w-3.5 h-3.5 shrink-0" />
+              {t('file_slot_preview')}
+            </button>
+          ) : (
+            <a
+              href={originalUrl(file.id, file.projectId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#ECEAE2] text-slate-700 hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal] flex-row-reverse' : ''}`}
+            >
+              <Eye className="w-3.5 h-3.5 shrink-0" />
+              {t('file_slot_preview')}
+            </a>
+          )}
 
           {/* تنزيل — downloads original */}
           <button
