@@ -52,44 +52,6 @@ interface QROrder {
   reportFileId: number;
 }
 
-interface AssemblyGlassItem {
-  quantity: number;
-  widthMm: number;
-  heightMm: number;
-  areaSqm: number;
-  description: string;
-}
-
-interface AssemblyPosition {
-  positionCode: string;
-  quantity: number;
-  system: string | null;
-  widthMm: number | null;
-  heightMm: number | null;
-  glassItems: AssemblyGlassItem[];
-}
-
-interface ParsedAssemblyList {
-  positionCount: number;
-  projectNameInFile: string | null;
-  positions: AssemblyPosition[];
-}
-
-interface CutProfile {
-  number: string;
-  description: string;
-  colour: string;
-  quantity: number;
-  lengthMm: number;
-  wastageMm: number;
-  wastagePercent: number;
-}
-
-interface ParsedCutOptimisation {
-  profileCount: number;
-  projectNameInFile: string | null;
-  profiles: CutProfile[];
-}
 
 interface PaymentMilestone {
   id: number;
@@ -940,8 +902,7 @@ export default function ErpProjectDetail() {
   const [loadingQrOrders, setLoadingQrOrders] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
   const [nameMismatch, setNameMismatch] = useState<NameMismatchData | null>(null);
-  const [parsedAssemblyList, setParsedAssemblyList] = useState<ParsedAssemblyList | null>(null);
-  const [parsedCutOptimisation, setParsedCutOptimisation] = useState<ParsedCutOptimisation | null>(null);
+
   const [milestones, setMilestones] = useState<PaymentMilestone[]>([]);
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [milestoneForm, setMilestoneForm] = useState({ label: '', percentage: '', amount: '', dueDate: '', notes: '' });
@@ -1007,22 +968,6 @@ export default function ErpProjectDetail() {
     }
   };
 
-  const loadParsedData = async () => {
-    const [alRes, coRes] = await Promise.allSettled([
-      fetch(`${API_BASE}/api/erp/projects/${id}/parsed-assembly-list`),
-      fetch(`${API_BASE}/api/erp/projects/${id}/parsed-cut-optimisation`),
-    ]);
-    if (alRes.status === 'fulfilled' && alRes.value.ok) {
-      setParsedAssemblyList(await alRes.value.json());
-    } else {
-      setParsedAssemblyList(null);
-    }
-    if (coRes.status === 'fulfilled' && coRes.value.ok) {
-      setParsedCutOptimisation(await coRes.value.json());
-    } else {
-      setParsedCutOptimisation(null);
-    }
-  };
 
   const loadMilestones = async () => {
     try {
@@ -1034,7 +979,7 @@ export default function ErpProjectDetail() {
     }
   };
 
-  useEffect(() => { loadProject(); loadQrOrders(); loadParsedData(); loadMilestones(); loadAllFiles(); }, [id]);
+  useEffect(() => { loadProject(); loadQrOrders(); loadMilestones(); loadAllFiles(); }, [id]);
 
   useEffect(() => {
     if (activeTab !== 'contract' || !id) return;
@@ -1197,9 +1142,7 @@ export default function ErpProjectDetail() {
         await loadProject();
       } else {
         await loadProject();
-        if (fileType === 'assembly_list' || fileType === 'cut_optimisation') {
-          await loadParsedData();
-        }
+
       }
       await loadAllFiles();
       requestAnimationFrame(() => window.scrollTo(0, scrollY));
@@ -1830,58 +1773,12 @@ export default function ErpProjectDetail() {
                     </div>
                   )}
 
-                  {/* Assembly List parsed data panel */}
-                  {slot.fileType === 'assembly_list' && parsedAssemblyList && parsedAssemblyList.positionCount > 0 && (
-                    <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-sm">
-                      <p className="text-xs font-semibold text-teal-700 mb-2">{t('assembly_list_parsed_positions').replace('{count}', String(parsedAssemblyList.positionCount))}</p>
-                      <div className="space-y-1.5">
-                        {parsedAssemblyList.positions.map((pos, i) => (
-                          <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                            <span className="font-semibold text-[#141A24] shrink-0" dir="ltr">{pos.positionCode}</span>
-                            <span className="text-slate-400 shrink-0">{pos.quantity} {t('assembly_list_pcs')}</span>
-                            {pos.widthMm && pos.heightMm && (
-                              <span className="text-slate-400 shrink-0" dir="ltr">{pos.widthMm} × {pos.heightMm} mm</span>
-                            )}
-                            {pos.glassItems.length > 0 && (
-                              <span className="text-slate-400 truncate">{pos.glassItems[0].description}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cut Optimisation parsed data panel */}
-                  {slot.fileType === 'cut_optimisation' && parsedCutOptimisation && parsedCutOptimisation.profileCount > 0 && (
-                    <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-sm">
-                      <p className="text-xs font-semibold text-teal-700 mb-2">{t('cut_opt_parsed_profiles').replace('{count}', String(parsedCutOptimisation.profileCount))}</p>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-slate-600" dir="ltr">
-                          <thead>
-                            <tr className="text-slate-400 border-b border-teal-100">
-                              <th className="text-start pb-1 font-medium">{t('cut_opt_number')}</th>
-                              <th className="text-start pb-1 font-medium">{t('cut_opt_description')}</th>
-                              <th className="text-end pb-1 font-medium">{t('cut_opt_qty')}</th>
-                              <th className="text-end pb-1 font-medium">{t('cut_opt_wastage_pct')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {parsedCutOptimisation.profiles.slice(0, 10).map((p, i) => (
-                              <tr key={i} className="border-b border-teal-50 last:border-0">
-                                <td className="py-0.5 font-medium text-[#141A24]">{p.number}</td>
-                                <td className="py-0.5 truncate max-w-[120px]">{p.description}</td>
-                                <td className="py-0.5 text-end">{p.quantity}</td>
-                                <td className="py-0.5 text-end">{p.wastagePercent}%</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {parsedCutOptimisation.profileCount > 10 && (
-                          <p className="text-xs text-slate-400 mt-1">+{parsedCutOptimisation.profileCount - 10} {t('cut_opt_more_profiles')}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {/* v4.1.2: Auto-displayed parsed tables removed for
+                      Assembly List and Cut Optimisation. Backend parsing
+                      pipeline still active (endpoints, tables, parsers
+                      preserved). v4.1.3 will add an on-demand Preview
+                      modal that fetches this data on click. To restore
+                      inline display, re-add loadParsedData() and JSX. */}
                 </div>
               );
             })}
