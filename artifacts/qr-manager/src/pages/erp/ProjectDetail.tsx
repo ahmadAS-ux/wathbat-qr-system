@@ -8,6 +8,7 @@ import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 import { ReUploadConfirmModal } from '@/components/erp/ReUploadConfirmModal';
+import { ParsedDataPreviewModal } from '@/components/erp/ParsedDataPreviewModal';
 import { FileSlot, type FileRecord, type FileSlotFileType } from '@/components/erp/FileSlot';
 import { useSimpleToast } from '@/components/Toast';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
@@ -915,6 +916,7 @@ export default function ErpProjectDetail() {
   const [deletingProject, setDeletingProject] = useState(false);
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<number | null>(null);
   const [pendingReUploadFileType, setPendingReUploadFileType] = useState<string | null>(null);
+  const [previewSlot, setPreviewSlot] = useState<'quotation' | 'section' | 'assembly_list' | 'cut_optimisation' | null>(null);
 
   // Smart batch upload
   const batchInputRef = useRef<HTMLInputElement>(null);
@@ -1734,6 +1736,10 @@ export default function ErpProjectDetail() {
               const slotFiles = allFiles.filter(f => f.fileType === slot.fileType && f.isActive !== false);
               const slotFileType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
 
+              const parsedSlotTypes = ['quotation', 'section', 'assembly_list', 'cut_optimisation'] as const;
+              type ParsedSlotType = typeof parsedSlotTypes[number];
+              const isParsedSlot = (parsedSlotTypes as readonly string[]).includes(slot.fileType);
+
               return (
                 <div key={slot.fileType} className="space-y-1">
                   <FileSlot
@@ -1745,6 +1751,7 @@ export default function ErpProjectDetail() {
                     onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
                     onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
                     onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                    onPreview={isParsedSlot ? () => setPreviewSlot(slot.fileType as ParsedSlotType) : undefined}
                     canDelete={canDeleteFileSlot}
                     canReplace={canUpload}
                     isLoading={isUploading}
@@ -2164,6 +2171,15 @@ export default function ErpProjectDetail() {
           so triggerUpload() can always call .click() regardless of active tab. */}
       <input ref={fileInputRef} type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
       <input ref={batchInputRef} type="file" className="hidden" accept=".docx" multiple onChange={handleBatchSelect} />
+
+      {/* Parsed data preview modal — v4.1.3 */}
+      {previewSlot !== null ? (
+        <ParsedDataPreviewModal
+          projectId={id}
+          fileType={previewSlot}
+          onClose={() => setPreviewSlot(null)}
+        />
+      ) : null}
 
       {/* Re-upload confirmation — shown when user clicks upload on a slot that already has a file */}
       {pendingReUploadFileType && (
