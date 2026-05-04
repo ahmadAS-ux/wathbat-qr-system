@@ -4,7 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/lib/i18n';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen, FileDown } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 import { ReUploadConfirmModal } from '@/components/erp/ReUploadConfirmModal';
@@ -938,6 +938,11 @@ export default function ErpProjectDetail() {
   const [contractDataLoading, setContractDataLoading] = useState(false);
   const [integrityReport, setIntegrityReport] = useState<IntegrityReport | null>(null);
 
+  // PDF contract generation state (v4.3.1)
+  const [pdfContracts, setPdfContracts] = useState<Array<{ id: number; status: string; generatedAt: string | null; createdAt: string }>>([]);
+  const [pdfContractGenerating, setPdfContractGenerating] = useState(false);
+  const [pdfContractError, setPdfContractError] = useState('');
+
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
   const canDelete = canDeleteProject(user?.role);
   const canDeleteFileSlot = canDeleteFile(user?.role);
@@ -1025,9 +1030,35 @@ export default function ErpProjectDetail() {
       .catch(() => setContractDataLoading(false));
   }, [activeTab, id]);
 
+  useEffect(() => {
+    if (activeTab !== 'contract' || !id) return;
+    fetch(`${API_BASE}/api/erp/projects/${id}/contracts`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setPdfContracts)
+      .catch(() => {});
+  }, [activeTab, id]);
+
   const completionPct = (m: PaymentMilestone): number | null => {
     if (!m.paidAmount || !m.amount || m.amount === 0) return null;
     return Math.min(100, Math.round((m.paidAmount / m.amount) * 100));
+  };
+
+  const handleGeneratePdf = async () => {
+    setPdfContractGenerating(true);
+    setPdfContractError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/contracts/generate`, { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? t('contract_pdf_generate_error'));
+      }
+      const newContract = await res.json();
+      setPdfContracts(prev => [newContract, ...prev]);
+    } catch (err: unknown) {
+      setPdfContractError(err instanceof Error ? err.message : t('contract_pdf_generate_error'));
+    } finally {
+      setPdfContractGenerating(false);
+    }
   };
 
   const handleAddMilestone = async () => {
@@ -1898,6 +1929,43 @@ export default function ErpProjectDetail() {
                 {t('contract_generate_disabled_tooltip')}
               </p>
             )}
+
+            {/* ── PDF Contract — v4.3.1 ── */}
+            <div className="mt-6 border-t border-[#ECEAE2] pt-5">
+              <h3 className={`text-base font-bold mb-3 text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('contract_pdf_title')}
+              </h3>
+              <button
+                onClick={handleGeneratePdf}
+                disabled={pdfContractGenerating || !project?.files?.some(f => f.fileType === 'quotation' && f.isActive)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-[#141A24] text-[#141A24] rounded-xl hover:bg-[#141A24] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+              >
+                <FileDown className="w-4 h-4" />
+                {pdfContractGenerating ? t('contract_pdf_generating') : t('contract_pdf_generate')}
+              </button>
+              {pdfContractError && (
+                <p className={`text-sm text-red-600 mt-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>{pdfContractError}</p>
+              )}
+              {pdfContracts.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {pdfContracts.map(c => (
+                    <div key={c.id} className={`flex items-center gap-3 text-sm ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <span className="text-slate-500">{c.generatedAt ? new Date(c.generatedAt).toLocaleString() : '—'}</span>
+                      {c.status === 'generated' && (
+                        <a
+                          href={`${API_BASE}/api/erp/contracts/${c.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`text-[#141A24] underline font-medium hover:opacity-70 ${isRtl ? 'font-[Tajawal]' : ''}`}
+                        >
+                          {t('contract_pdf_download')}
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

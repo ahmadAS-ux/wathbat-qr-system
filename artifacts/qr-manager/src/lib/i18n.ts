@@ -679,6 +679,13 @@ export const translations = {
     company_info_save_error: "Save failed",
     company_logo_size_error: "Maximum size is 2 MB",
     company_logo_type_error: "Only PNG, JPEG, or SVG accepted",
+    // PDF Contract — v4.3.1
+    contract_pdf_title: "PDF Contract",
+    contract_pdf_generate: "Generate PDF Contract",
+    contract_pdf_generating: "Generating...",
+    contract_pdf_generate_error: "PDF generation failed",
+    contract_pdf_download: "Download PDF",
+    contract_pdf_no_quotation: "Upload a Quotation file first",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1358,6 +1365,13 @@ export const translations = {
     company_info_save_error: "فشل الحفظ",
     company_logo_size_error: "الحجم الأقصى 2 ميغابايت",
     company_logo_type_error: "يُقبل PNG أو JPEG أو SVG فقط",
+    // PDF Contract — v4.3.1
+    contract_pdf_title: "العقد PDF",
+    contract_pdf_generate: "إنشاء عقد PDF",
+    contract_pdf_generating: "جاري الإنشاء...",
+    contract_pdf_generate_error: "فشل إنشاء العقد",
+    contract_pdf_download: "تنزيل PDF",
+    contract_pdf_no_quotation: "ارفع ملف عرض السعر أولاً",
   }
 };
 
