@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { randomUUID } from "crypto";
 import multer from "multer";
 import AdmZip from "adm-zip";
 import { eq, and, lt, sql, ne, isNull, or, desc, inArray, ilike } from "drizzle-orm";
@@ -21,6 +22,7 @@ import {
   systemSettings,
   systemFilesTable,
   contractsTable,
+  contractAccessLogsTable,
   paymentMilestonesTable,
   vendorsTable,
   purchaseOrdersTable,
@@ -2958,13 +2960,75 @@ router.get('/erp/projects/:id/contracts', requireRole('Admin', 'FactoryManager',
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
     const rows = await db
-      .select({ id: contractsTable.id, status: contractsTable.status, generatedAt: contractsTable.generatedAt, createdAt: contractsTable.createdAt })
+      .select({
+        id: contractsTable.id,
+        status: contractsTable.status,
+        generatedAt: contractsTable.generatedAt,
+        createdAt: contractsTable.createdAt,
+        accessToken: contractsTable.accessToken,
+        tokenExpiresAt: contractsTable.tokenExpiresAt,
+      })
       .from(contractsTable)
       .where(eq(contractsTable.projectId, projectId))
       .orderBy(desc(contractsTable.createdAt));
     res.json(rows);
   } catch (err) {
     logger.error({ err }, 'GET /erp/projects/:id/contracts failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /erp/contracts/:id/token — Admin/FM only, generate 30-day public access token
+router.post('/erp/contracts/:id/token', requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const contractId = Number(req.params.id);
+    if (Number.isNaN(contractId)) return notFound(res);
+    const [row] = await db
+      .select({ id: contractsTable.id, status: contractsTable.status })
+      .from(contractsTable)
+      .where(eq(contractsTable.id, contractId));
+    if (!row || row.status !== 'generated') return notFound(res);
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const [updated] = await db
+      .update(contractsTable)
+      .set({ accessToken: token, tokenExpiresAt: expiresAt })
+      .where(eq(contractsTable.id, contractId))
+      .returning({ accessToken: contractsTable.accessToken, tokenExpiresAt: contractsTable.tokenExpiresAt });
+    res.json(updated);
+  } catch (err) {
+    logger.error({ err }, 'POST /erp/contracts/:id/token failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /erp/contracts/public/:token — no auth required (listed in app.ts isPublic)
+// Validates token, logs access, returns PDF bytes
+router.get('/erp/contracts/public/:token', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.params.token);
+    const [row] = await db
+      .select({
+        id: contractsTable.id,
+        status: contractsTable.status,
+        pdfContent: contractsTable.pdfContent,
+        tokenExpiresAt: contractsTable.tokenExpiresAt,
+      })
+      .from(contractsTable)
+      .where(eq(contractsTable.accessToken, token));
+    if (!row || row.status !== 'generated' || !row.pdfContent) return notFound(res);
+    if (row.tokenExpiresAt && new Date() > row.tokenExpiresAt) {
+      return res.status(410).json({ error: 'Link expired' });
+    }
+    await db.insert(contractAccessLogsTable).values({
+      contractId: row.id,
+      ipAddress: req.ip ?? null,
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="contract.pdf"');
+    res.send(Buffer.from(row.pdfContent as unknown as Buffer));
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/contracts/public/:token failed');
     res.status(500).json({ error: 'Internal error' });
   }
 });

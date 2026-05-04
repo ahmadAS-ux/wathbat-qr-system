@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable, contractsTable, systemFilesTable } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable, contractsTable, systemFilesTable, contractAccessLogsTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 import { generateAndSetProjectCode } from "./routes/erp.js";
@@ -616,6 +616,17 @@ async function runStartupMigrations() {
         uploaded_by INTEGER REFERENCES users(id)
       )
     `);
+
+    // v4.3.2: contract_access_logs table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contract_access_logs (
+        id SERIAL PRIMARY KEY,
+        contract_id INTEGER NOT NULL REFERENCES contracts(id),
+        accessed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        ip_address TEXT
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contract_access_logs_contract_id_idx ON contract_access_logs(contract_id)`);
 
     // v4.3.0: seed company info keys into system_settings
     await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_name', '', NOW()) ON CONFLICT (key) DO NOTHING`);
