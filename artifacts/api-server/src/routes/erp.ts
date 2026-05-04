@@ -20,6 +20,7 @@ import {
   parsedCutOptimisationsTable,
   systemSettings,
   systemFilesTable,
+  contractsTable,
   paymentMilestonesTable,
   vendorsTable,
   purchaseOrdersTable,
@@ -1582,24 +1583,28 @@ router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: 
 router.delete("/erp/projects/:id", requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    // processed_docs.project_id has no ON DELETE CASCADE — NULL it out to preserve QR history
-    await db.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${id}`);
-    // Phase 3: manufacturing_orders
-    await db.delete(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, id));
-    // Phase 3: po_items → purchase_orders (grandchildren first)
-    const pos = await db.select({ id: purchaseOrdersTable.id }).from(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
-    if (pos.length > 0) {
-      await db.delete(poItemsTable).where(inArray(poItemsTable.poId, pos.map(p => p.id)));
-    }
-    await db.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
-    // payment_milestones has no onDelete cascade — must delete explicitly
-    await db.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
-    // project_phases: delete after clearing FK refs in payment_milestones
-    await db.delete(projectPhasesTable).where(eq(projectPhasesTable.projectId, id));
-    // project_files delete cascades: parsed_quotations, parsed_sections, parsed_section_drawings,
-    // parsed_assembly_lists, parsed_cut_optimisations (all have ON DELETE CASCADE on source_file_id)
-    await db.delete(projectFilesTable).where(eq(projectFilesTable.projectId, id));
-    await db.delete(projectsTable).where(eq(projectsTable.id, id));
+    await db.transaction(async (tx) => {
+      // processed_docs.project_id has no ON DELETE CASCADE — NULL it out to preserve QR history
+      await tx.execute(sql`UPDATE processed_docs SET project_id = NULL WHERE project_id = ${id}`);
+      // v4.3.1: contracts.quotation_file_id has RESTRICT FK on project_files — delete before project_files
+      await tx.delete(contractsTable).where(eq(contractsTable.projectId, id));
+      // Phase 3: manufacturing_orders
+      await tx.delete(manufacturingOrdersTable).where(eq(manufacturingOrdersTable.projectId, id));
+      // Phase 3: po_items → purchase_orders (grandchildren first)
+      const pos = await tx.select({ id: purchaseOrdersTable.id }).from(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
+      if (pos.length > 0) {
+        await tx.delete(poItemsTable).where(inArray(poItemsTable.poId, pos.map(p => p.id)));
+      }
+      await tx.delete(purchaseOrdersTable).where(eq(purchaseOrdersTable.projectId, id));
+      // payment_milestones has no onDelete cascade — must delete explicitly
+      await tx.delete(paymentMilestonesTable).where(eq(paymentMilestonesTable.projectId, id));
+      // project_phases: delete after clearing FK refs in payment_milestones
+      await tx.delete(projectPhasesTable).where(eq(projectPhasesTable.projectId, id));
+      // project_files delete cascades: parsed_quotations, parsed_sections, parsed_section_drawings,
+      // parsed_assembly_lists, parsed_cut_optimisations (all have ON DELETE CASCADE on source_file_id)
+      await tx.delete(projectFilesTable).where(eq(projectFilesTable.projectId, id));
+      await tx.delete(projectsTable).where(eq(projectsTable.id, id));
+    });
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "DELETE /erp/projects/:id failed");
