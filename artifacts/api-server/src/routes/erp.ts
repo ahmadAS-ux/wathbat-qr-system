@@ -175,8 +175,8 @@ async function findCustomerByPhone(phone: string, excludeId?: number, runner: ty
 const leadSelectFields = {
   id: leadsTable.id,
   customerId: leadsTable.customerId,
-  customerName: sql<string>`COALESCE(${customersTable.name}, ${leadsTable.customerName})`,
-  phone: sql<string>`COALESCE(${customersTable.phone}, ${leadsTable.phone})`,
+  customerName: customersTable.name,
+  phone: customersTable.phone,
   source: leadsTable.source,
   productInterest: leadsTable.productInterest,
   buildingType: leadsTable.buildingType,
@@ -196,8 +196,8 @@ const projectSelectFields = {
   id: projectsTable.id,
   name: projectsTable.name,
   customerId: projectsTable.customerId,
-  customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
-  phone: sql<string | null>`COALESCE(${customersTable.phone}, ${projectsTable.phone})`,
+  customerName: customersTable.name,
+  phone: customersTable.phone,
   location: projectsTable.location,
   buildingType: projectsTable.buildingType,
   productInterest: projectsTable.productInterest,
@@ -825,16 +825,16 @@ router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee
       sql`SELECT
             l.id,
             l.customer_id,
-            COALESCE(c.name, l.customer_name) AS customer_name,
-            COALESCE(c.phone, l.phone) AS phone,
+            c.name AS customer_name,
+            c.phone AS phone,
             l.status,
             l.building_type,
             l.converted_project_id
           FROM leads l
           LEFT JOIN customers c ON c.id = l.customer_id
-          WHERE COALESCE(c.name, l.customer_name) ILIKE ${pattern}
-             OR COALESCE(c.phone, l.phone) ILIKE ${pattern}
-             OR (${normalizedPhone} IS NOT NULL AND COALESCE(c.phone, l.phone) = ${normalizedPhone})
+          WHERE c.name ILIKE ${pattern}
+             OR c.phone ILIKE ${pattern}
+             OR (${normalizedPhone} IS NOT NULL AND c.phone = ${normalizedPhone})
           ORDER BY l.created_at DESC
           LIMIT 5`
     );
@@ -869,14 +869,14 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
       const leadRows = await db.execute(
         sql`SELECT
               l.id,
-              COALESCE(c.name, l.customer_name) AS customer_name,
-              COALESCE(c.phone, l.phone) AS phone,
+              c.name AS customer_name,
+              c.phone AS phone,
               l.status
             FROM leads l
             LEFT JOIN customers c ON c.id = l.customer_id
-            WHERE COALESCE(c.name, l.customer_name) ILIKE ${pattern}
-               OR COALESCE(c.phone, l.phone) ILIKE ${pattern}
-               OR (${normalizedPhone} IS NOT NULL AND COALESCE(c.phone, l.phone) = ${normalizedPhone})
+            WHERE c.name ILIKE ${pattern}
+               OR c.phone ILIKE ${pattern}
+               OR (${normalizedPhone} IS NOT NULL AND c.phone = ${normalizedPhone})
             ORDER BY l.created_at DESC LIMIT 5`
       );
       for (const r of leadRows.rows as any[]) {
@@ -890,10 +890,10 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
         sql`SELECT
               p.id,
               p.name,
-              COALESCE(c.name, p.customer_name) AS customer_name
+              c.name AS customer_name
             FROM projects p
             LEFT JOIN customers c ON c.id = p.customer_id
-            WHERE p.name ILIKE ${pattern} OR COALESCE(c.name, p.customer_name) ILIKE ${pattern}
+            WHERE p.name ILIKE ${pattern} OR c.name ILIKE ${pattern}
             ORDER BY p.created_at DESC LIMIT 5`
       );
       for (const r of projRows.rows as any[]) {
@@ -976,8 +976,6 @@ router.patch("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee"
           customerName: req.body.customerName ?? null,
           phone: req.body.phone ?? null,
           fallbackCustomerId: existingLead.customerId ?? null,
-          legacyCustomerName: existingLead.customerName,
-          legacyPhone: existingLead.phone,
         });
         if ("error" in resolvedCustomer) return resolvedCustomer;
 
@@ -1124,7 +1122,7 @@ router.post("/erp/leads/:id/convert", requireRole(...NO_SALES_NO_ACCT), async (r
       if ("error" in resolvedCustomer) return resolvedCustomer;
 
       const [project] = await tx.insert(projectsTable).values({
-        name: lead.customerName,
+        name: lead.customerName ?? '',
         customerId: resolvedCustomer.customerId,
         location: lead.location ?? null,
         buildingType: lead.buildingType,
@@ -1526,8 +1524,6 @@ router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: 
           customerName: req.body.customerName ?? null,
           phone: req.body.phone ?? null,
           fallbackCustomerId: existingProject.customerId ?? null,
-          legacyCustomerName: existingProject.customerName,
-          legacyPhone: existingProject.phone,
         });
         if ("error" in resolvedCustomer) return resolvedCustomer;
 
@@ -2472,7 +2468,7 @@ router.get("/erp/phases/:id", async (req: Request, res: Response) => {
     const [proj] = await db.select({
       id: projectsTable.id,
       name: projectsTable.name,
-      customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
+      customerName: customersTable.name,
     })
       .from(projectsTable)
       .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
@@ -2555,7 +2551,7 @@ router.post(
         .select({
           id: projectsTable.id,
           name: projectsTable.name,
-          customerName: sql<string>`COALESCE(${customersTable.name}, ${projectsTable.customerName})`,
+          customerName: sql<string>`COALESCE(${customersTable.name}, '')`,
         })
         .from(projectsTable)
         .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id));

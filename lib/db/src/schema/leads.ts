@@ -4,8 +4,7 @@ import { customersTable } from "./customers";
 
 export const leadsTable = pgTable("leads", {
   id: serial("id").primaryKey(),
-  customerName: text("customer_name").notNull().default(""),
-  phone: text("phone").notNull().default(""),
+  customerId: integer("customer_id").notNull().references(() => customersTable.id),
   source: text("source").notNull(),
   productInterest: text("product_interest").notNull(),
   buildingType: text("building_type").notNull(),
@@ -16,7 +15,6 @@ export const leadsTable = pgTable("leads", {
   firstFollowupDate: date("first_followup_date").notNull(),
   status: text("status").notNull().default("new"),
   lostReason: text("lost_reason"),
-  customerId: integer("customer_id").references(() => customersTable.id),
   convertedProjectId: integer("converted_project_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => usersTable.id),
