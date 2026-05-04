@@ -686,6 +686,11 @@ export const translations = {
     contract_pdf_generate_error: "PDF generation failed",
     contract_pdf_download: "Download PDF",
     contract_pdf_no_quotation: "Upload a Quotation file first",
+    // Public link sharing — v4.3.2
+    contract_share_generate_link: "Generate public link",
+    contract_share_copy_link: "Copy public link",
+    contract_share_expires: "Expires",
+    contract_share_copy_link_error: "Could not copy link",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1372,6 +1377,11 @@ export const translations = {
     contract_pdf_generate_error: "فشل إنشاء العقد",
     contract_pdf_download: "تنزيل PDF",
     contract_pdf_no_quotation: "ارفع ملف عرض السعر أولاً",
+    // Public link sharing — v4.3.2
+    contract_share_generate_link: "إنشاء رابط عام",
+    contract_share_copy_link: "نسخ الرابط العام",
+    contract_share_expires: "ينتهي",
+    contract_share_copy_link_error: "تعذّر نسخ الرابط",
   }
 };
 

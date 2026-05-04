@@ -938,8 +938,8 @@ export default function ErpProjectDetail() {
   const [contractDataLoading, setContractDataLoading] = useState(false);
   const [integrityReport, setIntegrityReport] = useState<IntegrityReport | null>(null);
 
-  // PDF contract generation state (v4.3.1)
-  const [pdfContracts, setPdfContracts] = useState<Array<{ id: number; status: string; generatedAt: string | null; createdAt: string }>>([]);
+  // PDF contract generation state (v4.3.1 + v4.3.2)
+  const [pdfContracts, setPdfContracts] = useState<Array<{ id: number; status: string; generatedAt: string | null; createdAt: string; accessToken: string | null; tokenExpiresAt: string | null }>>([]);
   const [pdfContractGenerating, setPdfContractGenerating] = useState(false);
   const [pdfContractError, setPdfContractError] = useState('');
 
@@ -1041,6 +1041,24 @@ export default function ErpProjectDetail() {
   const completionPct = (m: PaymentMilestone): number | null => {
     if (!m.paidAmount || !m.amount || m.amount === 0) return null;
     return Math.min(100, Math.round((m.paidAmount / m.amount) * 100));
+  };
+
+  const handleGenerateToken = async (contractId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/erp/contracts/${contractId}/token`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { accessToken, tokenExpiresAt } = await res.json();
+      setPdfContracts(prev => prev.map(c =>
+        c.id === contractId ? { ...c, accessToken, tokenExpiresAt } : c
+      ));
+    } catch {
+      // non-blocking — button stays visible for retry
+    }
+  };
+
+  const handleCopyLink = (token: string) => {
+    const url = `${API_BASE}/api/erp/contracts/public/${token}`;
+    navigator.clipboard.writeText(url).catch(() => {});
   };
 
   const handleGeneratePdf = async () => {
@@ -1947,19 +1965,48 @@ export default function ErpProjectDetail() {
                 <p className={`text-sm text-red-600 mt-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>{pdfContractError}</p>
               )}
               {pdfContracts.length > 0 && (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-3">
                   {pdfContracts.map(c => (
-                    <div key={c.id} className={`flex items-center gap-3 text-sm ${isRtl ? 'flex-row-reverse' : ''}`}>
-                      <span className="text-slate-500">{c.generatedAt ? new Date(c.generatedAt).toLocaleString() : '—'}</span>
+                    <div key={c.id} className="space-y-1.5">
+                      <div className={`flex items-center gap-3 text-sm flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <span className="text-slate-500">{c.generatedAt ? new Date(c.generatedAt).toLocaleString() : '—'}</span>
+                        {c.status === 'generated' && (
+                          <a
+                            href={`${API_BASE}/api/erp/contracts/${c.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`text-[#141A24] underline font-medium hover:opacity-70 ${isRtl ? 'font-[Tajawal]' : ''}`}
+                          >
+                            {t('contract_pdf_download')}
+                          </a>
+                        )}
+                      </div>
+                      {/* Share public link — v4.3.2 */}
                       {c.status === 'generated' && (
-                        <a
-                          href={`${API_BASE}/api/erp/contracts/${c.id}/pdf`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={`text-[#141A24] underline font-medium hover:opacity-70 ${isRtl ? 'font-[Tajawal]' : ''}`}
-                        >
-                          {t('contract_pdf_download')}
-                        </a>
+                        c.accessToken
+                          ? (
+                            <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                              <button
+                                onClick={() => handleCopyLink(c.accessToken!)}
+                                className={`text-xs px-2 py-1 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                              >
+                                {t('contract_share_copy_link')}
+                              </button>
+                              {c.tokenExpiresAt && (
+                                <span className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                                  {t('contract_share_expires')}: {new Date(c.tokenExpiresAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          )
+                          : (user?.role === 'Admin' || user?.role === 'FactoryManager') && (
+                            <button
+                              onClick={() => handleGenerateToken(c.id)}
+                              className={`text-xs px-2 py-1 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+                            >
+                              {t('contract_share_generate_link')}
+                            </button>
+                          )
                       )}
                     </div>
                   ))}
