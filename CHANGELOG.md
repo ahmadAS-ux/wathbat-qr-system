@@ -4,6 +4,31 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.1.5 — Replace File button on multi-file slots
+
+### Added
+- **Replace File button** now appears on every file card inside Vendor Order,
+  Qoyod, and Other (multi-file) slots — previously only single-file slots
+  had this button.
+- Clicking Replace shows the existing confirmation modal ("Replace file?"),
+  then opens a file picker. The selected file is sent to the new backend
+  endpoint which replaces the binary content in-place, keeping the same
+  file ID. The slot does NOT grow by one file.
+- **New backend endpoint:** `PUT /api/erp/projects/:id/files/:fileId`
+  (multipart/form-data, `file` field). Updates `fileData`, `originalFilename`,
+  `fileMime`, `uploadedAt`, `uploadedBy`. For Qoyod files also updates the
+  `extractedFile` byte copy. Auth: Admin / FactoryManager / Employee.
+- Qoyod validation preserved: replacing a Qoyod file with a non-PDF is
+  rejected with 400.
+
+### Unchanged
+- All v4.1.3 (Preview modal) and v4.1.4 (Download dialog) preserved.
+- Single-file slot Replace behavior unchanged (still uses POST flow).
+- Glass and Qoyod EXTRACTED tile pipelines unchanged.
+- Backend parsing pipelines unchanged.
+
+---
+
 ## v4.1.4 — Download always triggers Save As dialog
 
 ### Changed
