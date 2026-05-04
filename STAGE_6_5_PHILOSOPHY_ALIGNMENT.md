@@ -290,6 +290,10 @@ and requires:
   Full-width ORIGINAL tile shown instead. LibreOffice infrastructure
   retained for future contract-generation feature. Rule 10 visual anatomy
   updated to show two distinct filled-state layouts. "Skip the extraction
+- **v4.3.0** — Contract feature foundation shipped. New `contracts` and
+  `system_files` tables added. Company info settings (5 fields + logo) added
+  to AdminSettings. No rules changed; LibreOffice infrastructure confirmed
+  intact for v4.3.1 PDF generation.
   step on replace" removed from FORBIDDEN list (no longer applicable).
 - **v4.1.2** — No rule changes. Frontend-only patch: auto-displayed parsed
   tables (Assembly List, Cut Optimisation) removed from Files tab UI per

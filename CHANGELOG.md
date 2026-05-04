@@ -4,6 +4,47 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.3.0 — Contract Feature Foundation
+
+### Added
+- New `contracts` table for storing generated contract PDFs with versioning fields,
+  status, and immutable template/company-info snapshots. PDF generation deferred to v4.3.1.
+- New `system_files` table for system-level binary assets (currently used for company logo).
+- 5 new system_settings keys: `company_name`, `company_address`, `company_cr`,
+  `company_vat`, `company_phone` (seeded with empty strings, idempotent).
+- Backend endpoints:
+  - `GET /api/erp/settings/company-info` — admin-only, returns 5 fields + logo metadata
+  - `PUT /api/erp/settings/company-info` — admin-only, validates all 5 required non-empty
+  - `POST /api/erp/settings/company-logo` — admin-only, 2MB limit, PNG/JPEG/SVG only
+  - `GET /api/erp/settings/company-logo` — public (for future customer-facing contract URLs)
+- AdminSettings UI extended with new "Company Information" section: logo upload +
+  5 required text fields. Inline saved/error feedback matching existing pattern.
+
+### Schema notes
+- `contracts.quotation_file_id` has implicit RESTRICT FK behavior: cannot delete a
+  quotation file while a contract references it. Project-delete logic update planned for v4.3.1.
+- `system_files.file_key` uniqueness enforced via UNIQUE constraint (single backing index).
+
+### Unchanged
+- All v4.1.x and v4.2.x patches preserved.
+- Existing 6 contract template fields (cover, terms, signature blocks) untouched.
+- Existing browser-print contract endpoint and ContractPage.tsx intentionally untouched
+  throughout the entire v4.3.x series.
+- LibreOffice infrastructure unchanged (will be used by v4.3.1).
+- Stage 7 customer entity refactor (completed in v4.2.1).
+
+### Why
+- Foundation for the merged-PDF contract feature.
+- Establishing data model + admin UI first; generation, public access, and stamping
+  ship in v4.3.1, v4.3.2, v4.3.3 respectively.
+
+### Coming next
+- v4.3.1: pdf-lib install, PDF generation pipeline, project-delete logic update
+- v4.3.2: Token system, public contract URLs, access audit
+- v4.3.3: Logo/footer/page-number stamping polish
+
+---
+
 ## v4.2.1 — Stage 7 complete: legacy column removal (destructive)
 
 ### Changed (DESTRUCTIVE)
