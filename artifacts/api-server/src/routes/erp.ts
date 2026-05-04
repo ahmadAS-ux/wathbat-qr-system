@@ -50,6 +50,7 @@ import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
 import { normalizePhoneToE164 } from "../lib/phone.js";
 import { extractDocxToPdf } from "../lib/docx-extractor.js";
+import { generateContractPdf } from "../lib/contract-generator.js";
 
 const router: IRouter = Router();
 
@@ -2829,6 +2830,160 @@ router.get('/erp/settings/company-logo', async (_req: Request, res: Response) =>
     res.send(Buffer.from(row.content as unknown as Buffer));
   } catch (err) {
     logger.error({ err }, 'GET /erp/settings/company-logo failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ─── PDF CONTRACT GENERATION (v4.3.1) ─────────────────────────────────────────
+
+// POST /erp/projects/:id/contracts/generate — Admin/FM only, generates PDF contract
+router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const sess = (req as any).session as { userId: number };
+
+    // Fetch project + customer name via join
+    const [project] = await db
+      .select({ id: projectsTable.id, name: projectsTable.name, customerName: customersTable.name })
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(eq(projectsTable.id, projectId));
+    if (!project) return notFound(res);
+
+    // Validate active quotation file exists
+    const [quotationFile] = await db
+      .select({ id: projectFilesTable.id, content: projectFilesTable.fileData })
+      .from(projectFilesTable)
+      .where(and(
+        eq(projectFilesTable.projectId, projectId),
+        eq(projectFilesTable.fileType, 'quotation'),
+        eq(projectFilesTable.isActive, true),
+      ));
+    if (!quotationFile || !quotationFile.content) {
+      return res.status(400).json({ error: 'No active quotation file found for this project' });
+    }
+
+    // Validate all 5 company info keys are set
+    const REQUIRED_KEYS = COMPANY_INFO_KEYS;
+    const settings = await db
+      .select({ key: systemSettings.key, value: systemSettings.value })
+      .from(systemSettings)
+      .where(inArray(systemSettings.key, REQUIRED_KEYS));
+    const settingsMap = Object.fromEntries(settings.map(s => [s.key, s.value ?? '']));
+    const missingKeys = REQUIRED_KEYS.filter(k => !settingsMap[k]);
+    if (missingKeys.length > 0) {
+      return res.status(400).json({ error: `Company info incomplete: ${missingKeys.join(', ')}` });
+    }
+
+    // Fetch template fields
+    const TEMPLATE_KEYS = ['cover_intro_ar', 'cover_intro_en', 'terms_ar', 'terms_en', 'signature_block_ar', 'signature_block_en'];
+    const templateRows = await db
+      .select({ key: systemSettings.key, value: systemSettings.value })
+      .from(systemSettings)
+      .where(inArray(systemSettings.key, TEMPLATE_KEYS));
+    const templateMap = Object.fromEntries(templateRows.map(s => [s.key, s.value ?? '']));
+
+    // Fetch company logo (optional)
+    let logoBase64: string | undefined;
+    let logoMime: string | undefined;
+    const [logoRow] = await db
+      .select({ content: systemFilesTable.content, mimeType: systemFilesTable.mimeType })
+      .from(systemFilesTable)
+      .where(eq(systemFilesTable.fileKey, 'company_logo'));
+    if (logoRow?.content) {
+      logoBase64 = Buffer.from(logoRow.content as unknown as Buffer).toString('base64');
+      logoMime = logoRow.mimeType;
+    }
+
+    const companyInfoSnapshot = { ...settingsMap };
+    const templateSnapshot = { ...templateMap };
+
+    // Insert a pending contract row first (for audit trail even on failure)
+    const [contractRow] = await db
+      .insert(contractsTable)
+      .values({
+        projectId,
+        quotationFileId: quotationFile.id,
+        templateSnapshot,
+        companyInfoSnapshot,
+        status: 'pending',
+        createdBy: sess.userId,
+      })
+      .returning();
+
+    try {
+      const pdfBuffer = await generateContractPdf(
+        Buffer.from(quotationFile.content as unknown as Buffer),
+        {
+          companyName: settingsMap['company_name'] ?? '',
+          companyAddress: settingsMap['company_address'] ?? '',
+          companyCr: settingsMap['company_cr'] ?? '',
+          companyVat: settingsMap['company_vat'] ?? '',
+          companyPhone: settingsMap['company_phone'] ?? '',
+          logoBase64,
+          logoMime,
+          projectName: project.name,
+          customerName: project.customerName ?? '',
+          generatedDate: new Date().toISOString().split('T')[0]!,
+          coverIntroAr: templateMap['cover_intro_ar'] ?? '',
+          coverIntroEn: templateMap['cover_intro_en'] ?? '',
+          termsAr: templateMap['terms_ar'] ?? '',
+          termsEn: templateMap['terms_en'] ?? '',
+          signatureBlockAr: templateMap['signature_block_ar'] ?? '',
+          signatureBlockEn: templateMap['signature_block_en'] ?? '',
+        },
+      );
+
+      const [updated] = await db
+        .update(contractsTable)
+        .set({ pdfContent: pdfBuffer, status: 'generated', generatedAt: new Date() })
+        .where(eq(contractsTable.id, contractRow.id))
+        .returning({ id: contractsTable.id, status: contractsTable.status, generatedAt: contractsTable.generatedAt, createdAt: contractsTable.createdAt });
+
+      return res.json(updated);
+    } catch (genErr) {
+      await db.update(contractsTable).set({ status: 'failed' }).where(eq(contractsTable.id, contractRow.id));
+      throw genErr;
+    }
+  } catch (err) {
+    logger.error({ err }, 'POST /erp/projects/:id/contracts/generate failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /erp/projects/:id/contracts — list contracts for a project (newest first)
+router.get('/erp/projects/:id/contracts', requireRole('Admin', 'FactoryManager', 'SalesAgent'), async (req: Request, res: Response) => {
+  try {
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(projectId)) return notFound(res);
+    const rows = await db
+      .select({ id: contractsTable.id, status: contractsTable.status, generatedAt: contractsTable.generatedAt, createdAt: contractsTable.createdAt })
+      .from(contractsTable)
+      .where(eq(contractsTable.projectId, projectId))
+      .orderBy(desc(contractsTable.createdAt));
+    res.json(rows);
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/projects/:id/contracts failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /erp/contracts/:contractId/pdf — download PDF bytes
+router.get('/erp/contracts/:contractId/pdf', requireRole('Admin', 'FactoryManager', 'SalesAgent'), async (req: Request, res: Response) => {
+  try {
+    const contractId = Number(req.params.contractId);
+    if (Number.isNaN(contractId)) return notFound(res);
+    const [row] = await db
+      .select({ pdfContent: contractsTable.pdfContent, status: contractsTable.status })
+      .from(contractsTable)
+      .where(eq(contractsTable.id, contractId));
+    if (!row || row.status !== 'generated' || !row.pdfContent) return notFound(res);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="contract-${contractId}.pdf"`);
+    res.send(Buffer.from(row.pdfContent as unknown as Buffer));
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/contracts/:contractId/pdf failed');
     res.status(500).json({ error: 'Internal error' });
   }
 });
