@@ -248,12 +248,7 @@ The fix requires NEW backend behavior.
 
 **v4.2.0 (Stage 7A) ✅ shipped** — All 5 write sites cleaned. Legacy columns no longer written. COALESCE reads intact.
 
-**v4.2.1 (Stage 7B) — pending** — Backfill null-customerId rows, remove COALESCE reads, drop columns from DB and Drizzle schema.
-- Backfill: use `resolveCustomerLink` in a startup JS function for leads/projects with `customerId IS NULL`
-- Then: replace COALESCE at erp.ts:178-179 (leadSelectFields) and erp.ts:199-200 (projectSelectFields) with direct join fields
-- Then: remove `customerName`/`phone` from leads.ts and projects.ts Drizzle schemas
-- Then: add `DROP COLUMN IF EXISTS` for all 4 columns in startup migrations
-- DO NOT ship v4.2.1 until v4.2.0 has been deployed and confirmed stable
+**v4.2.1 (Stage 7B) ✅ shipped** — Backfilled null-customerId rows, removed all COALESCE reads, dropped legacy columns, set customer_id NOT NULL.
 
 ### Contract Feature
 

@@ -4,6 +4,38 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.2.1 — Stage 7 complete: legacy column removal (destructive)
+
+### Changed (DESTRUCTIVE)
+- Dropped `customer_name` column from `leads` table
+- Dropped `phone` column from `leads` table
+- Dropped `customer_name` column from `projects` table
+- Dropped `phone` column from `projects` table
+- All customer information now reads exclusively through `customer_id`
+  foreign key to the `customers` table
+- `customer_id` is now `NOT NULL` on both `leads` and `projects`
+
+### Migration behavior
+- Startup migration backfills any rows with `customer_id IS NULL` before
+  dropping columns: exact name+phone match, then name-only match, then
+  QA-PLACEHOLDER customer as last resort
+- Migration is idempotent — DO blocks and `DROP COLUMN IF EXISTS` make it
+  safe to run on every server restart
+- v4.2.0 `SET DEFAULT` logic is now wrapped in column-existence checks so
+  it no longer fails after the columns are dropped
+
+### Why
+- Stage 7B of customer entity refactor (Stage 7A shipped as v4.2.0)
+- Legacy columns were written redundantly alongside `customer_id` since v4.0.x
+- Production has test data only at this stage — destructive migration safe
+
+### Unchanged
+- All v4.1.x patches (Preview modal, Download save-as, multi-file Replace)
+- Backend parsing pipelines, LibreOffice infrastructure
+- File upload and QR pipelines
+
+---
+
 ## v4.2.0 — Stage 7A: Stop writing legacy customer columns
 
 ### Changed
