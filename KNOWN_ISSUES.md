@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.3.0: Contract feature foundation shipped
+> **Last updated:** May 2026 — v4.3.1: PDF generation pipeline + project-delete fix
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -14,16 +14,15 @@
 
 **Severity:** Low (test data only — no production data at risk)
 **Source:** v4.3.0 schema design (Codex review)
-**Status:** Open — tracked for v4.3.1
+**Status:** ✅ Resolved in v4.3.1
 
 **Description:** `contracts.quotation_file_id` uses PostgreSQL's default RESTRICT FK
 behavior: deleting a `project_files` row will fail if a contract row references it.
 In v4.3.0 no contracts are created (PDF generation ships in v4.3.1), so no real-world
-risk exists yet. Project-delete logic must be updated in v4.3.1 to delete contracts
-before deleting project_files.
+risk existed yet.
 
-**Planned fix:** v4.3.1 — update project-delete endpoint to delete contracts table
-rows before project_files rows for the target project.
+**Fix applied in v4.3.1:** DELETE /erp/projects/:id now wrapped in `db.transaction()` and
+deletes `contracts` rows before `project_files` rows for the target project.
 
 ---
 

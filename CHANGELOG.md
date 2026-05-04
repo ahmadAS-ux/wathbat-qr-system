@@ -4,6 +4,38 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.3.1 — PDF Contract Generation Pipeline
+
+### Added
+- PDF contract generation pipeline using LibreOffice + pdf-lib:
+  - Cover page (HTML → PDF via LibreOffice) with company logo, name, address, CR, VAT,
+    phone, project name, customer name, date, and all 6 template fields (intro, terms, signature)
+  - Quotation DOCX → PDF via existing LibreOffice extractor
+  - Both conversions run in parallel (separate temp dirs), merged with pdf-lib
+- 3 new backend endpoints:
+  - `POST /api/erp/projects/:id/contracts/generate` — Admin/FM only; validates quotation file
+    + all 5 company info keys; generates and stores PDF in `contracts` table
+  - `GET /api/erp/projects/:id/contracts` — list contracts for a project (newest first)
+  - `GET /api/erp/contracts/:contractId/pdf` — download PDF bytes (inline, no token yet)
+- "PDF Contract" section in ProjectDetail Contract tab: generate button + download list
+- 6 new i18n keys (Arabic + English): `contract_pdf_title`, `contract_pdf_generate`,
+  `contract_pdf_generating`, `contract_pdf_generate_error`, `contract_pdf_download`,
+  `contract_pdf_no_quotation`
+
+### Fixed
+- DELETE /erp/projects/:id now wrapped in `db.transaction()` — partial delete failures
+  no longer leave orphan rows
+- DELETE /erp/projects/:id now deletes `contracts` rows before `project_files` rows,
+  fixing RESTRICT FK 500 error when a project had generated contracts (L-X resolved)
+
+### Unchanged
+- `ContractPage.tsx`, `contract-integrity.ts` — untouched
+- Existing 6 contract template fields in AdminSettings — untouched
+- No public token URLs (planned for v4.3.2)
+- No logo/footer/page-number stamping (planned for v4.3.3)
+
+---
+
 ## v4.3.0 — Contract Feature Foundation
 
 ### Added
