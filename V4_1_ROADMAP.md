@@ -460,5 +460,5 @@ The contract feature was planned after v4.1.0 completed. Tracked here for contin
 |---|---|---|
 | v4.3.0 | ✅ Shipped | Foundation: `contracts` + `system_files` tables, company info endpoints, AdminSettings UI |
 | v4.3.1 | ✅ Shipped | PDF generation pipeline (pdf-lib + LibreOffice) + project-delete RESTRICT FK fix |
-| v4.3.2 | Planned | Token system, public contract URLs, access audit |
+| v4.3.2 | ✅ Shipped | Token system, public contract URLs, access audit |
 | v4.3.3 | Planned | Logo/footer/page-number stamping polish |

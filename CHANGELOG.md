@@ -4,6 +4,28 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.3.2 — Token System + Public Contract URLs
+
+### Added
+- Token system for time-limited public contract sharing:
+  - `POST /api/erp/contracts/:id/token` — Admin/FM only; generates a `randomUUID()` token
+    with 30-day expiry and stores it on the contract row
+  - `GET /api/erp/contracts/public/:token` — no authentication required; validates token,
+    checks expiry, logs the access, returns PDF bytes
+  - Returns 410 Gone for expired tokens (not 404) — clear signal to the recipient
+- New `contract_access_logs` table for audit trail: each public access is a row with
+  `contract_id`, `accessed_at`, and `ip_address`
+- `GET /api/erp/projects/:id/contracts` now includes `accessToken` and `tokenExpiresAt`
+- "Generate public link" button in ProjectDetail Contract tab (Admin/FM only)
+- "Copy public link" button + expiry date shown once a token exists (all roles)
+
+### Unchanged
+- `ContractPage.tsx`, `contract-integrity.ts` — untouched
+- Existing 6 contract template fields in AdminSettings — untouched
+- No token revocation UI (future patch)
+
+---
+
 ## v4.3.1 — PDF Contract Generation Pipeline
 
 ### Added
