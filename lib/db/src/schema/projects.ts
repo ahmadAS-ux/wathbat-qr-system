@@ -6,7 +6,7 @@ import { customersTable } from "./customers";
 export const projectsTable = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  customerName: text("customer_name").notNull(),
+  customerName: text("customer_name").notNull().default(""),
   phone: text("phone"),
   location: text("location"),
   buildingType: text("building_type"),

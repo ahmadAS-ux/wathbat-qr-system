@@ -4,8 +4,8 @@ import { customersTable } from "./customers";
 
 export const leadsTable = pgTable("leads", {
   id: serial("id").primaryKey(),
-  customerName: text("customer_name").notNull(),
-  phone: text("phone").notNull(),
+  customerName: text("customer_name").notNull().default(""),
+  phone: text("phone").notNull().default(""),
   source: text("source").notNull(),
   productInterest: text("product_interest").notNull(),
   buildingType: text("building_type").notNull(),

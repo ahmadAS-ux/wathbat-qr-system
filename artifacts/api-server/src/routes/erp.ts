@@ -769,8 +769,6 @@ router.post("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "Sa
 
       const [row] = await tx.insert(leadsTable).values({
         customerId: resolvedCustomer.customerId,
-        customerName: resolvedCustomer.customerName,
-        phone: resolvedCustomer.phone,
         source,
         productInterest,
         buildingType,
@@ -984,8 +982,6 @@ router.patch("/erp/leads/:id", requireRole("Admin", "FactoryManager", "Employee"
         if ("error" in resolvedCustomer) return resolvedCustomer;
 
         finalLeadUpdates.customerId = resolvedCustomer.customerId;
-        finalLeadUpdates.customerName = resolvedCustomer.customerName;
-        finalLeadUpdates.phone = resolvedCustomer.phone;
       }
 
       const [row] = await tx.update(leadsTable).set(finalLeadUpdates).where(eq(leadsTable.id, id)).returning();
@@ -1130,8 +1126,6 @@ router.post("/erp/leads/:id/convert", requireRole(...NO_SALES_NO_ACCT), async (r
       const [project] = await tx.insert(projectsTable).values({
         name: lead.customerName,
         customerId: resolvedCustomer.customerId,
-        customerName: resolvedCustomer.customerName,
-        phone: resolvedCustomer.phone,
         location: lead.location ?? null,
         buildingType: lead.buildingType,
         productInterest: lead.productInterest,
@@ -1383,8 +1377,6 @@ router.post("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Reque
       const [row] = await tx.insert(projectsTable).values({
         name,
         customerId: resolvedCustomer.customerId,
-        customerName: resolvedCustomer.customerName,
-        phone: resolvedCustomer.phone,
         location: resolvedLocation,
         buildingType: resolvedBuildingType,
         productInterest: resolvedProductInterest,
@@ -1540,8 +1532,6 @@ router.patch("/erp/projects/:id", requireRole(...NO_SALES_NO_ACCT), async (req: 
         if ("error" in resolvedCustomer) return resolvedCustomer;
 
         finalProjectUpdates.customerId = resolvedCustomer.customerId;
-        finalProjectUpdates.customerName = resolvedCustomer.customerName;
-        finalProjectUpdates.phone = resolvedCustomer.phone;
       }
 
       const [row] = await tx.update(projectsTable).set(finalProjectUpdates).where(eq(projectsTable.id, id)).returning();

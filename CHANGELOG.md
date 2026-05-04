@@ -4,6 +4,28 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.2.0 — Stage 7A: Stop writing legacy customer columns
+
+### Changed
+- **Legacy `customer_name` / `phone` columns** on `leads` and `projects`
+  tables are no longer written on create or update. All five write sites
+  (`POST /erp/leads`, `PATCH /erp/leads/:id`, `POST /erp/leads/:id/convert`,
+  `POST /erp/projects`, `PATCH /erp/projects/:id`) now write only `customerId`.
+- **Startup migration** adds `DEFAULT ''` to `leads.customer_name`,
+  `leads.phone`, and `projects.customer_name` so existing INSERTs without
+  those fields satisfy the NOT NULL constraint.
+- **Drizzle schema** (`leads.ts`, `projects.ts`) marks the legacy columns with
+  `.default("")` so TypeScript allows omitting them from `.values()`.
+
+### Unchanged
+- COALESCE reads in `leadSelectFields` / `projectSelectFields` remain intact.
+  Existing rows with legacy values still display correctly (Phase 2 removes
+  COALESCE and drops columns once backfill is confirmed).
+- All frontend code unchanged — API responses are field-identical.
+- All file upload, parsing, and QR pipelines unchanged.
+
+---
+
 ## v4.1.5 — Replace File button on multi-file slots
 
 ### Added

@@ -244,18 +244,16 @@ The fix requires NEW backend behavior.
 
 ## After v4.1.5 — Stage 7 and Contract Feature
 
-These are the next two big items, planned but not yet scoped:
-
 ### Stage 7 — Drop legacy customer columns
 
-- Drop `customer_name` and `phone` from leads and projects tables
-- Remove COALESCE(...) fallbacks from 6+ places in erp.ts
-- Update create/update flows for leads and projects
-- This is destructive — needs prep work first to remove all reads/writes of legacy columns
-- Codex audit during v4.1.2 found 6+ places still depend on these columns:
-  - erp.ts:175, 195 (shared select projections)
-  - erp.ts:749, 972, 1371, 1528 (create/update flows)
-- DO NOT ship until those are cleaned up
+**v4.2.0 (Stage 7A) ✅ shipped** — All 5 write sites cleaned. Legacy columns no longer written. COALESCE reads intact.
+
+**v4.2.1 (Stage 7B) — pending** — Backfill null-customerId rows, remove COALESCE reads, drop columns from DB and Drizzle schema.
+- Backfill: use `resolveCustomerLink` in a startup JS function for leads/projects with `customerId IS NULL`
+- Then: replace COALESCE at erp.ts:178-179 (leadSelectFields) and erp.ts:199-200 (projectSelectFields) with direct join fields
+- Then: remove `customerName`/`phone` from leads.ts and projects.ts Drizzle schemas
+- Then: add `DROP COLUMN IF EXISTS` for all 4 columns in startup migrations
+- DO NOT ship v4.2.1 until v4.2.0 has been deployed and confirmed stable
 
 ### Contract Feature
 

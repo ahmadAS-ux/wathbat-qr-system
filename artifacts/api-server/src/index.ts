@@ -516,6 +516,13 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS extracted_mime VARCHAR(100)`);
     await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS file_mime VARCHAR(100)`);
 
+    // v4.2.0: Stage 7A — stop writing legacy customer_name / phone columns on leads and projects.
+    // Add DEFAULT '' so INSERTs that omit these fields satisfy the NOT NULL constraint.
+    // COALESCE reads in leadSelectFields / projectSelectFields remain untouched (Phase 2 removes them).
+    await db.execute(sql`ALTER TABLE leads ALTER COLUMN customer_name SET DEFAULT ''`);
+    await db.execute(sql`ALTER TABLE leads ALTER COLUMN phone SET DEFAULT ''`);
+    await db.execute(sql`ALTER TABLE projects ALTER COLUMN customer_name SET DEFAULT ''`);
+
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
 
