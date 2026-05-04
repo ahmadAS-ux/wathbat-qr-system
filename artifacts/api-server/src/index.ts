@@ -516,12 +516,67 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS extracted_mime VARCHAR(100)`);
     await db.execute(sql`ALTER TABLE project_files ADD COLUMN IF NOT EXISTS file_mime VARCHAR(100)`);
 
-    // v4.2.0: Stage 7A — stop writing legacy customer_name / phone columns on leads and projects.
-    // Add DEFAULT '' so INSERTs that omit these fields satisfy the NOT NULL constraint.
-    // COALESCE reads in leadSelectFields / projectSelectFields remain untouched (Phase 2 removes them).
-    await db.execute(sql`ALTER TABLE leads ALTER COLUMN customer_name SET DEFAULT ''`);
-    await db.execute(sql`ALTER TABLE leads ALTER COLUMN phone SET DEFAULT ''`);
-    await db.execute(sql`ALTER TABLE projects ALTER COLUMN customer_name SET DEFAULT ''`);
+    // v4.2.0 + v4.2.1: Stage 7 — legacy customer_name / phone column removal.
+    // All statements are idempotent: the DO block only runs while the columns exist;
+    // DROP COLUMN IF EXISTS and SET NOT NULL are safe to repeat on every restart.
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        -- v4.2.0: add DEFAULT '' so INSERTs omitting these fields stay valid
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'customer_name') THEN
+          ALTER TABLE leads ALTER COLUMN customer_name SET DEFAULT '';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'phone') THEN
+          ALTER TABLE leads ALTER COLUMN phone SET DEFAULT '';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'customer_name') THEN
+          ALTER TABLE projects ALTER COLUMN customer_name SET DEFAULT '';
+        END IF;
+
+        -- v4.2.1: backfill any rows with customer_id IS NULL before dropping columns
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'customer_name') THEN
+          -- Create a QA-PLACEHOLDER customer for any orphan rows (test-data-only env)
+          INSERT INTO customers (name, phone, status, created_at, updated_at)
+          SELECT 'QA-PLACEHOLDER', '+966000000000', 'active', NOW(), NOW()
+          WHERE NOT EXISTS (SELECT 1 FROM customers WHERE name = 'QA-PLACEHOLDER')
+            AND NOT EXISTS (SELECT 1 FROM customers WHERE phone = '+966000000000');
+
+          -- Pass 1: exact name + phone match
+          UPDATE leads l SET customer_id = c.id
+          FROM customers c
+          WHERE l.customer_id IS NULL AND c.name = l.customer_name AND c.phone = l.phone;
+
+          -- Pass 2: name-only match
+          UPDATE leads l SET customer_id = (
+            SELECT id FROM customers WHERE name = l.customer_name ORDER BY id LIMIT 1
+          )
+          WHERE l.customer_id IS NULL
+            AND l.customer_name IS NOT NULL AND l.customer_name != '';
+
+          -- Pass 3: assign QA-PLACEHOLDER for any remaining orphans
+          UPDATE leads l SET customer_id = (SELECT id FROM customers WHERE name = 'QA-PLACEHOLDER' LIMIT 1)
+          WHERE l.customer_id IS NULL;
+
+          -- Projects: name match
+          UPDATE projects p SET customer_id = c.id
+          FROM customers c
+          WHERE p.customer_id IS NULL AND c.name = p.customer_name;
+
+          -- Projects: QA-PLACEHOLDER fallback
+          UPDATE projects p SET customer_id = (SELECT id FROM customers WHERE name = 'QA-PLACEHOLDER' LIMIT 1)
+          WHERE p.customer_id IS NULL;
+        END IF;
+      END
+      $$
+    `);
+    // v4.2.1: enforce NOT NULL on customer_id (idempotent — no-op if already set)
+    await db.execute(sql`ALTER TABLE leads ALTER COLUMN customer_id SET NOT NULL`);
+    await db.execute(sql`ALTER TABLE projects ALTER COLUMN customer_id SET NOT NULL`);
+    // v4.2.1: drop legacy columns (IF EXISTS makes this safe to repeat on every restart)
+    await db.execute(sql`ALTER TABLE leads DROP COLUMN IF EXISTS customer_name`);
+    await db.execute(sql`ALTER TABLE leads DROP COLUMN IF EXISTS phone`);
+    await db.execute(sql`ALTER TABLE projects DROP COLUMN IF EXISTS customer_name`);
+    await db.execute(sql`ALTER TABLE projects DROP COLUMN IF EXISTS phone`);
 
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);
