@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable } from "@workspace/db";
+import { db, usersTable, dropdownOptionsTable, systemSettings, paymentMilestonesTable, projectPhasesTable, vendorsTable, purchaseOrdersTable, poItemsTable, manufacturingOrdersTable, contractsTable, systemFilesTable } from "@workspace/db";
 import { sql, eq, inArray } from "drizzle-orm";
 import { hashPassword } from "./lib/auth.js";
 import { generateAndSetProjectCode } from "./routes/erp.js";
@@ -577,6 +577,52 @@ async function runStartupMigrations() {
     await db.execute(sql`ALTER TABLE leads DROP COLUMN IF EXISTS phone`);
     await db.execute(sql`ALTER TABLE projects DROP COLUMN IF EXISTS customer_name`);
     await db.execute(sql`ALTER TABLE projects DROP COLUMN IF EXISTS phone`);
+
+    // v4.3.0: contracts table
+    // Foreign keys default to ON DELETE NO ACTION (RESTRICT-equivalent).
+    // Project deletion will fail if contracts exist referencing project_files.
+    // Project-delete logic update planned for v4.3.1.
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contracts (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        quotation_file_id INTEGER NOT NULL REFERENCES project_files(id),
+        template_snapshot JSONB NOT NULL,
+        company_info_snapshot JSONB NOT NULL,
+        pdf_content BYTEA,
+        status TEXT NOT NULL DEFAULT 'pending',
+        generated_at TIMESTAMP,
+        access_token TEXT,
+        token_expires_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_by INTEGER REFERENCES users(id),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contracts_project_id_idx ON contracts(project_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contracts_access_token_idx ON contracts(access_token)`);
+
+    // v4.3.0: system_files table
+    // UNIQUE on file_key creates implicit backing index automatically —
+    // no separate CREATE UNIQUE INDEX statement needed.
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS system_files (
+        id SERIAL PRIMARY KEY,
+        file_key TEXT NOT NULL UNIQUE,
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        content BYTEA NOT NULL,
+        uploaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        uploaded_by INTEGER REFERENCES users(id)
+      )
+    `);
+
+    // v4.3.0: seed company info keys into system_settings
+    await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_name', '', NOW()) ON CONFLICT (key) DO NOTHING`);
+    await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_address', '', NOW()) ON CONFLICT (key) DO NOTHING`);
+    await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_cr', '', NOW()) ON CONFLICT (key) DO NOTHING`);
+    await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_vat', '', NOW()) ON CONFLICT (key) DO NOTHING`);
+    await db.execute(sql`INSERT INTO system_settings (key, value, updated_at) VALUES ('company_phone', '', NOW()) ON CONFLICT (key) DO NOTHING`);
 
     // Rename legacy 'User' role to 'Employee'
     await db.execute(sql`UPDATE users SET role = 'Employee' WHERE role = 'User'`);

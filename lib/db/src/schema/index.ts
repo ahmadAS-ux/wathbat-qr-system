@@ -18,3 +18,5 @@ export * from "./vendors";
 export * from "./purchase_orders";
 export * from "./po_items";
 export * from "./manufacturing_orders";
+export * from "./contracts";
+export * from "./system_files";
