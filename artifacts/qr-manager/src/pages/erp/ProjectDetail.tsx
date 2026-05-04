@@ -1181,6 +1181,27 @@ export default function ErpProjectDetail() {
     await uploadFile(file, pendingFileType);
   };
 
+  const replaceFileById = async (fileId: number, file: File, fileType: string) => {
+    setUploadingFor(fileType);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(
+        `${API_BASE}/api/erp/projects/${id}/files/${fileId}`,
+        { method: 'PUT', body: fd }
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        showToast(errBody?.message || t('erp_upload_failed'), 'error');
+        return;
+      }
+      await loadProject();
+      await loadAllFiles();
+    } finally {
+      setUploadingFor(null);
+    }
+  };
+
   const downloadFile = (fileId: number, filename: string) => {
     const a = document.createElement('a');
     a.href = `${API_BASE}/api/erp/projects/${id}/files/${fileId}?download=1`;
@@ -1633,11 +1654,11 @@ export default function ErpProjectDetail() {
                     label={{ ar: slot.labelAr, en: slot.labelEn }}
                     files={bucketFiles as FileRecord[]}
                     onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
-                    onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
+                    onReplace={async (fileId, file) => { await replaceFileById(fileId, file, slot.fileType); }}
                     onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
                     onDelete={canDeleteFileSlot ? deleteFile : undefined}
                     canDelete={canDeleteFileSlot}
-                    canReplace={false}
+                    canReplace={canUpload}
                     isLoading={isUploading}
                   />
                 );
