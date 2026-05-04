@@ -1,17 +1,17 @@
 # USERS_AND_PERMISSIONS.md
-# هيكل المستخدمين والصلاحيات — Wathbah v4.0.0
+# هيكل المستخدمين والصلاحيات — Wathbah v4.4.0
 
 > **Purpose:** Single source of truth for user roles, what each role can see, what each role can do, and how to hide information cleanly in the UI.
 > **Read before:** building any new page, adding any new button, exposing any new data field.
 > **Audience:** Claude Code, Ahmad, future developers.
-> **Last updated:** April 2026 — synced for v4.0.0 stabilization release
+> **Last updated:** April 2026 — extended for v4.4.0 (7-role dashboard + capabilities granularity)
 
 ---
 
 ## Table of Contents
 
 0. [Current Implementation Status](#0-current-implementation-status)
-1. [The 5 Roles](#1-the-5-roles)
+1. [The 7 Roles](#1-the-7-roles)
 1.5. [Quick Reference Cheat Sheet](#15-quick-reference-cheat-sheet)
 2. [Permissions Matrix — Full Detail](#2-permissions-matrix--full-detail)
 3. [What Each Role Sees on Each Page](#3-what-each-role-sees-on-each-page)
@@ -22,6 +22,8 @@
 8. [Implementation Patterns](#8-implementation-patterns)
 9. [Testing Checklist](#9-testing-checklist)
 10. [Known Permission Gaps](#10-known-permission-gaps)
+11. [Capabilities Granularity (v4.4.0)](#11-capabilities-granularity-v440)
+12. [Permissions Dashboard (v4.4.0)](#12-permissions-dashboard-v440)
 
 ---
 
@@ -38,18 +40,27 @@
 | `lib/permissions.ts` helper | ✅ | ✅ | **CREATED** — 13 named helpers; single source of truth for all role checks (`artifacts/qr-manager/src/lib/permissions.ts`) |
 | `RequireRole` route component | ✅ | ✅ | **CREATED** — redirects unauthorised roles to `/admin` (`artifacts/qr-manager/src/components/RequireRole.tsx`) |
 | Accountant → project detail path | ✅ | ✅ | `GET /erp/projects/:id` now allows Accountant; `Payments.tsx` deep-links to `?tab=payments` |
+| File deletion = Admin only (Rule 10) | ✅ | ✅ | **v4.0.11 (Stage 6.6)** — `<FileSlot>`'s "..." menu uses Admin-only check, not `canDeleteProject` |
+| **7-role schema** | ✅ | ❌ | **v4.4.0 target** — adds Collaborator + Customer to existing 5 |
+| **Capabilities granularity** | ✅ | ❌ | **v4.4.0 target** — `lib/capabilities.ts` constant + `role_capabilities` DB table |
+| **Permissions dashboard (3 pages)** | ✅ | ❌ | **v4.4.0 target** — Admin-editable role matrix + user management |
+| **Per-user permission overrides** | ✅ | ❌ | **v4.4.1 target** — `user_capability_overrides` table |
 
 ---
 
-## 1. The 5 Roles
+## 1. The 7 Roles
 
-| Role | Arabic Name | DB Value | Scope |
-|---|---|---|---|
-| Admin | المدير العام | `'Admin'` | Full system control — settings, users, all data, delete |
-| Factory Manager | مدير المصنع | `'FactoryManager'` | Operations — projects, manufacturing, vendors, can delete |
-| Employee | الموظف | `'Employee'` | Day-to-day — leads, projects, files, receiving |
-| Sales Agent | مندوب المبيعات | `'SalesAgent'` | Sales only — own leads, contract view |
-| Accountant | المحاسب | `'Accountant'` | Money only — payments, Qoyod, invoices |
+| Role | DB Value | UI Label (EN) | UI Label (AR) | Scope |
+|---|---|---|---|---|
+| Admin | `'Admin'` | Admin | المدير العام | Full system control — settings, users, all data, delete |
+| Manager *(was Factory Manager)* | `'FactoryManager'` | **Manager** | **المدير** | Operations — projects, manufacturing, vendors. **Cannot delete anything (v4.4.0 change).** |
+| Employee | `'Employee'` | Employee | الموظف | Day-to-day — leads, **active projects only** (`stage_internal < 14`), files, receiving |
+| Sales Agent | `'SalesAgent'` | Sales Agent | مندوب المبيعات | Sales — all leads (filtered to own when relevant), contract view, stages 11–14 for own-origin projects |
+| Accountant | `'Accountant'` | Accountant | المحاسب | Money only — payments, Qoyod, invoices, project detail via Payments deep-link |
+| **Collaborator** *(new in v4.4.0)* | `'Collaborator'` | Collaborator | مندوب خارجي | External partner — **own leads only**, stages 11–14 for own-origin projects |
+| **Customer** *(new in v4.4.0, grayed out)* | `'Customer'` | Customer | عميل | Future contract-signing only. No functional code paths yet. |
+
+**v4.4.0 Note on labels:** The DB role string `'FactoryManager'` is unchanged. Only the user-facing label changes from "Factory Manager / مدير المصنع" to "Manager / المدير". Code, helpers, and `lib/permissions.ts` are not affected by this rename.
 
 **Default user on first startup:** `admin` / `admin123` — Admin role. Change password immediately.
 
@@ -58,22 +69,32 @@
 ## 1.5. Quick Reference Cheat Sheet
 
 > At-a-glance access map. For full detail see Section 2. "Own only" means the role is scoped to records assigned to them.
+> **Customer** column is included for completeness — all values are ❌ until contract-signing feature ships.
 
-| Feature | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| Leads | ✅ | ✅ | ✅ | Own only | ❌ |
-| Projects | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Contract view | ✅ | ✅ | ❌ | ✅ | ❌ |
-| Prices / quotations | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Payments | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Vendors | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Manufacturing | ✅ | ✅ | ✅ | ❌ | ❌ |
-| QR Upload | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Settings | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Users management | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Qoyod sync | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Delete records | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Dashboard KPIs (financial) | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Feature | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| Leads | ✅ | ✅ | ✅ | All / own when filtered | **Own only** | ❌ | ❌ |
+| Projects (active) | ✅ | ✅ | ✅ (active only) | ❌ | ❌ | ❌ | ❌ |
+| Projects (warranty-complete) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Contract view | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | Own contract only |
+| Prices in projects | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Prices in contracts | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| Payments | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Vendors | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Manufacturing | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Stages 11–14 (delivery/install/signoff/warranty) | ✅ | ✅ | ✅ | Own-origin only | Own-origin only | ❌ | ❌ |
+| QR Upload | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Settings | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Users management | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Permissions dashboard | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Qoyod sync | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Delete projects** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Delete leads** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Delete files** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Dashboard KPIs (financial) | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Sign contract | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (future) |
+
+**v4.4.0 behavior change:** Manager (FactoryManager) loses delete privileges across the board. Pre-v4.4.0 they could delete projects, leads, and files; post-v4.4.0 they cannot. This is captured explicitly in Section 10's transition log.
 
 ---
 
@@ -81,107 +102,117 @@
 
 ### Leads & Customers (العملاء)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View all leads | ✅ | ✅ | ✅ | ✅ | ❌ |
-| View own leads only | — | — | — | ✅ (filtered) | ❌ |
-| Create new lead | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Edit any lead | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Edit own leads | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Add contact log entry | ✅ | ✅ | ✅ | ✅ (own) | ❌ |
-| Mark lead as lost | ✅ | ✅ | ✅ | ✅ (own) | ❌ |
-| Convert lead → project | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Delete lead | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View all leads | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| View own leads only | — | — | — | ✅ (filtered) | ✅ (filtered) | ❌ | ❌ |
+| Create new lead | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Edit any lead | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Edit own leads | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Add contact log entry | ✅ | ✅ | ✅ | ✅ (own) | ✅ (own) | ❌ | ❌ |
+| Mark lead as lost | ✅ | ✅ | ✅ | ✅ (own) | ✅ (own) | ❌ | ❌ |
+| Convert lead → project | ✅ | ✅ | ✅ | ✅ (own) | ✅ (own) | ❌ | ❌ |
+| **Delete lead** | ✅ | **❌** | ❌ | ❌ | ❌ | ❌ | ❌ |
 
-> **Additional lead-level restrictions (live code):** `GET /erp/leads/search` excludes SalesAgent (Admin, FM, Employee only). `GET /erp/leads/:id/linked-projects` is Admin and FactoryManager only.
-
-> **Future improvement:** Add a backend endpoint column to each row linking the permission to its `requireRole()` call in `erp.ts`. This makes audits mechanical. Not done yet — pending `lib/permissions.ts` creation.
+> **Additional lead-level restrictions:** `GET /erp/leads/search` excludes SalesAgent and Collaborator (Admin, Manager, Employee only). `GET /erp/leads/:id/linked-projects` is Admin and Manager only.
 
 ### Projects (المشاريع)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View projects list | ✅ | ✅ | ✅ | ❌* | ❌ |
-| View project detail | ✅ | ✅ | ✅ | ❌* | ❌ |
-| Create project directly | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Edit project info | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Delete project | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Upload Orgadata files | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Delete files | ✅ | ✅ | ❌ | ❌ | ✅ (Qoyod files) |
-| Edit project notes | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View projects list (active) | ✅ | ✅ | ✅ | ❌* | ❌* | ❌ | ❌ |
+| View projects list (incl. warranty-complete) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View project detail | ✅ | ✅ | ✅ (active only) | ❌* | ❌* | ✅ (via Payments deep-link) | ❌ |
+| Create project directly | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Edit project info | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Delete project** | ✅ | **❌** | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Upload Orgadata files | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Delete files (Rule 10)** | ✅ | **❌** | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Edit project notes | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Manage stages 0–10 | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Manage stages 11–14 (delivery / installation / signoff / warranty) | ✅ | ✅ | ✅ | ✅ (own-origin) | ✅ (own-origin) | ❌ | ❌ |
 
-> \* SalesAgent has no general project access, but DOES have access to view contracts (see Contracts row below). This is the only project-related visibility they have.
+> \* Sales Agent and Collaborator have no general project access, but DO have access to view contracts (see Contracts row below) AND to manage stages 11–14 for projects originating from their own leads (`projects.from_lead_id` resolves to a lead they own).
+>
+> **v4.4.0 row-level enforcement:** "own-origin" means the route handler filters projects by `from_lead_id IN (SELECT id FROM leads WHERE assigned_to = current_user_id)`. SalesAgent sees all leads list-side but only own-origin projects in the stages 11–14 management. Collaborator is filtered to own at every layer.
+>
+> **"active project" definition for Employee scope:** `stage_internal < 14`. Stages 0–13 are active; stage 14+ (warranty-complete) is hidden from Employee.
 
 ### Contracts (العقود)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View contract page | ✅ | ✅ | ❌ | ✅ | ❌ |
-| Print contract | ✅ | ✅ | ❌ | ✅ | ❌ |
-| Edit contract template | ✅ | ❌ | ❌ | ❌ | ❌ |
-| View integrity check | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View contract page | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ (own only, future) |
+| Print contract | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Edit contract template | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View integrity check | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Sign contract** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (future) |
 
 ### Pricing & Quotations (الأسعار والعروض)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| **View prices in projects** | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **View prices in contracts** | ✅ | ✅ | ❌ | ✅ | ✅ |
-| Edit estimated value | ✅ | ✅ | ❌ | ❌ | ❌ |
-| View quotation totals | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| **View prices in projects** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **View prices in contracts** | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| Edit estimated value | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View quotation totals | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
 
-> **CRITICAL:** Employees should NEVER see prices in the project detail page. This is a deliberate business rule — prevents internal price leaks.
+> **CRITICAL:** Employees, Collaborators, and Customers should NEVER see prices in the project detail page. This is a deliberate business rule — prevents internal price leaks and protects sensitive customer information.
 
 ### Vendors & Purchase Orders (الموردين والمشتريات)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View vendor list | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Create vendor | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Create purchase order | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Mark items received | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Delete vendor/PO | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View vendor list | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Create vendor | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Create purchase order | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Mark items received | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Delete vendor/PO** | ✅ | **❌** | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ### Manufacturing (التصنيع)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View manufacturing orders | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Send to manufacturing | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Update workshop progress | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Mark phase delivered | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Mark phase installed | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Sign-off phase | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View manufacturing orders | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Send to manufacturing | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Update workshop progress | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Mark phase delivered | ✅ | ✅ | ✅ | ✅ (own-origin) | ✅ (own-origin) | ❌ | ❌ |
+| Mark phase installed | ✅ | ✅ | ✅ | ✅ (own-origin) | ✅ (own-origin) | ❌ | ❌ |
+| Sign-off phase | ✅ | ✅ | ❌ | ✅ (own-origin) | ❌ | ❌ | ❌ |
 
 ### Payments & Money (المدفوعات والمالية)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| View payments page | ✅ | ❌ | ❌ | ❌ | ✅ |
-| View payment milestones in project | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Create payment milestone | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Mark milestone as paid | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Upload Qoyod document | ✅ | ❌ | ❌ | ❌ | ✅ |
-| View Qoyod sync page | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Link Qoyod invoice to project | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| View payments page | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| View payment milestones in project | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Create payment milestone | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Mark milestone as paid | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Upload Qoyod document | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| View Qoyod sync page | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Link Qoyod invoice to project | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 
 ### QR System (نظام المستندات)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| Upload .docx for QR processing | ✅ | ✅ | ✅ | ❌ | ❌ |
-| View document archive | ✅ | ✅ | ✅ | ❌ | ❌ |
-| View service requests (from QR scans) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| Upload .docx for QR processing | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View document archive | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View service requests (from QR scans) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+> **v4.0.0 design decision (preserved):** QR Upload and Document Archive are Admin-only via `canViewQRSystem(user?.role)`. Service Requests is broader (Admin + Manager + Employee) because it's the customer-facing scan results, not the upload tooling.
 
 ### System Administration (الإعدادات)
 
-| Action | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| Manage users (create/edit/delete) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Edit dropdown lists | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Edit contract template | ✅ | ❌ | ❌ | ❌ | ❌ |
-| View system settings | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Change own password | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Action | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| Manage users (create/edit/disable) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Edit role permissions (v4.4.0 dashboard)** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Override per-user permissions (v4.4.1)** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Edit dropdown lists | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Edit contract template | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| View system settings | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Change own password | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ---
 
@@ -189,29 +220,29 @@
 
 ### Dashboard (/admin)
 
-| Element | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| KPI: Active Projects | ✅ | ✅ | ✅ | ✅ | ✅ |
-| KPI: Revenue MTD | ✅ | ✅ | ❌ | ❌ | ✅ |
-| KPI: Outstanding | ✅ | ✅ | ❌ | ❌ | ✅ |
-| KPI: QR Documents | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Stage Funnel | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Cashflow Snapshot | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Activity Feed | ✅ | ✅ | ✅ | ✅ (own only) | ✅ |
-| Maintenance Requests | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Attention List (overdue) | ✅ | ✅ | ✅ | ✅ (own leads) | ✅ (own payments) |
+| Element | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| KPI: Active Projects | ✅ | ✅ | ✅ | ✅ | ✅ (own-origin) | ✅ | ❌ |
+| KPI: Revenue MTD | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| KPI: Outstanding | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| KPI: QR Documents | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Stage Funnel | ✅ | ✅ | ✅ | ✅ | ✅ (own-origin) | ❌ | ❌ |
+| Cashflow Snapshot | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Activity Feed | ✅ | ✅ | ✅ | ✅ (own only) | ✅ (own only) | ✅ | ❌ |
+| Maintenance Requests | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Attention List (overdue) | ✅ | ✅ | ✅ | ✅ (own leads) | ✅ (own leads) | ✅ (own payments) | ❌ |
 
 ### Project Detail Page Tabs
 
-| Tab | Admin | FactoryManager | Employee | SalesAgent | Accountant |
-|---|---|---|---|---|---|
-| Overview | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Files | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Payments | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Procurement | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Production | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Contract | ✅ | ✅ | ❌ | ✅ | ❌ |
-| Timeline | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Tab | Admin | Manager | Employee | Sales Agent | Collaborator | Accountant | Customer |
+|---|---|---|---|---|---|---|---|
+| Overview | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Files | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Payments | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Procurement | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Production | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Contract | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ (own, future) |
+| Timeline | ✅ | ✅ | ✅ | ✅ (own-origin, stages 11–14 only) | ✅ (own-origin, stages 11–14 only) | ❌ | ❌ |
 
 > Tabs the user cannot access must be **hidden entirely** from the tab bar — never shown as disabled with empty content.
 
@@ -226,35 +257,39 @@
 └─ Service Requests (طلبات الصيانة)
 
 نظام التصنيع
+├─ Customer Records (سجل العملاء)
 ├─ Clients (العملاء)
 ├─ Projects (المشاريع)
 ├─ Payments (المدفوعات)
 ├─ Vendors (الموردون)
-├─ Qoyod (قيود) — when integration is live
-└─ Settings (الإعدادات)
+└─ Qoyod (قيود) — when integration is live
 
 نظام المستندات
-├─ QR Upload (رفع ملف QR)
 └─ Document Archive (أرشيف المستندات)
+
+الإعدادات
+├─ Users (المستخدمون)
+├─ Permissions (الصلاحيات) — v4.4.0
+├─ Dropdown Lists (القوائم المنسدلة)
+└─ Language (English / العربية)
 ```
 
-### Factory Manager sees:
+### Manager sees:
 ```
 الإدارة
 ├─ Dashboard
 └─ Service Requests
 
 نظام التصنيع
+├─ Customer Records
 ├─ Clients
 ├─ Projects
-├─ Vendors
-└─ (no Payments, no Settings, no Qoyod)
+└─ Vendors
+   (no Payments, no Settings, no Qoyod, no Permissions)
 
 نظام المستندات
-└─ (no access — QR Upload and Document Archive restricted to Admin in live code)
+└─ (no access — Document Archive is Admin-only via canViewQRSystem)
 ```
-
-> **Note (live code, v4.0.0):** QR sidebar links (Upload, Archive, Users, Dropdowns) are gated with `canViewQRSystem(user?.role)`. `canViewQRSystem` returns `true` for Admin only — FM has no QR nav. This matches current backend scope and is the intended design decision (Admin-only QR system access).
 
 ### Employee sees:
 ```
@@ -264,25 +299,29 @@
 
 نظام التصنيع
 ├─ Clients
-├─ Projects
+├─ Projects (active only — stage_internal < 14)
 └─ Vendors
-
-نظام المستندات
-└─ (no access — QR Upload and Document Archive restricted to Admin via canViewQRSystem)
 ```
-
-> **Note (live code, v4.0.0):** QR sidebar links gated with `canViewQRSystem(user?.role)`. Admin only — same scope as FM above.
 
 ### Sales Agent sees:
 ```
 الإدارة
-└─ Dashboard (no Service Requests)
+└─ Dashboard
 
 نظام التصنيع
-└─ Clients (العملاء only — Projects and Service Requests hidden)
+├─ Clients (all leads)
+└─ Stage 11–14 view for own-origin projects only
 ```
 
-> **Live code (v4.0.0):** SalesAgent sidebar explicitly gated with `canViewLeads()` for Clients and `canCreateProject()` for Projects. Service Requests (`/admin/requests`) gated with `canCreateProject()`. SalesAgent gets Dashboard + Clients only — no Projects, no Service Requests.
+### Collaborator sees:
+```
+الإدارة
+└─ Dashboard (limited — own leads only)
+
+نظام التصنيع
+├─ Clients (own leads only — filtered list)
+└─ Stage 11–14 view for own-origin projects only
+```
 
 ### Accountant sees:
 ```
@@ -291,8 +330,14 @@
 
 نظام التصنيع
 ├─ Payments
-├─ Qoyod (when integration is live)
-└─ (no Clients, no Projects list, no Vendors)
+└─ Qoyod (when integration is live)
+   (no Clients, no Projects list, no Vendors — but DOES have Payments → project deep-link)
+```
+
+### Customer sees (future, v4.4.0+):
+```
+(No sidebar — Customer logs in via magic-link OTP and is taken
+directly to their contract page. No general system navigation.)
 ```
 
 ---
@@ -305,20 +350,20 @@ These are the specific data fields that must be hidden from certain roles even w
 
 | Field | Hidden From |
 |---|---|
-| `estimatedValue` (القيمة التقديرية) | Employee |
-| `quotation.subtotalNet` | Employee |
-| `quotation.grandTotal` | Employee |
-| `quotation.positions[].unitPrice` | Employee |
-| `quotation.positions[].lineTotal` | Employee |
-| `paidAmount` on milestones | Employee, FactoryManager |
-| `vendor.unitCost` on PO items | Employee |
+| `estimatedValue` (القيمة التقديرية) | Employee, SalesAgent, Collaborator, Customer |
+| `quotation.subtotalNet` | Employee, Collaborator, Customer |
+| `quotation.grandTotal` | Employee, Collaborator, Customer |
+| `quotation.positions[].unitPrice` | Employee, Collaborator, Customer |
+| `quotation.positions[].lineTotal` | Employee, Collaborator, Customer |
+| `paidAmount` on milestones | Employee, Manager, Collaborator, Customer |
+| `vendor.unitCost` on PO items | Employee, Collaborator, Customer |
 
 ### Customer Information
 
 | Field | Hidden From |
 |---|---|
 | `customerPhone` | Hidden in print exports for all roles (privacy) |
-| `customerName` (full) | SalesAgent sees only own customers |
+| `customerName` (full) | SalesAgent and Collaborator see only own customers |
 
 ### User Information
 
@@ -393,182 +438,65 @@ Used for: data fields like prices, where the field exists for some users but not
 )}
 ```
 
-**Why:** Some pages need to be visually consistent across roles (like a project header card). Replacing with `—` keeps the layout intact without revealing the value.
-
 **Strategy 3 — Filter at data fetch (preferred for lists)**
 
 Used for: tables of leads, projects, payments — where the user should see only a subset.
 
-```tsx
-// ✅ CORRECT — backend filters by role; frontend just renders what it gets
-useEffect(() => {
-  fetch(`${API_BASE}/api/erp/leads`)
-    // Backend returns ONLY this user's leads if role === 'SalesAgent'
-    .then(r => r.json())
-    .then(setLeads);
-}, []);
+Server-side filter applied based on role. The client never sees data they shouldn't.
+
+```typescript
+// In erp.ts route handler
+const userRole = req.user.role;
+const userId = req.user.id;
+
+let leads = await db.select().from(leadsTable);
+
+if (userRole === 'SalesAgent' || userRole === 'Collaborator') {
+  leads = leads.filter(l => l.assignedTo === userId);
+}
+// Admin / Manager / Employee see all
 ```
-
-```tsx
-// ❌ WRONG — fetch all then filter on frontend
-useEffect(() => {
-  fetch(`${API_BASE}/api/erp/leads`)
-    .then(r => r.json())
-    .then(allLeads => {
-      const myLeads = allLeads.filter(l => l.assignedTo === user.id);
-      setLeads(myLeads);
-    });
-}, []);
-```
-
-**Why:** Frontend filtering is a security hole — the data was already sent over the network. Always filter at the backend.
-
-### 6.2 Specific UI Patterns
-
-**Pattern: Single source of truth for role checks**
-
-Define role groups once at the top of each component, never inline:
-
-```tsx
-// ✅ CORRECT — defined once, used everywhere
-const canDelete = user?.role === 'Admin' || user?.role === 'FactoryManager';
-const canViewPrices = user?.role === 'Admin' || user?.role === 'FactoryManager' || user?.role === 'Accountant';
-const canEditTemplate = user?.role === 'Admin';
-
-return (
-  <>
-    {canDelete && <DeleteButton />}
-    {canViewPrices && <PriceField />}
-    {canEditTemplate && <TemplateEditor />}
-  </>
-);
-```
-
-```tsx
-// ❌ WRONG — repeated inline checks (drift risk)
-return (
-  <>
-    {(user?.role === 'Admin' || user?.role === 'FactoryManager') && <DeleteButton />}
-    {(user?.role === 'Admin' || user?.role === 'FM') && <PriceField />}  {/* typo not caught */}
-    {(user?.role === 'admin') && <TemplateEditor />}  {/* casing bug */}
-  </>
-);
-```
-
-**Pattern: Hide tabs entirely, never show empty content**
-
-```tsx
-// ✅ CORRECT — tab list filtered before render
-const tabs = [
-  { key: 'overview', label: t('tab_overview'), allowedRoles: ['Admin','FactoryManager','Employee'] },
-  { key: 'payments', label: t('tab_payments'), allowedRoles: ['Admin','FactoryManager','Accountant'] },
-  { key: 'contract', label: t('tab_contract'), allowedRoles: ['Admin','FactoryManager','SalesAgent'] },
-];
-
-const visibleTabs = tabs.filter(tab => tab.allowedRoles.includes(user.role));
-```
-
-**Pattern: Replace empty state with helpful message**
-
-When a list is empty *because* of the user's role (not because there's no data), show a helpful message:
-
-```tsx
-// ✅ CORRECT
-{leads.length === 0 ? (
-  user.role === 'SalesAgent'
-    ? <EmptyState message={t('no_assigned_leads')} cta={t('contact_admin')} />
-    : <EmptyState message={t('no_leads_yet')} cta={t('create_first_lead')} />
-) : (
-  <LeadsTable leads={leads} />
-)}
-```
-
-**Pattern: Separate read-only and editable views**
-
-Don't show edit fields in disabled state — render plain text instead:
-
-```tsx
-// ✅ CORRECT
-{canEditNotes ? (
-  <textarea value={notes} onChange={e => setNotes(e.target.value)} />
-) : (
-  <p className="text-slate-700">{notes || t('no_notes')}</p>
-)}
-
-// ❌ WRONG
-<textarea value={notes} disabled={!canEditNotes} />
-```
-
-### 6.3 Visual Cues Done Right
-
-**Use color and icons to communicate role context, not to mark restrictions:**
-
-```tsx
-// ✅ CORRECT — small badge in user menu showing current role
-<UserMenu>
-  <span>{user.username}</span>
-  <Badge>{t(`role_${user.role.toLowerCase()}`)}</Badge>
-</UserMenu>
-
-// ✅ CORRECT — when an action requires a specific role, route them to the right person
-<EmptyState
-  icon={<Lock />}
-  title={t('admin_only_feature')}
-  description={t('contact_your_admin_to_request')}
-/>
-```
-
-### 6.4 Anti-Patterns to Avoid
-
-| ❌ Anti-pattern | Why bad | ✅ Do instead |
-|---|---|---|
-| Disabled buttons | Reveals feature existence | Hide entirely |
-| "You don't have permission" | Frustrating; accusatory | Hide entirely or show "ask admin" |
-| Greyed-out menu items | Visual noise; reveals structure | Filter from menu |
-| Tooltip "Admin only" on hover | Tempts users to seek workaround | Hide entirely |
-| Empty tabs with placeholder | Wastes screen space | Hide tab from tab bar |
-| Frontend-only filtering | Security hole | Filter at backend |
-| Inline role checks scattered | Drift, typos | Define role groups once |
-| Disabled form fields with values | Leaks data via inspect element | Render as plain text |
 
 ---
 
 ## 7. Backend Enforcement Rules
 
-> **The frontend is for UX. The backend is for security.** A missing frontend check is a UX bug. A missing backend check is a security breach.
+### Three layers must all agree
 
-### Every API route must have:
+For every protected feature:
+
+1. **Sidebar nav** — does this role see the link?
+2. **Frontend route guard** — if they navigate directly via URL, does the page render?
+3. **Backend route guard** — if they POST/GET via API, does the endpoint respond?
+
+If any one of these is missing, the security is broken.
+
+### Backend filtering for "own only" scope
+
+For Sales Agent and Collaborator:
 
 ```typescript
-router.get(
-  '/api/erp/projects/:id',
-  requireAuth,                                    // step 1: must be logged in
-  requireRole('Admin', 'FactoryManager', 'Employee', 'Accountant'),  // step 2: role check
-  async (req, res) => {
-    // step 3: data-level check
-    const project = await db.select().from(projects).where(eq(projects.id, req.params.id));
+// In every list/detail endpoint that exposes leads or own-origin projects:
+const filterToOwn = (rows, userId) => rows.filter(r => r.assignedTo === userId);
 
-    // SalesAgent: filter by assigned_to
-    if (req.session.role === 'SalesAgent' && project.assignedTo !== req.session.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    // step 4: field-level filtering
-    const safeProject = filterFieldsByRole(project, req.session.role);
-
-    res.json(safeProject);
-  }
-);
+if (req.user.role === 'Collaborator') {
+  return filterToOwn(rows, req.user.id);
+}
+if (req.user.role === 'SalesAgent') {
+  // SalesAgent sees all leads but only own-origin projects
+  return endpoint === 'leads' ? rows : filterToOwn(rows, req.user.id);
+}
 ```
 
-### Field filtering helper
+### Sensitive field stripping
+
+Apply at the API layer before sending to client:
 
 ```typescript
-// lib/permissions.ts
-export function filterFieldsByRole(project: Project, role: Role): SafeProject {
+function stripSensitive(project, role) {
   const safe = { ...project };
 
-  if (role === 'Employee') {
+  if (!canViewPrices(role)) {
     delete safe.estimatedValue;
     delete safe.quotation?.subtotalNet;
     delete safe.quotation?.grandTotal;
@@ -582,16 +510,6 @@ export function filterFieldsByRole(project: Project, role: Role): SafeProject {
 }
 ```
 
-### Three layers must all agree
-
-For every protected feature:
-
-1. **Sidebar nav** — does this role see the link?
-2. **Frontend route guard** — if they navigate directly via URL, does the page render?
-3. **Backend route guard** — if they POST/GET via API, does the endpoint respond?
-
-If any one of these is missing, the security is broken.
-
 ---
 
 ## 8. Implementation Patterns
@@ -602,7 +520,7 @@ If any one of these is missing, the security is broken.
 // hooks/use-auth.tsx
 export function useAuth() {
   return {
-    user: { id, username, role },  // role is 'Admin' | 'FactoryManager' | etc.
+    user: { id, username, role },  // role is one of the 7 DB values
     login,
     logout,
   };
@@ -612,14 +530,27 @@ export function useAuth() {
 ### Pattern 2 — Permission helper file
 
 ```tsx
-// lib/permissions.ts (NEW FILE — recommended)
+// lib/permissions.ts (existing — extends to support 7 roles)
 import type { Role } from './types';
+
+// 7-role union type
+export type Role =
+  | 'Admin'
+  | 'FactoryManager'   // UI label: 'Manager'
+  | 'Employee'
+  | 'SalesAgent'
+  | 'Accountant'
+  | 'Collaborator'      // new in v4.4.0
+  | 'Customer';         // new in v4.4.0, future
 
 export const canViewPrices = (role: Role) =>
   ['Admin', 'FactoryManager', 'Accountant'].includes(role);
 
 export const canDeleteProject = (role: Role) =>
-  ['Admin', 'FactoryManager'].includes(role);
+  role === 'Admin';   // v4.4.0: was Admin + FactoryManager, now Admin only
+
+export const canDeleteFile = (role: Role) =>
+  role === 'Admin';   // v4.0.11 / Stage 6.6 — Rule 10
 
 export const canEditContract = (role: Role) =>
   role === 'Admin';
@@ -630,12 +561,10 @@ export const canViewProjectDetail = (role: Role) =>
 export const canViewPayments = (role: Role) =>
   ['Admin', 'Accountant'].includes(role);
 
-// Use in components:
-import { canViewPrices, canDeleteProject } from '@/lib/permissions';
+export const canEditPermissions = (role: Role) =>
+  role === 'Admin';   // new in v4.4.0
 
-const { user } = useAuth();
-{canViewPrices(user.role) && <PriceField />}
-{canDeleteProject(user.role) && <DeleteButton />}
+// ... etc
 ```
 
 ### Pattern 3 — Sidebar filtering
@@ -643,12 +572,13 @@ const { user } = useAuth();
 ```tsx
 // components/layout/AdminLayout.tsx
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard', path: '/admin', icon: Layout, roles: ['Admin', 'FactoryManager', 'Employee', 'Accountant'] },
-  { key: 'leads', label: 'Clients', path: '/erp/leads', icon: Users, roles: ['Admin', 'FactoryManager', 'Employee', 'SalesAgent'] },
-  { key: 'projects', label: 'Projects', path: '/erp/projects', icon: Folder, roles: ['Admin', 'FactoryManager', 'Employee', 'Accountant'] },
-  { key: 'payments', label: 'Payments', path: '/erp/payments', icon: CreditCard, roles: ['Admin', 'Accountant'] },
-  { key: 'vendors', label: 'Vendors', path: '/erp/vendors', icon: Box, roles: ['Admin', 'FactoryManager', 'Employee'] },
-  { key: 'settings', label: 'Settings', path: '/erp/settings', icon: Settings, roles: ['Admin'] },
+  { key: 'dashboard', path: '/admin', roles: ['Admin', 'FactoryManager', 'Employee', 'SalesAgent', 'Collaborator', 'Accountant'] },
+  { key: 'leads',     path: '/erp/leads',    roles: ['Admin', 'FactoryManager', 'Employee', 'SalesAgent', 'Collaborator'] },
+  { key: 'projects',  path: '/erp/projects', roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'payments',  path: '/erp/payments', roles: ['Admin', 'Accountant'] },
+  { key: 'vendors',   path: '/erp/vendors',  roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'permissions', path: '/admin/permissions', roles: ['Admin'] },  // new in v4.4.0
+  { key: 'settings',  path: '/erp/settings', roles: ['Admin'] },
 ];
 
 const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(user.role));
@@ -659,13 +589,13 @@ const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(user.role));
 ```tsx
 // In ProjectDetail.tsx
 const TABS = [
-  { key: 'overview', label: t('tab_overview'), roles: ['Admin', 'FactoryManager', 'Employee'] },
-  { key: 'files', label: t('tab_files'), roles: ['Admin', 'FactoryManager', 'Employee'] },
-  { key: 'payments', label: t('tab_payments'), roles: ['Admin', 'FactoryManager', 'Accountant'] },
-  { key: 'procurement', label: t('tab_procurement'), roles: ['Admin', 'FactoryManager', 'Employee'] },
-  { key: 'production', label: t('tab_production'), roles: ['Admin', 'FactoryManager', 'Employee'] },
-  { key: 'contract', label: t('tab_contract'), roles: ['Admin', 'FactoryManager', 'SalesAgent'] },
-  { key: 'timeline', label: t('tab_timeline'), roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'overview',   roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'files',      roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'payments',   roles: ['Admin', 'FactoryManager', 'Accountant'] },
+  { key: 'procurement',roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'production', roles: ['Admin', 'FactoryManager', 'Employee'] },
+  { key: 'contract',   roles: ['Admin', 'FactoryManager', 'SalesAgent'] },
+  { key: 'timeline',   roles: ['Admin', 'FactoryManager', 'Employee', 'SalesAgent', 'Collaborator'] },
 ];
 
 const visibleTabs = TABS.filter(tab => tab.roles.includes(user.role));
@@ -681,20 +611,11 @@ const visibleTabs = TABS.filter(tab => tab.roles.includes(user.role));
   </RequireRole>
 </Route>
 
-// components/RequireRole.tsx
-export function RequireRole({ roles, children }: { roles: Role[]; children: React.ReactNode }) {
-  const { user } = useAuth();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!user || !roles.includes(user.role)) {
-      setLocation('/admin');  // redirect to dashboard
-    }
-  }, [user, roles, setLocation]);
-
-  if (!user || !roles.includes(user.role)) return null;
-  return <>{children}</>;
-}
+<Route path="/admin/permissions">
+  <RequireRole roles={['Admin']}>
+    <PermissionsDashboard />
+  </RequireRole>
+</Route>
 ```
 
 ---
@@ -705,7 +626,7 @@ Before deploying any new feature, verify the visibility rules are correctly appl
 
 ### Per-role smoke test
 
-For each of the 5 roles, log in and verify:
+For each of the 7 roles (Customer skipped until contract-signing ships), log in and verify:
 
 - [ ] Sidebar shows only the nav items they should see
 - [ ] Direct URL navigation to a forbidden page redirects to dashboard
@@ -733,36 +654,217 @@ For every data field:
 - [ ] Replacement display (`—`) is consistent across all places the field appears
 - [ ] PDF/print exports respect the same visibility rules as the screen
 
----
+### v4.4.0 specific tests
+
+- [ ] Manager (FactoryManager) sees no delete buttons anywhere — projects, leads, files, vendors, POs
+- [ ] Manager attempts to call DELETE endpoints via curl → 403
+- [ ] Collaborator sees only own leads in /erp/leads
+- [ ] Collaborator attempts to GET another user's lead → 403
+- [ ] Collaborator can manage stages 11–14 ONLY for own-origin projects
+- [ ] Customer role exists in DB but no UI flows are reachable (all routes return 403 or 404)
+- [ ] Permissions dashboard is reachable only by Admin
+- [ ] Capabilities dashboard reflects current `role_capabilities` table state
 
 ---
 
 ## 10. Known Permission Gaps
 
-> **v4.0.0 — All prior gaps resolved.** Gaps 1–7 were fixed across Stages 1–2 of the stabilization plan. Gap 8 was evaluated and resolved as a design decision. The list below is a closed audit log.
+> **v4.0.0 — All prior gaps resolved.** Gaps 1–7 were fixed across Stages 1–2 of the stabilization plan. Gap 8 was evaluated and resolved as a design decision.
+>
+> **v4.0.11 (Stage 6.6) — Rule 10 enforced.** File deletion is now Admin-only via the new `canDeleteFile` helper, replacing the old `canDeleteProject` reuse.
 
-### Resolved gaps (closed in v3.5.0 – v3.6.0)
+### Resolved gaps (closed in v3.5.0 – v4.0.11)
 
-1. ✅ **`lib/permissions.ts` created** (Stage 1) — 13 named helpers; no inline role strings in any component. Located at `artifacts/qr-manager/src/lib/permissions.ts`.
+1. ✅ **`lib/permissions.ts` created** (Stage 1) — 13 named helpers; no inline role strings in any component.
+2. ✅ **`RequireRole` component created** (Stage 1) — redirects unauthorised roles to `/admin`.
+3. ✅ **Tab-level filtering implemented for all tabs** (Stage 2).
+4. ✅ **Field-level price hiding implemented** (Stage 2).
+5. ✅ **`canCreateMilestone` corrected** (Stage 2) — Admin|Accountant only.
+6. ✅ **Accountant navigation path to project detail** (Stage 2) — deep-link via Payments.
+7. ✅ **SalesAgent sidebar scoped** (Stage 2) — Dashboard + Clients only.
+8. ✅ **QR sidebar Admin-only** (Stage 2, design decision).
+9. ✅ **File deletion = Admin only (Rule 10)** (Stage 6.6, v4.0.11) — `canDeleteFile` helper added.
 
-2. ✅ **`RequireRole` component created** (Stage 1) — located at `artifacts/qr-manager/src/components/RequireRole.tsx`. Redirects unauthorised roles to `/admin`.
+### v4.4.0 transitions (planned breaking changes)
 
-3. ✅ **Tab-level filtering implemented for all tabs** (Stage 2) — `ProjectDetail.tsx` hides Payments tab from Employee; all non-Contract tabs are hidden from SalesAgent and Accountant via role guards.
+| Item | Pre-v4.4.0 | v4.4.0 | Reason |
+|---|---|---|---|
+| Manager (FactoryManager) deleting projects | ✅ allowed | ❌ blocked | User-stated rule: Manager cannot delete anything |
+| Manager deleting leads | ✅ allowed | ❌ blocked | Same |
+| Manager deleting vendors / POs | ✅ allowed | ❌ blocked | Same |
+| Manager deleting files | already ❌ in v4.0.11 | ❌ continues | Rule 10 |
+| `canDeleteProject` helper return values | Admin + FactoryManager | Admin only | Manager scope tightening |
+| New role: Collaborator | does not exist | added | External partner support |
+| New role: Customer | does not exist | added (grayed out) | Schema slot for future contract signing |
+| UI label "Factory Manager" | shown | becomes "Manager" | User-stated relabel; DB unchanged |
 
-4. ✅ **Field-level price hiding implemented** (Stage 2) — `estimatedValue` in ProjectDetail Overview section guarded by `canViewPrices(user?.role)`. Hidden for Employee.
+### Open items (post-v4.4.0)
 
-5. ✅ **`canCreateMilestone` corrected** (Stage 2) — now calls `canCreateMilestoneHelper()` → Admin|Accountant only. FM and SalesAgent no longer see the button; Accountant now sees it.
-
-6. ✅ **Accountant navigation path to project detail** (Stage 2) — `GET /erp/projects/:id` backend now allows Accountant. `Payments.tsx` project-row click deep-links to `/erp/projects/:id?tab=payments`. `ProjectDetail.tsx` reads `?tab=` on load.
-
-7. ✅ **SalesAgent sidebar scoped** (Stage 2) — `canViewLeads()` gates Clients; `canCreateProject()` gates Projects and Service Requests. SalesAgent sees Dashboard + Clients only.
-
-8. ✅ **QR sidebar Admin-only — confirmed design decision** (Stage 2) — `isAdmin` guard replaced with `canViewQRSystem()` (semantically equivalent). Current backend scope (Admin-only for QR routes) is intentional and consistent with `canViewQRSystem`. No change to access level; helper usage is the fix.
-
-### Open items (post-v4.0.0)
-
-- `isErpUser` and `isPaymentsUser` composite checks in `Admin.tsx` and `AdminLayout.tsx` have no dedicated helpers yet. `isPaymentsUser` has a known discrepancy between the two files (Admin.tsx includes FactoryManager; AdminLayout.tsx does not). Both carry TODO comments — address in next stabilization pass.
+- Audit log for permission changes (who granted what override and when) — slated for v4.5.0
+- Time-bounded permission grants (e.g., "Sara has prices.view for 30 days") — not in v4.4.x
+- Permission groups / bundles — not in v4.4.x
+- Customer authentication (magic link + OTP) — Customer Portal stage, v4.6.0+
 
 ---
 
-*Last reviewed: April 2026 (v4.0.0) — keep in sync with WORKFLOW_REFERENCE_v3.md Section 4 and CODE_STRUCTURE.md role permissions section.*
+## 11. Capabilities Granularity (v4.4.0)
+
+> **What this section adds:** v4.4.0 introduces a finer-grained permission system on top of the role system above. Roles are still the primary grouping; capabilities are the atomic units the dashboard manipulates.
+
+### Why capabilities, not just roles
+
+The role system above answers "what can a Manager do?" with a static yes/no per feature. The capabilities system answers the same question with a list of named permissions, stored in the database, editable by Admin.
+
+This matters because:
+- The Admin can adjust the matrix without a code deploy
+- Per-user overrides (v4.4.1) need a unit smaller than "role" to apply against
+- Adding a new role in the future doesn't require touching every helper file
+
+### The capability list (hardcoded constant)
+
+Capabilities live in code, not in the database. The database stores **which roles have which capabilities granted**, but the capability names themselves are a hardcoded constant.
+
+This is intentional — a capability that exists in the dashboard but isn't checked anywhere in code is a lie. New capabilities are added by:
+
+1. Adding the entry to `lib/capabilities.ts`
+2. Adding the check in the relevant route guard / UI condition
+3. Deploying
+
+The dashboard automatically picks up new capabilities because it iterates over the constant.
+
+```typescript
+// lib/capabilities.ts (NEW FILE in v4.4.0)
+export const CAPABILITIES = {
+  // Project capabilities
+  'projects.view_active': { label_en: 'View active projects', label_ar: 'عرض المشاريع النشطة', category: 'projects' },
+  'projects.view_all':    { label_en: 'View all projects (incl. warranty-complete)', label_ar: 'عرض جميع المشاريع', category: 'projects' },
+  'projects.create':      { label_en: 'Create projects', label_ar: 'إنشاء مشاريع', category: 'projects' },
+  'projects.edit':        { label_en: 'Edit projects', label_ar: 'تعديل المشاريع', category: 'projects' },
+  'projects.delete':      { label_en: 'Delete projects', label_ar: 'حذف المشاريع', category: 'projects' },
+
+  // Lead capabilities
+  'leads.view_own':   { label_en: 'View own leads', label_ar: 'عرض العملاء المحتملين الخاصين', category: 'leads' },
+  'leads.view_all':   { label_en: 'View all leads', label_ar: 'عرض جميع العملاء المحتملين', category: 'leads' },
+  'leads.create':     { label_en: 'Create leads', label_ar: 'إنشاء عميل محتمل', category: 'leads' },
+  'leads.convert':    { label_en: 'Convert leads to projects', label_ar: 'تحويل عميل محتمل إلى مشروع', category: 'leads' },
+  'leads.delete':     { label_en: 'Delete leads', label_ar: 'حذف العملاء المحتملين', category: 'leads' },
+
+  // File capabilities
+  'files.upload':  { label_en: 'Upload files', label_ar: 'رفع ملفات', category: 'files' },
+  'files.replace': { label_en: 'Replace files', label_ar: 'استبدال ملفات', category: 'files' },
+  'files.delete':  { label_en: 'Delete files', label_ar: 'حذف ملفات', category: 'files' },
+
+  // Financial
+  'prices.view':     { label_en: 'View prices', label_ar: 'عرض الأسعار', category: 'financial' },
+  'payments.manage': { label_en: 'Manage payment milestones', label_ar: 'إدارة دفعات المشاريع', category: 'financial' },
+  'qoyod.access':    { label_en: 'Access Qoyod sync', label_ar: 'الوصول إلى مزامنة قيود', category: 'financial' },
+
+  // Vendor / manufacturing
+  'vendors.view':         { label_en: 'View vendors', label_ar: 'عرض الموردين', category: 'manufacturing' },
+  'vendors.manage':       { label_en: 'Manage vendors', label_ar: 'إدارة الموردين', category: 'manufacturing' },
+  'manufacturing.manage': { label_en: 'Manage manufacturing orders', label_ar: 'إدارة أوامر التصنيع', category: 'manufacturing' },
+
+  // Stages 11–14 (delivery/installation/sign-off)
+  'phases.manage':  { label_en: 'Manage delivery phases', label_ar: 'إدارة مراحل التوصيل', category: 'phases' },
+  'phases.signoff': { label_en: 'Sign off on phases', label_ar: 'اعتماد المراحل', category: 'phases' },
+
+  // Contract
+  'contracts.view':     { label_en: 'View contracts', label_ar: 'عرض العقود', category: 'contracts' },
+  'contracts.edit':     { label_en: 'Edit contract template', label_ar: 'تعديل قالب العقد', category: 'contracts' },
+  'contracts.sign':     { label_en: 'Sign contracts (customer)', label_ar: 'توقيع العقود (عميل)', category: 'contracts' },
+
+  // Admin / system
+  'users.manage':       { label_en: 'Manage users', label_ar: 'إدارة المستخدمين', category: 'admin' },
+  'permissions.manage': { label_en: 'Edit role permissions', label_ar: 'تعديل صلاحيات الأدوار', category: 'admin' },
+  'dropdowns.edit':     { label_en: 'Edit dropdown lists', label_ar: 'تعديل القوائم المنسدلة', category: 'admin' },
+  'archive.view':       { label_en: 'View document archive', label_ar: 'عرض أرشيف المستندات', category: 'admin' },
+} as const;
+
+export type Capability = keyof typeof CAPABILITIES;
+```
+
+### How a capability check resolves at runtime
+
+```typescript
+// lib/permissions.ts — extended in v4.4.0
+export async function userHasCapability(
+  user: User,
+  capability: Capability,
+  context?: { recordOwnerId?: number }
+): Promise<boolean> {
+  // 1. Per-user override wins if it exists (v4.4.1+)
+  const override = await getUserOverride(user.id, capability);
+  if (override !== null) return override.granted;
+
+  // 2. Otherwise consult role-level grant from role_capabilities table
+  const granted = await getRoleCapability(user.role, capability);
+  if (!granted) return false;
+
+  // 3. If capability is "(own)" scoped, check ownership
+  if (isOwnScopedCapability(capability) && context?.recordOwnerId) {
+    return context.recordOwnerId === user.id;
+  }
+
+  return true;
+}
+```
+
+### Default role-capability matrix (seed data for v4.4.0 deploy)
+
+This is the seed data that gets inserted into `role_capabilities` on first deploy. The Admin can edit any of these via the dashboard afterwards. It must match the matrices in Section 2 above — they describe the same rules at different levels of granularity.
+
+(Matrix omitted here for brevity — see Section 2 for the authoritative version. The migration script generates this seed from Section 2 directly.)
+
+---
+
+## 12. Permissions Dashboard (v4.4.0)
+
+> **Three pages, accessible only to Admin (`permissions.manage` capability).**
+
+### Page 1: Role Permissions
+
+**Path:** `/admin/permissions/roles`
+
+**Layout:**
+- Top: 7 role tabs — Admin, Manager, Employee, Sales Agent, Collaborator, Accountant, Customer
+- Selected role: capabilities grouped by category (Projects, Leads, Files, Financial, Manufacturing, Phases, Contracts, Admin)
+- Each capability is a checkbox (default state from `role_capabilities` row)
+- Save button at bottom — writes to `role_capabilities` table
+
+**Special handling:**
+- Admin tab: all checkboxes shown checked AND disabled (defensive UI to prevent accidental lockout)
+- Customer tab: grayed out with banner: "Customer role is reserved for future contract-signing feature. Capabilities cannot be edited until that feature ships."
+
+### Page 2: Users
+
+**Path:** `/admin/users` (existing path; rebuilt for v4.4.0)
+
+**Layout:**
+- Header: `Users (N)` + `[+ Add user]` button + role filter dropdown + search box
+- Table: Name | Email | Role | Last active | Status | Actions
+- Status: Active / Disabled (soft-disable; no hard delete from this page)
+- Actions: `[Edit]` button per row
+- Row indicator: small ⓘ badge next to users with custom overrides (clickable → goes to Edit User page)
+
+### Page 3: Edit User
+
+**Path:** `/admin/users/:id/edit`
+
+**Layout:**
+- User info: name, email, role dropdown
+- Capabilities section (two groups):
+  - **Inherited from role** — read-only checkboxes showing current state
+  - **Custom overrides** — editable list (v4.4.1 only)
+- Status toggle: Active / Disabled
+- Save button
+
+### Behavior rules
+
+- Changing a user's role from the dropdown immediately changes which capabilities are inherited; existing overrides are preserved
+- Changing a role's default capabilities does NOT silently override per-user overrides
+- Saving requires confirmation if any change reduces a user's permissions (defensive)
+- All permission changes are logged in an audit table (v4.5.0 — table exists in v4.4.0 but the UI to view it ships in v4.5.0)
+
+---
+
+*Last reviewed: April 2026 (v4.4.0 design) — keep in sync with WORKFLOW_REFERENCE_v3.md Section 4 and CODE_STRUCTURE.md role permissions section.*

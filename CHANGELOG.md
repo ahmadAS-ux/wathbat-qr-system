@@ -4,6 +4,30 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.3.3 — Footer + Page-Number Stamping
+
+### Added
+- Every page of the generated contract PDF now carries a thin grey separator line near
+  the bottom, followed by a footer row with:
+  - Company info string (name | CR | VAT | Tel) left-aligned
+  - "N / Total" page number right-aligned
+  - Small company logo bottom-right (PNG/JPEG only; SVG is skipped — logo still appears
+    on the cover page rendered by LibreOffice)
+- Footer is stamped in a single post-merge pass via pdf-lib so page numbers are globally
+  correct across cover + quotation pages
+
+### Implementation
+- New `stampFooter()` function in `contract-generator.ts` — uses `StandardFonts.Helvetica`
+  (built-in, no font file required) and `rgb()` for grey tones
+- `generateContractPdf()` now calls `stampFooter()` on the merged PDF buffer before returning
+- No new dependencies; no frontend or schema changes
+
+### Unchanged
+- `ContractPage.tsx`, `contract-integrity.ts` — untouched
+- Existing 6 contract template fields in AdminSettings — untouched
+
+---
+
 ## v4.3.2 — Token System + Public Contract URLs
 
 ### Added

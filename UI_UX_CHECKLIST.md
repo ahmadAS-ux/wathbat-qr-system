@@ -4,6 +4,8 @@
 > **Purpose:** Claude Code must read this file before modifying any frontend component.
 > Covers visual quality, interaction design, and bilingual rendering.
 
+> **Last updated:** v4.0.11 (Stage 6.6 — added File Slot Consistency section)
+
 ---
 
 ## Visual Quality Checks
@@ -117,6 +119,106 @@
 
 ---
 
+## File Slot Consistency (added v4.0.11 — Stage 6.6)
+
+> **Why this section exists:** Live v4.0.10 had four different visual
+> treatments for file slots, all doing the same thing. Philosophy
+> Rules 10–12 lock the visual contract. This section is the manual
+> verification checklist for that contract.
+
+### Component Unification
+- [ ] Every file slot on the project detail page renders through the
+      shared `<FileSlot>` component — `grep` for ad-hoc upload buttons,
+      download icons, or replace handlers outside `<FileSlot>` returns
+      zero results
+- [ ] No page invents its own upload, download, replace, or delete UI
+- [ ] Custom per-type behavior is passed via props (e.g., `fileType`,
+      `extractorType`), never re-implemented
+
+### Empty State (every file type)
+- [ ] Empty slot shows exactly one centered primary button: `رفع ملف`
+- [ ] No upload icon in the corner (the v4.0.10 Treatment A pattern is removed)
+- [ ] No dual-button pattern in multi-file buckets (the v4.0.10
+      Treatment B pattern is removed)
+- [ ] Hint text reads `لم يتم رفع ملف بعد` in Arabic / `No file uploaded
+      yet` in English
+
+### Filled State (every file type)
+- [ ] Status badge `مرفوع` visible at top-left of card
+- [ ] Type icon + uppercase type label visible (e.g., `QUOTATION`,
+      `GLASS ORDER`)
+- [ ] Filename + upload date displayed below the type label
+- [ ] Two preview tiles displayed side-by-side: `EXTRACTED` and
+      `ORIGINAL`
+- [ ] Three action buttons displayed in this exact RTL order:
+      `معاينة` (Preview) → `تنزيل` (Download) → `استبدال` (Replace)
+- [ ] Button order, labels, and icons are identical for every file type
+      (no Glass exception, no Qoyod exception)
+
+### Action Behavior — All 3 Buttons Operate on the Original
+- [ ] Click `معاينة` → opens **Original** in browser viewer (no
+      download)
+- [ ] Click `تنزيل` → downloads the **Original** file
+- [ ] Click `استبدال` → triggers `ReUploadConfirmModal` with Cancel
+      as default action; on confirm, re-uploads new Original AND
+      regenerates Extracted artifact server-side
+
+### Preview Tile Behavior
+- [ ] Click `ORIGINAL` tile → opens Original in browser viewer
+      (no download)
+- [ ] Click `EXTRACTED` tile → opens Extracted artifact in browser
+      viewer (no download)
+- [ ] Tile content varies correctly by file type:
+  - Glass Order: EXTRACTED tile shows QR code thumbnail
+  - Qoyod: EXTRACTED tile shows the same content as ORIGINAL tile
+  - Other 7 types: EXTRACTED tile shows header-stripped HTML thumbnail
+
+### Format Enforcement (Rule 11)
+- [ ] The 7 non-Glass, non-Qoyod slots accept **only `.docx`** — try
+      uploading a `.pdf`, `.doc`, or `.xlsx` to a Quotation slot →
+      backend rejects with a clear error message displayed as a toast
+- [ ] Glass Order slot accepts PDF/HTML
+- [ ] Qoyod slot accepts PDF only
+- [ ] Format rejection error message is bilingual
+
+### Multi-file Bucket Behavior (Rule 12)
+- [ ] Empty Vendor Orders / Qoyod / Other bucket shows exactly one
+      centered `رفع ملف` button — no top pill button, no inner empty-state
+      duplicate
+- [ ] Filled bucket shows file rows + one `+ إضافة ملف` at the bottom
+      of the expanded list
+- [ ] Each file row in a filled bucket has the same 3 buttons + 2 tiles
+      vocabulary as a single-file slot
+- [ ] SmartUpload routing at the top of the Files tab is unchanged and
+      still routes filenames to the correct bucket
+
+### Delete Action
+- [ ] Delete is Admin-only (the role check is enforced on both frontend
+      and backend)
+- [ ] Click delete → triggers `DeleteConfirmModal` with Cancel as the
+      default action — no file deletes in one click
+- [ ] Confirmation modal text: `هل أنت متأكد من حذف هذا الملف؟ لا يمكن
+      التراجع عن هذا الإجراء`
+
+### Replace Re-extraction
+- [ ] After Replace on a Glass Order slot, the QR-enhanced HTML is
+      regenerated from the new file
+- [ ] After Replace on a `.docx` slot, the A4 HTML extracted artifact
+      is regenerated from the new file
+- [ ] After Replace on a Qoyod slot, the extracted copy is updated to
+      the new PDF bytes
+- [ ] Old Original and old Extracted are kept as previous versions
+      (Rule 7)
+
+### Error Surfacing (Lesson 5 — no silent failures)
+- [ ] Every upload error surfaces as a toast with a clear message
+- [ ] Format rejection errors are visible (not silent 400)
+- [ ] Network failures during upload show a retry option
+- [ ] Permission failures (403) show `ليس لديك صلاحية` and do not
+      silently no-op
+
+---
+
 ## Quick Test Flow
 
 After every frontend change, test this flow end-to-end:
@@ -131,3 +233,34 @@ After every frontend change, test this flow end-to-end:
 8. **Logout** → returns to login page → visiting protected URL redirects to login
 
 If any step fails → there's a bug. Fix before committing.
+
+### File Slot test flow (added v4.0.11)
+
+After Stage 6.6 ships, also test:
+
+1. **Open a project detail page** → Files tab → every empty slot shows
+   single `رفع ملف` button only
+2. **Upload a `.docx` to Quotation slot** → success toast → card flips
+   to filled state with 2 tiles + 3 buttons
+3. **Click ORIGINAL tile** → opens the .docx in browser viewer
+4. **Click EXTRACTED tile** → opens the A4 HTML extract in browser viewer
+5. **Click `تنزيل`** → downloads the original .docx
+6. **Click `استبدال`** → modal appears with Cancel as default → confirm
+   replace → new file uploaded and Extracted regenerated
+7. **Try uploading a .pdf to Quotation slot** → rejected with toast error
+8. **Upload a Glass Order PDF** → filled state shows QR thumbnail in
+   EXTRACTED tile, original in ORIGINAL tile
+9. **Upload a Qoyod PDF** → filled state shows identical thumbnails in
+   both tiles
+10. **Multi-file bucket (Vendor Orders) when empty** → single `رفع ملف`
+    button only
+11. **Multi-file bucket when filled** → file rows + one `+ إضافة ملف`
+    at the bottom
+
+---
+
+## Change Log for This File
+
+- **v4.0.11** — Added "File Slot Consistency" section with verification
+  items mapping to Philosophy Rules 10–12. Added File Slot test flow
+  to Quick Test section.
