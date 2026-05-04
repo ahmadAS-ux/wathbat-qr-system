@@ -41,7 +41,10 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
     (req.method === "GET"  && /^\/erp\/projects\/\d+\/files\/\d+$/.test(req.path)) || // Original file — public for browser viewer
     (req.method === "GET"  && /^\/erp\/projects\/\d+\/files\/\d+\/extracted$/.test(req.path)) || // Extracted artifact — public for browser viewer
     (req.method === "GET"  && /^\/erp\/phases\/\d+$/.test(req.path)) || // phase info for customer confirm page
-    (req.method === "POST" && /^\/erp\/phases\/\d+\/confirm$/.test(req.path)); // customer QR confirmation
+    (req.method === "POST" && /^\/erp\/phases\/\d+\/confirm$/.test(req.path)) || // customer QR confirmation
+    // Company logo is public: displayed on future customer-facing contract URLs (v4.3.2).
+    // The endpoint exposes only the company logo — no other settings data.
+    (req.method === "GET"  && req.path === "/erp/settings/company-logo");
   if (isPublic) return next();
   requireAuth(req, res, next);
 });

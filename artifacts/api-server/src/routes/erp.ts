@@ -19,6 +19,7 @@ import {
   parsedAssemblyListsTable,
   parsedCutOptimisationsTable,
   systemSettings,
+  systemFilesTable,
   paymentMilestonesTable,
   vendorsTable,
   purchaseOrdersTable,
@@ -77,6 +78,21 @@ const uploadMulti = multer({
 const uploadAny = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
+});
+
+// multer for company logo upload — 2 MB limit, PNG/JPEG/SVG only
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
+const ALLOWED_LOGO_MIMES = ["image/png", "image/jpeg", "image/svg+xml"];
+const uploadLogo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_LOGO_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_LOGO_MIMES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PNG, JPEG, or SVG files are accepted"));
+    }
+  },
 });
 
 // ─── Role sets ────────────────────────────────────────────────────────────────
@@ -2690,6 +2706,124 @@ router.put('/erp/settings/contract-template', requireRole(...ADMIN_ONLY), async 
     res.json({ success: true });
   } catch (err) {
     logger.error({ err }, 'PUT /erp/settings/contract-template failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ─── SETTINGS — COMPANY INFO ──────────────────────────────────────────────────
+
+const COMPANY_INFO_KEYS = ['company_name', 'company_address', 'company_cr', 'company_vat', 'company_phone'] as const;
+
+// GET /erp/settings/company-info — Admin only
+// Returns { name, address, cr, vat, phone, logo: { filename, mime_type, uploaded_at } | null }
+router.get('/erp/settings/company-info', requireRole(...ADMIN_ONLY), async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(systemSettings)
+      .where(inArray(systemSettings.key, [...COMPANY_INFO_KEYS]));
+    const obj = Object.fromEntries(rows.map(r => [r.key, r.value]));
+
+    const [logoRow] = await db.select({
+      filename: systemFilesTable.filename,
+      mimeType: systemFilesTable.mimeType,
+      uploadedAt: systemFilesTable.uploadedAt,
+    }).from(systemFilesTable)
+      .where(eq(systemFilesTable.fileKey, 'company_logo'));
+
+    res.json({
+      name: obj['company_name'] ?? '',
+      address: obj['company_address'] ?? '',
+      cr: obj['company_cr'] ?? '',
+      vat: obj['company_vat'] ?? '',
+      phone: obj['company_phone'] ?? '',
+      logo: logoRow ? { filename: logoRow.filename, mime_type: logoRow.mimeType, uploaded_at: logoRow.uploadedAt } : null,
+    });
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/settings/company-info failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// PUT /erp/settings/company-info — Admin only
+// Body: { name, address, cr, vat, phone } — all 5 required (non-empty)
+router.put('/erp/settings/company-info', requireRole(...ADMIN_ONLY), async (req: Request, res: Response) => {
+  try {
+    const { name, address, cr, vat, phone } = req.body as Record<string, unknown>;
+    const errors: Record<string, string> = {};
+    if (!name || typeof name !== 'string' || !name.trim()) errors['name'] = 'Company name is required';
+    if (!address || typeof address !== 'string' || !address.trim()) errors['address'] = 'Address is required';
+    if (!cr || typeof cr !== 'string' || !cr.trim()) errors['cr'] = 'Commercial Registration No. is required';
+    if (!vat || typeof vat !== 'string' || !vat.trim()) errors['vat'] = 'VAT number is required';
+    if (!phone || typeof phone !== 'string' || !phone.trim()) errors['phone'] = 'Phone is required';
+    if (Object.keys(errors).length > 0) {
+      res.status(400).json({ errors });
+      return;
+    }
+    const entries: [string, string][] = [
+      ['company_name', (name as string).trim()],
+      ['company_address', (address as string).trim()],
+      ['company_cr', (cr as string).trim()],
+      ['company_vat', (vat as string).trim()],
+      ['company_phone', (phone as string).trim()],
+    ];
+    for (const [key, value] of entries) {
+      await db.insert(systemSettings)
+        .values({ key, value })
+        .onConflictDoUpdate({ target: systemSettings.key, set: { value, updatedAt: new Date() } });
+    }
+    res.json({ name: entries[0][1], address: entries[1][1], cr: entries[2][1], vat: entries[3][1], phone: entries[4][1] });
+  } catch (err) {
+    logger.error({ err }, 'PUT /erp/settings/company-info failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /erp/settings/company-logo — Admin only
+// Accepts multipart with field 'logo'. multer enforces 2MB + MIME filter.
+router.post('/erp/settings/company-logo', requireRole(...ADMIN_ONLY), uploadLogo.single('logo'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+    const sess = session(req);
+    const { originalname, mimetype, buffer } = req.file;
+    await db.insert(systemFilesTable)
+      .values({
+        fileKey: 'company_logo',
+        filename: originalname,
+        mimeType: mimetype,
+        content: buffer,
+        uploadedBy: sess.userId,
+      })
+      .onConflictDoUpdate({
+        target: systemFilesTable.fileKey,
+        set: { filename: originalname, mimeType: mimetype, content: buffer, uploadedAt: new Date(), uploadedBy: sess.userId },
+      });
+    res.json({ filename: originalname, mime_type: mimetype, uploaded_at: new Date() });
+  } catch (err) {
+    logger.error({ err }, 'POST /erp/settings/company-logo failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// GET /erp/settings/company-logo — PUBLIC (no auth required)
+// Returns logo bytes. Listed in app.ts isPublic for future customer-facing contract URLs.
+router.get('/erp/settings/company-logo', async (_req: Request, res: Response) => {
+  try {
+    const [row] = await db.select({
+      mimeType: systemFilesTable.mimeType,
+      content: systemFilesTable.content,
+    }).from(systemFilesTable)
+      .where(eq(systemFilesTable.fileKey, 'company_logo'));
+    if (!row || !row.content) {
+      res.status(404).json({ error: 'No logo uploaded' });
+      return;
+    }
+    res.setHeader('Content-Type', row.mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(Buffer.from(row.content as unknown as Buffer));
+  } catch (err) {
+    logger.error({ err }, 'GET /erp/settings/company-logo failed');
     res.status(500).json({ error: 'Internal error' });
   }
 });
