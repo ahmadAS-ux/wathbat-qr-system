@@ -2143,6 +2143,58 @@ router.post("/erp/projects/:id/files/detect", requireRole(...NO_SALES_NO_ACCT), 
   }
 });
 
+// PUT /erp/projects/:id/files/:fileId — replace file content in-place (multi-file slots)
+// Keeps the same file ID; updates binary content, filename, and mime type.
+// For qoyod files: also updates the extractedFile byte copy (same as POST behavior).
+router.put("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), uploadMulti.single('file'), async (req: Request, res: Response) => {
+  try {
+    const fileId = Number(req.params.fileId);
+    const projectId = Number(req.params.id);
+    if (Number.isNaN(fileId) || Number.isNaN(projectId)) return notFound(res);
+
+    const uploadedFile = req.file;
+    if (!uploadedFile) {
+      res.status(400).json({ error: 'NO_FILE', message: 'No file provided' });
+      return;
+    }
+
+    const sess = session(req);
+
+    const [existing] = await db
+      .select({ id: projectFilesTable.id, fileType: projectFilesTable.fileType })
+      .from(projectFilesTable)
+      .where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
+    if (!existing) return notFound(res);
+
+    if (existing.fileType === 'qoyod' && !isPdf(uploadedFile.originalname)) {
+      res.status(400).json({ error: 'INVALID_FILE_TYPE', message: 'Qoyod files must be PDF' });
+      return;
+    }
+
+    const extractedFile = existing.fileType === 'qoyod' ? uploadedFile.buffer : null;
+    const extractedMime = existing.fileType === 'qoyod' ? (uploadedFile.mimetype ?? 'application/pdf') : null;
+
+    const [updated] = await db
+      .update(projectFilesTable)
+      .set({
+        originalFilename: uploadedFile.originalname,
+        fileData: uploadedFile.buffer,
+        fileMime: uploadedFile.mimetype ?? null,
+        extractedFile,
+        extractedMime,
+        uploadedBy: sess.userId,
+        uploadedAt: new Date(),
+      })
+      .where(eq(projectFilesTable.id, fileId))
+      .returning();
+
+    res.json({ id: updated.id, fileType: updated.fileType, originalFilename: updated.originalFilename, uploadedAt: updated.uploadedAt });
+  } catch (err) {
+    logger.error({ err }, 'PUT /erp/projects/:id/files/:fileId failed');
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // GET /erp/projects/:id/files/:fileId — serve Original file
 // ?download=1 → Content-Disposition: attachment (Save As dialog)
 // no param    → Content-Disposition: inline  (browser viewer / Preview)
