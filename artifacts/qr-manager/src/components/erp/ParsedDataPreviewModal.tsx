@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Download } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api-base';
 
@@ -265,10 +265,11 @@ const ENDPOINT_MAP: Record<FileType, string> = {
 interface Props {
   projectId: number;
   fileType: FileType;
+  activeFileId?: number;
   onClose: () => void;
 }
 
-export function ParsedDataPreviewModal({ projectId, fileType, onClose }: Props) {
+export function ParsedDataPreviewModal({ projectId, fileType, activeFileId, onClose }: Props) {
   const { t, isRtl } = useLanguage();
   const [state, setState] = useState<ModalState>({ status: 'loading' });
 
@@ -343,7 +344,18 @@ export function ParsedDataPreviewModal({ projectId, fileType, onClose }: Props) 
         </div>
 
         {/* Footer */}
-        <div className={`px-6 py-3 border-t border-[#ECEAE2] shrink-0 flex ${isRtl ? 'justify-start' : 'justify-end'}`}>
+        <div className={`px-6 py-3 border-t border-[#ECEAE2] shrink-0 flex items-center gap-2 ${isRtl ? 'justify-start flex-row-reverse' : 'justify-end'}`}>
+          {activeFileId !== undefined && (
+            <a
+              href={`${API_BASE}/api/erp/projects/${projectId}/files/${activeFileId}?download=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border border-[#ECEAE2] text-[#4A4940] rounded-xl hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              {t('erp_file_download')}
+            </a>
+          )}
           <button
             onClick={onClose}
             className={`px-4 py-2 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}

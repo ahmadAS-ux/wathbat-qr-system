@@ -4,6 +4,32 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.3.4 — File Preview Download Button + Contract Public URL Display
+
+### Fixed
+
+**Finding #1 — File preview modal now has a Download button**
+- `ParsedDataPreviewModal` footer now includes a "تحميل / Download" button alongside Close
+- Button appears in all modal states (data, empty, error) — users always have an escape hatch if parsed data is unavailable
+- File ID is captured at preview open time and passed as `activeFileId` prop to the modal
+
+**Finding #2 — Public contract URL is now visible in the Contract tab**
+- The existing silent "Copy public link" button is replaced with a visible URL field showing the full public link
+- Copy icon button (clipboard) and Open icon button (external link) sit next to the URL field
+- Copy action now shows a success toast "تم نسخ الرابط / Link copied" on success, or an error toast on failure
+- No backend changes — all existing v4.3.2 token infrastructure reused
+
+### Changed
+- `artifacts/qr-manager/src/components/erp/ParsedDataPreviewModal.tsx` — added `activeFileId` prop and Download button in footer
+- `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` — `previewFileId` state, `onPreview` captures file ID, modal receives `activeFileId`; contract tab URL display; `handleCopyLink` now shows toast
+- `artifacts/qr-manager/src/lib/i18n.ts` — added 3 new bilingual keys: `contract_share_link_label`, `contract_share_link_copied`, `contract_share_open_link`
+
+### Unchanged
+- All backend routes, DB schema, contract generation — untouched
+- `ContractPage.tsx` (browser-print contract) — untouched
+
+---
+
 ## v4.3.3 — Footer + Page-Number Stamping
 
 ### Added

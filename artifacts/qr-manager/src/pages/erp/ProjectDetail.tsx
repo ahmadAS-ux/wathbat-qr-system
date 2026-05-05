@@ -4,7 +4,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
 import type { TranslationKey } from '@/lib/i18n';
 import { useAuth } from '@/hooks/use-auth';
-import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen, FileDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Upload, Download, CheckCircle2, Circle, FileText, QrCode, ExternalLink, AlertTriangle, X, Loader2, Trash2, Plus, RotateCcw, ArrowLeftRight, ChevronDown, ChevronUp, FolderOpen, FileDown, Copy } from 'lucide-react';
 import { API_BASE } from '@/lib/api-base';
 import { NameMismatchModal, type NameMismatchChoice } from '@/components/erp/NameMismatchModal';
 import { ReUploadConfirmModal } from '@/components/erp/ReUploadConfirmModal';
@@ -99,54 +99,54 @@ interface Project {
 }
 
 const STAGE_DISPLAY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  new:           { bg: 'bg-[#ECEAE2]',  text: 'text-slate-600',  border: 'border-[#ECEAE2]',  dot: 'bg-slate-400'   },
-  in_study:      { bg: 'bg-blue-50',    text: 'text-[#185FA5]',  border: 'border-blue-200',   dot: 'bg-[#185FA5]'   },
-  in_production: { bg: 'bg-amber-50',   text: 'text-[#B8860B]',  border: 'border-amber-200',  dot: 'bg-[#B8860B]'   },
-  complete:      { bg: 'bg-teal-50',    text: 'text-[#0F6E56]',  border: 'border-teal-200',   dot: 'bg-[#0F6E56]'   },
+  new: { bg: 'bg-[#ECEAE2]', text: 'text-slate-600', border: 'border-[#ECEAE2]', dot: 'bg-slate-400' },
+  in_study: { bg: 'bg-blue-50', text: 'text-[#185FA5]', border: 'border-blue-200', dot: 'bg-[#185FA5]' },
+  in_production: { bg: 'bg-amber-50', text: 'text-[#B8860B]', border: 'border-amber-200', dot: 'bg-[#B8860B]' },
+  complete: { bg: 'bg-teal-50', text: 'text-[#0F6E56]', border: 'border-teal-200', dot: 'bg-[#0F6E56]' },
 };
 
 type StageType = 'linear' | 'iterative' | 'parallel' | 'per_phase' | 'continuous';
 
 const INTERNAL_STAGES: { n: number; labelAr: string; labelEn: string; type: StageType }[] = [
-  { n: 0,  labelAr: 'عميل محتمل',   labelEn: 'Lead',           type: 'linear'     },
-  { n: 1,  labelAr: 'استفسار',       labelEn: 'Inquiry',        type: 'linear'     },
-  { n: 2,  labelAr: 'دراسة فنية',    labelEn: 'Tech Study',     type: 'iterative'  },
-  { n: 3,  labelAr: 'مشتريات',       labelEn: 'Procurement',    type: 'iterative'  },
-  { n: 4,  labelAr: 'عرض سعر',       labelEn: 'Quotation',      type: 'iterative'  },
-  { n: 5,  labelAr: 'العقد',         labelEn: 'Contract',       type: 'linear'     },
-  { n: 6,  labelAr: 'الدفعة الأولى', labelEn: 'Deposit',        type: 'linear'     },
-  { n: 7,  labelAr: 'التصنيع',       labelEn: 'Manufacturing',  type: 'parallel'   },
-  { n: 8,  labelAr: 'استلام المواد', labelEn: 'Receiving',      type: 'parallel'   },
-  { n: 9,  labelAr: 'التوصيل',       labelEn: 'Delivery',       type: 'per_phase'  },
-  { n: 10, labelAr: 'التركيب',       labelEn: 'Installation',   type: 'per_phase'  },
-  { n: 11, labelAr: 'التسليم',       labelEn: 'Sign-off',       type: 'per_phase'  },
-  { n: 12, labelAr: 'المدفوعات',     labelEn: 'Payment',        type: 'continuous' },
-  { n: 13, labelAr: 'الضمان',        labelEn: 'Warranty',       type: 'linear'     },
-  { n: 14, labelAr: 'مكتمل',         labelEn: 'Done',           type: 'linear'     },
+  { n: 0, labelAr: 'عميل محتمل', labelEn: 'Lead', type: 'linear' },
+  { n: 1, labelAr: 'استفسار', labelEn: 'Inquiry', type: 'linear' },
+  { n: 2, labelAr: 'دراسة فنية', labelEn: 'Tech Study', type: 'iterative' },
+  { n: 3, labelAr: 'مشتريات', labelEn: 'Procurement', type: 'iterative' },
+  { n: 4, labelAr: 'عرض سعر', labelEn: 'Quotation', type: 'iterative' },
+  { n: 5, labelAr: 'العقد', labelEn: 'Contract', type: 'linear' },
+  { n: 6, labelAr: 'الدفعة الأولى', labelEn: 'Deposit', type: 'linear' },
+  { n: 7, labelAr: 'التصنيع', labelEn: 'Manufacturing', type: 'parallel' },
+  { n: 8, labelAr: 'استلام المواد', labelEn: 'Receiving', type: 'parallel' },
+  { n: 9, labelAr: 'التوصيل', labelEn: 'Delivery', type: 'per_phase' },
+  { n: 10, labelAr: 'التركيب', labelEn: 'Installation', type: 'per_phase' },
+  { n: 11, labelAr: 'التسليم', labelEn: 'Sign-off', type: 'per_phase' },
+  { n: 12, labelAr: 'المدفوعات', labelEn: 'Payment', type: 'continuous' },
+  { n: 13, labelAr: 'الضمان', labelEn: 'Warranty', type: 'linear' },
+  { n: 14, labelAr: 'مكتمل', labelEn: 'Done', type: 'linear' },
 ];
 
 const FILE_SLOTS = [
-  { fileType: 'glass_order',       labelAr: 'طلبية زجاج / ألواح', labelEn: 'Glass / Panel Order',  multiFile: false },
-  { fileType: 'quotation',         labelAr: 'عرض السعر',           labelEn: 'Quotation',             multiFile: false },
-  { fileType: 'section',           labelAr: 'المقاطع',             labelEn: 'Section',               multiFile: false },
-  { fileType: 'assembly_list',     labelAr: 'قائمة التجميع',       labelEn: 'Assembly List',         multiFile: false },
-  { fileType: 'cut_optimisation',  labelAr: 'تحسين القص',          labelEn: 'Cut Optimisation',      multiFile: false },
-  { fileType: 'material_analysis', labelAr: 'تحليل المواد',        labelEn: 'Material Analysis',     multiFile: false },
-  { fileType: 'vendor_order',      labelAr: 'أمر مورد',            labelEn: 'Vendor Order',          multiFile: true  },
-  { fileType: 'qoyod',             labelAr: 'قيود',                labelEn: 'Qoyod',                 multiFile: true  },
-  { fileType: 'other',             labelAr: 'أخرى',               labelEn: 'Other',                 multiFile: true  },
+  { fileType: 'glass_order', labelAr: 'طلبية زجاج / ألواح', labelEn: 'Glass / Panel Order', multiFile: false },
+  { fileType: 'quotation', labelAr: 'عرض السعر', labelEn: 'Quotation', multiFile: false },
+  { fileType: 'section', labelAr: 'المقاطع', labelEn: 'Section', multiFile: false },
+  { fileType: 'assembly_list', labelAr: 'قائمة التجميع', labelEn: 'Assembly List', multiFile: false },
+  { fileType: 'cut_optimisation', labelAr: 'تحسين القص', labelEn: 'Cut Optimisation', multiFile: false },
+  { fileType: 'material_analysis', labelAr: 'تحليل المواد', labelEn: 'Material Analysis', multiFile: false },
+  { fileType: 'vendor_order', labelAr: 'أمر مورد', labelEn: 'Vendor Order', multiFile: true },
+  { fileType: 'qoyod', labelAr: 'قيود', labelEn: 'Qoyod', multiFile: true },
+  { fileType: 'other', labelAr: 'أخرى', labelEn: 'Other', multiFile: true },
 ];
 
 const FILE_TYPE_TO_SLOT: Record<string, FileSlotFileType> = {
-  glass_order:       'glass',
-  quotation:         'quotation',
-  section:           'sections',
-  assembly_list:     'assembly',
-  cut_optimisation:  'cut-optimisation',
+  glass_order: 'glass',
+  quotation: 'quotation',
+  section: 'sections',
+  assembly_list: 'assembly',
+  cut_optimisation: 'cut-optimisation',
   material_analysis: 'material-analysis',
-  vendor_order:      'vendor',
-  qoyod:             'qoyod',
-  other:             'other',
+  vendor_order: 'vendor',
+  qoyod: 'qoyod',
+  other: 'other',
 };
 
 interface Phase {
@@ -746,10 +746,10 @@ function ProcurementSection({ projectId, isRtl, t, user }: { projectId: number; 
                       <div className="grid grid-cols-2 gap-2">
                         <input type="text" value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} placeholder={t('po_item_description')} className={`col-span-2 px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`} />
                         <select value={itemForm.category} onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))} className={`px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl bg-[#FAFAF7] focus:outline-none focus:border-[#141A24]/40 ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>
-                          {['Aluminum','Glass','Accessories','Special Parts'].map(c => <option key={c} value={c}>{c}</option>)}
+                          {['Aluminum', 'Glass', 'Accessories', 'Special Parts'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <select value={itemForm.unit} onChange={e => setItemForm(f => ({ ...f, unit: e.target.value }))} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl bg-[#FAFAF7] focus:outline-none focus:border-[#141A24]/40" dir="ltr">
-                          {['pcs','m²','kg','m'].map(u => <option key={u} value={u}>{u}</option>)}
+                          {['pcs', 'm²', 'kg', 'm'].map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                         <input type="number" value={itemForm.quantity} onChange={e => setItemForm(f => ({ ...f, quantity: e.target.value }))} placeholder={t('po_item_qty')} min={1} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
                         <input type="number" value={itemForm.unitPrice} onChange={e => setItemForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder={t('po_item_unit_price')} className="px-3 py-2 text-xs border border-[#ECEAE2] rounded-xl focus:outline-none focus:border-[#141A24]/40" dir="ltr" />
@@ -917,6 +917,7 @@ export default function ErpProjectDetail() {
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<number | null>(null);
   const [pendingReUploadFileType, setPendingReUploadFileType] = useState<string | null>(null);
   const [previewSlot, setPreviewSlot] = useState<'quotation' | 'section' | 'assembly_list' | 'cut_optimisation' | null>(null);
+  const [previewFileId, setPreviewFileId] = useState<number | undefined>(undefined);
 
   // Smart batch upload
   const batchInputRef = useRef<HTMLInputElement>(null);
@@ -1035,7 +1036,7 @@ export default function ErpProjectDetail() {
     fetch(`${API_BASE}/api/erp/projects/${id}/contracts`)
       .then(r => r.ok ? r.json() : [])
       .then(setPdfContracts)
-      .catch(() => {});
+      .catch(() => { });
   }, [activeTab, id]);
 
   const completionPct = (m: PaymentMilestone): number | null => {
@@ -1058,7 +1059,9 @@ export default function ErpProjectDetail() {
 
   const handleCopyLink = (token: string) => {
     const url = `${API_BASE}/api/erp/contracts/public/${token}`;
-    navigator.clipboard.writeText(url).catch(() => {});
+    navigator.clipboard.writeText(url)
+      .then(() => showToast(t('contract_share_link_copied'), 'success'))
+      .catch(() => showToast(t('contract_share_copy_link_error'), 'error'));
   };
 
   const handleGeneratePdf = async () => {
@@ -1356,10 +1359,10 @@ export default function ErpProjectDetail() {
   const stageStyle = STAGE_DISPLAY_STYLES[project?.stageDisplay ?? 'new'] ?? STAGE_DISPLAY_STYLES.new;
 
   const stageDisplayLabel: Record<string, string> = {
-    new:           t('erp_project_stage_new'),
-    in_study:      t('erp_project_stage_study'),
+    new: t('erp_project_stage_new'),
+    in_study: t('erp_project_stage_study'),
     in_production: t('erp_project_stage_production'),
-    complete:      t('erp_project_stage_complete'),
+    complete: t('erp_project_stage_complete'),
   };
 
   if (loading) {
@@ -1529,30 +1532,28 @@ export default function ErpProjectDetail() {
         {/* ── Tab Navigation ── */}
         <div className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-[#ECEAE2] px-2 mb-4 flex overflow-x-auto" dir={isRtl ? 'rtl' : 'ltr'}>
           {([
-            { key: 'files',       label: t('tab_files'),       badge: `${allFiles.filter(f => f.isActive).length}/${FILE_SLOTS.length}`, showBadge: true },
-            { key: 'payments',    label: t('tab_payments'),    badge: `${milestones.filter(m => m.status === 'paid').length}/${milestones.length}`, showBadge: milestones.length > 0 },
+            { key: 'files', label: t('tab_files'), badge: `${allFiles.filter(f => f.isActive).length}/${FILE_SLOTS.length}`, showBadge: true },
+            { key: 'payments', label: t('tab_payments'), badge: `${milestones.filter(m => m.status === 'paid').length}/${milestones.length}`, showBadge: milestones.length > 0 },
             { key: 'procurement', label: t('tab_procurement'), badge: null, showBadge: false },
-            { key: 'production',  label: t('tab_production'),  badge: null, showBadge: false },
+            { key: 'production', label: t('tab_production'), badge: null, showBadge: false },
             ...(canViewContract ? [{ key: 'contract', label: t('tab_contract'), badge: null, showBadge: false }] : []),
-            { key: 'overview',    label: t('tab_overview'),    badge: null, showBadge: false },
-            { key: 'timeline',    label: t('tab_timeline'),    badge: null, showBadge: false },
+            { key: 'overview', label: t('tab_overview'), badge: null, showBadge: false },
+            { key: 'timeline', label: t('tab_timeline'), badge: null, showBadge: false },
           ] as { key: string; label: string; badge: string | null; showBadge: boolean }[]).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-sm transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === tab.key
+              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-sm transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.key
                   ? 'text-[#141A24] font-semibold border-b-2 border-[#141A24]'
                   : 'text-[#6B6A60] hover:text-[#141A24] font-medium'
-              }`}
+                }`}
             >
               {tab.label}
               {tab.showBadge && tab.badge && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                  activeTab === tab.key
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${activeTab === tab.key
                     ? 'bg-[#FBF0D6] text-[#7A5A07]'
                     : 'bg-[#F1EFE7] text-[#6B6A60]'
-                }`}>
+                  }`}>
                   {tab.badge}
                 </span>
               )}
@@ -1572,13 +1573,12 @@ export default function ErpProjectDetail() {
                 return (
                   <div
                     key={stage.n}
-                    className={`rounded-xl p-3 flex flex-col gap-1 ${
-                      current
+                    className={`rounded-xl p-3 flex flex-col gap-1 ${current
                         ? 'bg-[#FDFBF4] ring-2 ring-[#B8860B] shadow-[0_0_8px_rgba(184,134,11,0.15)]'
                         : done
                           ? 'bg-[#E4F1E8]'
                           : 'bg-[#F1EFE7]'
-                    }`}
+                      }`}
                   >
                     <div className="text-[10px] font-semibold text-[#6B6A60] num tabular-nums" dir="ltr">
                       {String(stage.n + 1).padStart(2, '0')}
@@ -1616,126 +1616,153 @@ export default function ErpProjectDetail() {
 
         {/* ── Files Tab ── */}
         {activeTab === 'files' && (
-        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-[#141A24]">{t('erp_project_files')}</h2>
-            {canUpload && (
-              <button
-                onClick={() => batchInputRef.current?.click()}
-                disabled={detectingBatch || uploadingBatch}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors disabled:opacity-40"
-              >
-                {detectingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />}
-                {t('files_batch_select')}
-              </button>
-            )}
-          </div>
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-[#141A24]">{t('erp_project_files')}</h2>
+              {canUpload && (
+                <button
+                  onClick={() => batchInputRef.current?.click()}
+                  disabled={detectingBatch || uploadingBatch}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors disabled:opacity-40"
+                >
+                  {detectingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />}
+                  {t('files_batch_select')}
+                </button>
+              )}
+            </div>
 
 
-          {/* Batch detection summary */}
-          {detectionItems.length > 0 && (
-            <div className="mb-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ECEAE2]">
-                <span className="text-sm font-semibold text-[#141A24]">
-                  {t('files_detect_summary').replace('{count}', String(detectionItems.length))}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setDetectionItems([])} className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-[#FAFAF7] transition-colors">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={handleUploadAll}
-                    disabled={uploadingBatch}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
-                  >
-                    {uploadingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                    {t('files_upload_all')}
-                  </button>
+            {/* Batch detection summary */}
+            {detectionItems.length > 0 && (
+              <div className="mb-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#ECEAE2]">
+                  <span className="text-sm font-semibold text-[#141A24]">
+                    {t('files_detect_summary').replace('{count}', String(detectionItems.length))}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setDetectionItems([])} className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-[#FAFAF7] transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleUploadAll}
+                      disabled={uploadingBatch}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#141A24] text-white hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
+                    >
+                      {uploadingBatch ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                      {t('files_upload_all')}
+                    </button>
+                  </div>
+                </div>
+                <div className="divide-y divide-[#ECEAE2]">
+                  {detectionItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-[#FAFAF7]">
+                      <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="flex-1 min-w-0 text-xs text-slate-700 truncate" dir="ltr">{item.filename}</span>
+                      {item.confidence === 'high' && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-600 border border-teal-100 shrink-0">
+                          {t('files_detect_high')}
+                        </span>
+                      )}
+                      <select
+                        value={item.assignedType}
+                        onChange={e => updateDetectionItem(idx, e.target.value)}
+                        className="text-xs border border-[#ECEAE2] rounded-lg px-2 py-1 bg-[#FAFAF7] focus:outline-none focus:ring-1 focus:ring-[#141A24]/20 shrink-0"
+                        dir="ltr"
+                      >
+                        {FILE_SLOTS.map(s => (
+                          <option key={s.fileType} value={s.fileType}>{isRtl ? s.labelAr : s.labelEn}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="divide-y divide-[#ECEAE2]">
-                {detectionItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-[#FAFAF7]">
-                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="flex-1 min-w-0 text-xs text-slate-700 truncate" dir="ltr">{item.filename}</span>
-                    {item.confidence === 'high' && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-600 border border-teal-100 shrink-0">
-                        {t('files_detect_high')}
-                      </span>
-                    )}
-                    <select
-                      value={item.assignedType}
-                      onChange={e => updateDetectionItem(idx, e.target.value)}
-                      className="text-xs border border-[#ECEAE2] rounded-lg px-2 py-1 bg-[#FAFAF7] focus:outline-none focus:ring-1 focus:ring-[#141A24]/20 shrink-0"
-                      dir="ltr"
-                    >
-                      {FILE_SLOTS.map(s => (
-                        <option key={s.fileType} value={s.fileType}>{isRtl ? s.labelAr : s.labelEn}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )}
 
-          <div className="space-y-3">
-            {FILE_SLOTS.map(slot => {
-              const isUploading = uploadingFor === slot.fileType;
-              const label = isRtl ? slot.labelAr : slot.labelEn;
-              const inactive = inactiveFor(slot.fileType);
-              const versionsExpanded = expandedVersions.has(slot.fileType);
+            <div className="space-y-3">
+              {FILE_SLOTS.map(slot => {
+                const isUploading = uploadingFor === slot.fileType;
+                const label = isRtl ? slot.labelAr : slot.labelEn;
+                const inactive = inactiveFor(slot.fileType);
+                const versionsExpanded = expandedVersions.has(slot.fileType);
 
-              const toggleVersions = () => setExpandedVersions(prev => {
-                const next = new Set(prev);
-                if (next.has(slot.fileType)) next.delete(slot.fileType); else next.add(slot.fileType);
-                return next;
-              });
+                const toggleVersions = () => setExpandedVersions(prev => {
+                  const next = new Set(prev);
+                  if (next.has(slot.fileType)) next.delete(slot.fileType); else next.add(slot.fileType);
+                  return next;
+                });
 
-              if (slot.multiFile) {
-                const bucketFiles = allFiles.filter(f => f.fileType === slot.fileType);
-                const bucketSlotType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
-                return (
-                  <FileSlot
-                    key={slot.fileType}
-                    type="bucket"
-                    fileType={bucketSlotType}
-                    label={{ ar: slot.labelAr, en: slot.labelEn }}
-                    files={bucketFiles as FileRecord[]}
-                    onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
-                    onReplace={async (fileId, file) => { await replaceFileById(fileId, file, slot.fileType); }}
-                    onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                    onDelete={canDeleteFileSlot ? deleteFile : undefined}
-                    canDelete={canDeleteFileSlot}
-                    canReplace={canUpload}
-                    isLoading={isUploading}
-                  />
-                );
-              }
+                if (slot.multiFile) {
+                  const bucketFiles = allFiles.filter(f => f.fileType === slot.fileType);
+                  const bucketSlotType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
+                  return (
+                    <FileSlot
+                      key={slot.fileType}
+                      type="bucket"
+                      fileType={bucketSlotType}
+                      label={{ ar: slot.labelAr, en: slot.labelEn }}
+                      files={bucketFiles as FileRecord[]}
+                      onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
+                      onReplace={async (fileId, file) => { await replaceFileById(fileId, file, slot.fileType); }}
+                      onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                      onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                      canDelete={canDeleteFileSlot}
+                      canReplace={canUpload}
+                      isLoading={isUploading}
+                    />
+                  );
+                }
 
-              // ── Glass Order ───────────────────────────────────────────────
-              if (slot.fileType === 'glass_order') {
-                const glassFiles = allFiles.filter(f => f.fileType === 'glass_order' && f.isActive !== false);
-                const hasGlassProjectFile = glassFiles.length > 0;
-                const hasQr = qrOrders.length > 0;
-                return (
-                  <div key="glass_order" className="space-y-1">
-                    {hasGlassProjectFile ? (
-                      <FileSlot
-                        type="single"
-                        fileType="glass"
-                        label={{ ar: slot.labelAr, en: slot.labelEn }}
-                        files={glassFiles as FileRecord[]}
-                        onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
-                        onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
-                        onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                        onDelete={canDeleteFileSlot ? deleteFile : undefined}
-                        canDelete={canDeleteFileSlot}
-                        canReplace={canUpload}
-                        isLoading={isUploading}
-                      />
-                    ) : hasQr ? (
-                      <>
+                // ── Glass Order ───────────────────────────────────────────────
+                if (slot.fileType === 'glass_order') {
+                  const glassFiles = allFiles.filter(f => f.fileType === 'glass_order' && f.isActive !== false);
+                  const hasGlassProjectFile = glassFiles.length > 0;
+                  const hasQr = qrOrders.length > 0;
+                  return (
+                    <div key="glass_order" className="space-y-1">
+                      {hasGlassProjectFile ? (
+                        <FileSlot
+                          type="single"
+                          fileType="glass"
+                          label={{ ar: slot.labelAr, en: slot.labelEn }}
+                          files={glassFiles as FileRecord[]}
+                          onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
+                          onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
+                          onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                          onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                          canDelete={canDeleteFileSlot}
+                          canReplace={canUpload}
+                          isLoading={isUploading}
+                        />
+                      ) : hasQr ? (
+                        <>
+                          <FileSlot
+                            type="single"
+                            fileType="glass"
+                            label={{ ar: slot.labelAr, en: slot.labelEn }}
+                            files={[]}
+                            onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
+                            onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
+                            onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                            onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                            canDelete={canDeleteFileSlot}
+                            canReplace={canUpload}
+                            isLoading={isUploading}
+                          />
+                          {/* Legacy QR data — read-only, pre-v4.0.11 processed_docs row */}
+                          <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
+                            <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
+                            <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
+                              <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
+                            </a>
+                          </div>
+                        </>
+                      ) : (
                         <FileSlot
                           type="single"
                           fileType="glass"
@@ -1749,34 +1776,58 @@ export default function ErpProjectDetail() {
                           canReplace={canUpload}
                           isLoading={isUploading}
                         />
-                        {/* Legacy QR data — read-only, pre-v4.0.11 processed_docs row */}
-                        <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5">
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <QrCode className="w-3 h-3 text-amber-500 shrink-0" />
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">{t('files_glass_qr')}</span>
-                          </div>
-                          <p className="text-xs text-slate-600 truncate" dir="ltr">{qrOrders[0].originalFilename}</p>
-                          <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(qrOrders[0].createdAt).toLocaleDateString()} · {qrOrders[0].positionCount} {t('qr_orders_positions')}</p>
-                          <a href={`${API_BASE}/api/qr/download/${qrOrders[0].reportFileId}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 transition-colors">
-                            <ExternalLink className="w-3 h-3" />{t('qr_orders_view_report')}
-                          </a>
+                      )}
+                      {inactive.length > 0 && (
+                        <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
+                          {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {t('files_prev_versions').replace('{n}', String(inactive.length))}
+                        </button>
+                      )}
+                      {versionsExpanded && inactive.length > 0 && (
+                        <div className="rounded-xl border border-[#ECEAE2] divide-y divide-slate-50 overflow-hidden">
+                          {inactive.map(f => (
+                            <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-[#F4F2EB]">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
+                                <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
+                              </div>
+                              <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-[#ECEAE2] transition-colors">
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      </>
-                    ) : (
-                      <FileSlot
-                        type="single"
-                        fileType="glass"
-                        label={{ ar: slot.labelAr, en: slot.labelEn }}
-                        files={[]}
-                        onUpload={async (file) => { await uploadFile(file, 'glass_order'); }}
-                        onReplace={async (_fileId, file) => { await uploadFile(file, 'glass_order'); }}
-                        onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                        onDelete={canDeleteFileSlot ? deleteFile : undefined}
-                        canDelete={canDeleteFileSlot}
-                        canReplace={canUpload}
-                        isLoading={isUploading}
-                      />
-                    )}
+                      )}
+                    </div>
+                  );
+                }
+
+                // ── Standard single-file slot ─────────────────────────────────
+                const slotFiles = allFiles.filter(f => f.fileType === slot.fileType && f.isActive !== false);
+                const slotFileType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
+
+                const parsedSlotTypes = ['quotation', 'section', 'assembly_list', 'cut_optimisation'] as const;
+                type ParsedSlotType = typeof parsedSlotTypes[number];
+                const isParsedSlot = (parsedSlotTypes as readonly string[]).includes(slot.fileType);
+
+                return (
+                  <div key={slot.fileType} className="space-y-1">
+                    <FileSlot
+                      type="single"
+                      fileType={slotFileType}
+                      label={{ ar: slot.labelAr, en: slot.labelEn }}
+                      files={slotFiles as FileRecord[]}
+                      onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
+                      onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
+                      onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
+                      onDelete={canDeleteFileSlot ? deleteFile : undefined}
+                      onPreview={isParsedSlot ? () => { setPreviewSlot(slot.fileType as ParsedSlotType); setPreviewFileId(slotFiles[0]?.id); } : undefined}
+                      canDelete={canDeleteFileSlot}
+                      canReplace={canUpload}
+                      isLoading={isUploading}
+                    />
+
+                    {/* Version history */}
                     {inactive.length > 0 && (
                       <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
                         {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1798,94 +1849,43 @@ export default function ErpProjectDetail() {
                         ))}
                       </div>
                     )}
-                  </div>
-                );
-              }
 
-              // ── Standard single-file slot ─────────────────────────────────
-              const slotFiles = allFiles.filter(f => f.fileType === slot.fileType && f.isActive !== false);
-              const slotFileType = FILE_TYPE_TO_SLOT[slot.fileType] ?? (slot.fileType as FileSlotFileType);
-
-              const parsedSlotTypes = ['quotation', 'section', 'assembly_list', 'cut_optimisation'] as const;
-              type ParsedSlotType = typeof parsedSlotTypes[number];
-              const isParsedSlot = (parsedSlotTypes as readonly string[]).includes(slot.fileType);
-
-              return (
-                <div key={slot.fileType} className="space-y-1">
-                  <FileSlot
-                    type="single"
-                    fileType={slotFileType}
-                    label={{ ar: slot.labelAr, en: slot.labelEn }}
-                    files={slotFiles as FileRecord[]}
-                    onUpload={async (file) => { await uploadFile(file, slot.fileType); }}
-                    onReplace={async (_fileId, file) => { await uploadFile(file, slot.fileType); }}
-                    onDownload={(fileId) => { const f = allFiles.find(x => x.id === fileId); if (f) downloadFile(f.id, f.originalFilename); }}
-                    onDelete={canDeleteFileSlot ? deleteFile : undefined}
-                    onPreview={isParsedSlot ? () => setPreviewSlot(slot.fileType as ParsedSlotType) : undefined}
-                    canDelete={canDeleteFileSlot}
-                    canReplace={canUpload}
-                    isLoading={isUploading}
-                  />
-
-                  {/* Version history */}
-                  {inactive.length > 0 && (
-                    <button onClick={toggleVersions} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 px-1 py-0.5 transition-colors">
-                      {versionsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      {t('files_prev_versions').replace('{n}', String(inactive.length))}
-                    </button>
-                  )}
-                  {versionsExpanded && inactive.length > 0 && (
-                    <div className="rounded-xl border border-[#ECEAE2] divide-y divide-slate-50 overflow-hidden">
-                      {inactive.map(f => (
-                        <div key={f.id} className="flex items-center gap-3 px-3 py-2 bg-[#F4F2EB]">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-slate-500 truncate" dir="ltr">{f.originalFilename}</p>
-                            <p className="text-xs text-slate-400 mt-0.5" dir="ltr">{new Date(f.uploadedAt).toLocaleDateString()}</p>
-                          </div>
-                          <button onClick={() => downloadFile(f.id, f.originalFilename)} className="p-1 rounded text-slate-300 hover:text-slate-500 hover:bg-[#ECEAE2] transition-colors">
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* v4.1.2: Auto-displayed parsed tables removed for
+                    {/* v4.1.2: Auto-displayed parsed tables removed for
                       Assembly List and Cut Optimisation. Backend parsing
                       pipeline still active (endpoints, tables, parsers
                       preserved). v4.1.3 will add an on-demand Preview
                       modal that fetches this data on click. To restore
                       inline display, re-add loadParsedData() and JSX. */}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Required files checklist — reads from same state as the slots above */}
-          <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
-            <p className="text-xs font-semibold text-[#6B6A60] mb-2">{t('files_expected_title')}</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {FILE_SLOTS.map(slot => {
-                let checked: boolean;
-                if (slot.fileType === 'glass_order') {
-                  checked = fileFor('glass_order') !== null || qrOrders.length > 0;
-                } else if (slot.multiFile) {
-                  checked = allFiles.some(f => f.fileType === slot.fileType && f.isActive);
-                } else {
-                  checked = fileFor(slot.fileType) !== null;
-                }
-                return (
-                  <div key={slot.fileType} className={`flex items-center gap-2 text-xs py-0.5 ${checked ? 'text-teal-600' : 'text-[#6B6A60]'}`}>
-                    {checked
-                      ? <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" />
-                      : <Circle className="w-3 h-3 text-[#ECEAE2] shrink-0" />}
-                    <span>{isRtl ? slot.labelAr : slot.labelEn}</span>
                   </div>
                 );
               })}
             </div>
+
+            {/* Required files checklist — reads from same state as the slots above */}
+            <div className="mt-4 pt-4 border-t border-[#ECEAE2]">
+              <p className="text-xs font-semibold text-[#6B6A60] mb-2">{t('files_expected_title')}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {FILE_SLOTS.map(slot => {
+                  let checked: boolean;
+                  if (slot.fileType === 'glass_order') {
+                    checked = fileFor('glass_order') !== null || qrOrders.length > 0;
+                  } else if (slot.multiFile) {
+                    checked = allFiles.some(f => f.fileType === slot.fileType && f.isActive);
+                  } else {
+                    checked = fileFor(slot.fileType) !== null;
+                  }
+                  return (
+                    <div key={slot.fileType} className={`flex items-center gap-2 text-xs py-0.5 ${checked ? 'text-teal-600' : 'text-[#6B6A60]'}`}>
+                      {checked
+                        ? <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" />
+                        : <Circle className="w-3 h-3 text-[#ECEAE2] shrink-0" />}
+                      <span>{isRtl ? slot.labelAr : slot.labelEn}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
         )} {/* end activeTab === 'files' */}
 
         {/* ── Contract Tab ── */}
@@ -1901,13 +1901,12 @@ export default function ErpProjectDetail() {
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9B9A91]" />
                 )}
                 {!contractDataLoading && integrityReport && (
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                    integrityReport.overall === 'green'
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${integrityReport.overall === 'green'
                       ? 'bg-green-100 text-green-800'
                       : integrityReport.overall === 'amber'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-red-100 text-red-800'
-                  } ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-red-100 text-red-800'
+                    } ${isRtl ? 'font-[Tajawal]' : ''}`}>
                     {integrityReport.overall === 'green' ? '●' : integrityReport.overall === 'amber' ? '⚠' : '✗'}
                     {' '}{t(`contract_integrity_${integrityReport.overall}` as TranslationKey)}
                   </span>
@@ -1981,17 +1980,36 @@ export default function ErpProjectDetail() {
                           </a>
                         )}
                       </div>
-                      {/* Share public link — v4.3.2 */}
+                      {/* Share public link — v4.3.2 / v4.3.4: URL now visible */}
                       {c.status === 'generated' && (
                         c.accessToken
                           ? (
-                            <div className={`flex items-center gap-2 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
-                              <button
-                                onClick={() => handleCopyLink(c.accessToken!)}
-                                className={`text-xs px-2 py-1 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors ${isRtl ? 'font-[Tajawal]' : ''}`}
-                              >
-                                {t('contract_share_copy_link')}
-                              </button>
+                            <div className="space-y-1.5">
+                              <p className={`text-xs text-slate-500 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('contract_share_link_label')}</p>
+                              <div className={`flex items-center gap-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                <span
+                                  dir="ltr"
+                                  className="flex-1 min-w-0 text-xs font-mono text-[#4A4940] bg-[#F4F2EB] border border-[#ECEAE2] rounded-lg px-2 py-1 truncate select-all"
+                                >
+                                  {`${API_BASE}/api/erp/contracts/public/${c.accessToken}`}
+                                </span>
+                                <button
+                                  onClick={() => handleCopyLink(c.accessToken!)}
+                                  title={t('contract_share_copy_link')}
+                                  className="p-1.5 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors shrink-0"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <a
+                                  href={`${API_BASE}/api/erp/contracts/public/${c.accessToken}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={t('contract_share_open_link')}
+                                  className="p-1.5 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors shrink-0"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
                               {c.tokenExpiresAt && (
                                 <span className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
                                   {t('contract_share_expires')}: {new Date(c.tokenExpiresAt).toLocaleDateString()}
@@ -2018,229 +2036,229 @@ export default function ErpProjectDetail() {
 
         {/* ── Payments Tab ── */}
         {activeTab === 'payments' && (
-        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="font-semibold text-[#141A24]">{t('erp_payment_milestones_title')}</h2>
-            {canCreateMilestone && (
-              <button
-                onClick={() => setShowAddMilestone(v => !v)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
-              >
-                <Plus className="w-3 h-3" />
-                {t('erp_payment_add')}
-              </button>
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 mb-4">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="font-semibold text-[#141A24]">{t('erp_payment_milestones_title')}</h2>
+              {canCreateMilestone && (
+                <button
+                  onClick={() => setShowAddMilestone(v => !v)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] border border-[#ECEAE2] hover:bg-[#F4F2EB] transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  {t('erp_payment_add')}
+                </button>
+              )}
+            </div>
+
+            {/* Add Milestone Form */}
+            {showAddMilestone && canCreateMilestone && (
+              <div className="mb-4 p-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_label')} *</label>
+                    <input
+                      className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                      value={milestoneForm.label}
+                      onChange={e => setMilestoneForm(f => ({ ...f, label: e.target.value }))}
+                      placeholder={t('erp_payment_label_placeholder')}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_percentage')}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                      value={milestoneForm.percentage}
+                      onChange={e => setMilestoneForm(f => ({ ...f, percentage: e.target.value }))}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_amount')}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                      value={milestoneForm.amount}
+                      onChange={e => setMilestoneForm(f => ({ ...f, amount: e.target.value }))}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_due_date')}</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                      value={milestoneForm.dueDate}
+                      onChange={e => setMilestoneForm(f => ({ ...f, dueDate: e.target.value }))}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
+                    <input
+                      className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                      value={milestoneForm.notes}
+                      onChange={e => setMilestoneForm(f => ({ ...f, notes: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddMilestone}
+                    disabled={savingMilestone || !milestoneForm.label.trim()}
+                    className="px-4 py-2 text-xs font-semibold bg-[#141A24] text-white rounded-lg hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
+                  >
+                    {savingMilestone ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
+                  </button>
+                  <button
+                    onClick={() => setShowAddMilestone(false)}
+                    className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
+                  >
+                    {t('erp_cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Milestones List */}
+            {milestones.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">{t('erp_payment_no_milestones')}</p>
+            ) : (
+              <div className="space-y-3">
+                {milestones.map(m => {
+                  const pct = completionPct(m);
+                  const statusStyle = m.status === 'paid'
+                    ? 'bg-teal-50 text-teal-600 border-teal-100'
+                    : m.status === 'overdue'
+                      ? 'bg-red-50 text-red-600 border-red-100'
+                      : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]';
+                  const statusLabel = m.status === 'paid'
+                    ? t('erp_payment_status_paid')
+                    : m.status === 'overdue'
+                      ? t('erp_payment_status_overdue')
+                      : t('erp_payment_status_pending');
+
+                  return (
+                    <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-[#ECEAE2] bg-[#F4F2EB]/30'}`}>
+                      {/* Milestone header */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-[#141A24] flex-1 min-w-0">{m.label}</span>
+                        {m.percentage != null && (
+                          <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.percentage}%</span>
+                        )}
+                        {m.amount != null && (
+                          <span className="text-xs font-semibold text-slate-600 shrink-0" dir="ltr">
+                            {m.amount.toLocaleString()} {t('erp_payment_sar')}
+                          </span>
+                        )}
+                        {m.dueDate && (
+                          <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.dueDate}</span>
+                        )}
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusStyle}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      {/* Qoyod attachment row — shows completion badge */}
+                      {m.qoyodDocFileId != null && (() => {
+                        const attachedFile = project?.files.find(f => f.id === m.qoyodDocFileId);
+                        return attachedFile ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FAFAF7] border border-[#ECEAE2]">
+                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-600 truncate flex-1 min-w-0" dir="ltr">{attachedFile.originalFilename}</span>
+                            {pct !== null && (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${pct >= 100 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                                {pct >= 100 ? t('erp_payment_completion_full') : t('erp_payment_completion_partial').replace('{pct}', String(pct))}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => downloadFile(attachedFile.id, attachedFile.originalFilename)}
+                              className="p-1 rounded text-slate-400 hover:text-[#141A24] hover:bg-[#ECEAE2] transition-colors shrink-0"
+                              title={t('erp_file_download')}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {/* Mark Paid button */}
+                      {canManagePayments && m.status !== 'paid' && (
+                        payingMilestoneId === m.id ? (
+                          <div className="space-y-2 pt-1">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_paid_amount')} *</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                                  value={payForm.paidAmount}
+                                  onChange={e => setPayForm(f => ({ ...f, paidAmount: e.target.value }))}
+                                  dir="ltr"
+                                  autoFocus
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
+                                <input
+                                  className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
+                                  value={payForm.notes}
+                                  onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_upload_proof')}</label>
+                              <input
+                                ref={payFileInputRef}
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                                onChange={e => setPayForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                              />
+                              <button
+                                onClick={() => payFileInputRef.current?.click()}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#141A24] transition-colors"
+                              >
+                                <Upload className="w-3 h-3" />
+                                {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : t('choose_file')}
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleMarkPaid(m.id)}
+                                disabled={markingPaid || !payForm.paidAmount}
+                                className="px-4 py-2 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
+                              >
+                                {markingPaid ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_payment_confirm_paid')}
+                              </button>
+                              <button
+                                onClick={() => { setPayingMilestoneId(null); setPayForm({ paidAmount: '', notes: '', file: null }); }}
+                                className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
+                              >
+                                {t('erp_cancel')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setPayingMilestoneId(m.id)}
+                            className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors"
+                          >
+                            {t('erp_payment_mark_paid')}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-
-          {/* Add Milestone Form */}
-          {showAddMilestone && canCreateMilestone && (
-            <div className="mb-4 p-4 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB] space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_label')} *</label>
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                    value={milestoneForm.label}
-                    onChange={e => setMilestoneForm(f => ({ ...f, label: e.target.value }))}
-                    placeholder={t('erp_payment_label_placeholder')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_percentage')}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                    value={milestoneForm.percentage}
-                    onChange={e => setMilestoneForm(f => ({ ...f, percentage: e.target.value }))}
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_amount')}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                    value={milestoneForm.amount}
-                    onChange={e => setMilestoneForm(f => ({ ...f, amount: e.target.value }))}
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_due_date')}</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                    value={milestoneForm.dueDate}
-                    onChange={e => setMilestoneForm(f => ({ ...f, dueDate: e.target.value }))}
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                    value={milestoneForm.notes}
-                    onChange={e => setMilestoneForm(f => ({ ...f, notes: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddMilestone}
-                  disabled={savingMilestone || !milestoneForm.label.trim()}
-                  className="px-4 py-2 text-xs font-semibold bg-[#141A24] text-white rounded-lg hover:bg-[#0B1019] disabled:opacity-40 transition-colors"
-                >
-                  {savingMilestone ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_create')}
-                </button>
-                <button
-                  onClick={() => setShowAddMilestone(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
-                >
-                  {t('erp_cancel')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Milestones List */}
-          {milestones.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-4">{t('erp_payment_no_milestones')}</p>
-          ) : (
-            <div className="space-y-3">
-              {milestones.map(m => {
-                const pct = completionPct(m);
-                const statusStyle = m.status === 'paid'
-                  ? 'bg-teal-50 text-teal-600 border-teal-100'
-                  : m.status === 'overdue'
-                  ? 'bg-red-50 text-red-600 border-red-100'
-                  : 'bg-[#ECEAE2] text-slate-500 border-[#ECEAE2]';
-                const statusLabel = m.status === 'paid'
-                  ? t('erp_payment_status_paid')
-                  : m.status === 'overdue'
-                  ? t('erp_payment_status_overdue')
-                  : t('erp_payment_status_pending');
-
-                return (
-                  <div key={m.id} className={`rounded-xl border p-4 space-y-3 ${m.status === 'overdue' ? 'border-red-100 bg-red-50/30' : 'border-[#ECEAE2] bg-[#F4F2EB]/30'}`}>
-                    {/* Milestone header */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-[#141A24] flex-1 min-w-0">{m.label}</span>
-                      {m.percentage != null && (
-                        <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.percentage}%</span>
-                      )}
-                      {m.amount != null && (
-                        <span className="text-xs font-semibold text-slate-600 shrink-0" dir="ltr">
-                          {m.amount.toLocaleString()} {t('erp_payment_sar')}
-                        </span>
-                      )}
-                      {m.dueDate && (
-                        <span className="text-xs text-slate-400 shrink-0" dir="ltr">{m.dueDate}</span>
-                      )}
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusStyle}`}>
-                        {statusLabel}
-                      </span>
-                    </div>
-
-                    {/* Qoyod attachment row — shows completion badge */}
-                    {m.qoyodDocFileId != null && (() => {
-                      const attachedFile = project?.files.find(f => f.id === m.qoyodDocFileId);
-                      return attachedFile ? (
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FAFAF7] border border-[#ECEAE2]">
-                          <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="text-xs text-slate-600 truncate flex-1 min-w-0" dir="ltr">{attachedFile.originalFilename}</span>
-                          {pct !== null && (
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${pct >= 100 ? 'bg-teal-50 text-teal-600 border-teal-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                              {pct >= 100 ? t('erp_payment_completion_full') : t('erp_payment_completion_partial').replace('{pct}', String(pct))}
-                            </span>
-                          )}
-                          <button
-                            onClick={() => downloadFile(attachedFile.id, attachedFile.originalFilename)}
-                            className="p-1 rounded text-slate-400 hover:text-[#141A24] hover:bg-[#ECEAE2] transition-colors shrink-0"
-                            title={t('erp_file_download')}
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : null;
-                    })()}
-
-                    {/* Mark Paid button */}
-                    {canManagePayments && m.status !== 'paid' && (
-                      payingMilestoneId === m.id ? (
-                        <div className="space-y-2 pt-1">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_paid_amount')} *</label>
-                              <input
-                                type="number"
-                                min="0"
-                                className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                                value={payForm.paidAmount}
-                                onChange={e => setPayForm(f => ({ ...f, paidAmount: e.target.value }))}
-                                dir="ltr"
-                                autoFocus
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_notes')}</label>
-                              <input
-                                className="w-full px-3 py-2 text-sm border border-[#ECEAE2] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#141A24]/20"
-                                value={payForm.notes}
-                                onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">{t('erp_payment_upload_proof')}</label>
-                            <input
-                              ref={payFileInputRef}
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
-                              onChange={e => setPayForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))}
-                            />
-                            <button
-                              onClick={() => payFileInputRef.current?.click()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-[#1B2A4A]/40 hover:text-[#141A24] transition-colors"
-                            >
-                              <Upload className="w-3 h-3" />
-                              {payForm.file ? <span dir="ltr" className="ltr truncate max-w-[120px]">{payForm.file.name}</span> : t('choose_file')}
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleMarkPaid(m.id)}
-                              disabled={markingPaid || !payForm.paidAmount}
-                              className="px-4 py-2 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
-                            >
-                              {markingPaid ? <Loader2 className="w-3 h-3 animate-spin inline" /> : t('erp_payment_confirm_paid')}
-                            </button>
-                            <button
-                              onClick={() => { setPayingMilestoneId(null); setPayForm({ paidAmount: '', notes: '', file: null }); }}
-                              className="px-4 py-2 text-xs text-slate-400 hover:text-slate-600 rounded-lg hover:bg-[#ECEAE2] transition-colors"
-                            >
-                              {t('erp_cancel')}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setPayingMilestoneId(m.id)}
-                          className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors"
-                        >
-                          {t('erp_payment_mark_paid')}
-                        </button>
-                      )
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
         )} {/* end activeTab === 'payments' */}
 
         {/* ── Procurement Tab ── */}
@@ -2263,41 +2281,41 @@ export default function ErpProjectDetail() {
 
         {/* ── QR Orders — shown in files tab ── */}
         {activeTab === 'files' && (
-        <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <QrCode className="w-4 h-4 text-[#C89B3C]" />
-            <h2 className="font-semibold text-[#141A24]">{t('qr_orders_title')}</h2>
-          </div>
-          {loadingQrOrders ? (
-            <div className="text-center py-6 text-slate-400 text-sm">...</div>
-          ) : qrOrders.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">{t('qr_orders_empty')}</p>
-          ) : (
-            <div className="space-y-2">
-              {qrOrders.map(order => (
-                <div key={order.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{order.originalFilename}</p>
-                    <p className="text-xs text-slate-400 mt-0.5" dir="ltr">
-                      {order.processingDate && <span>{order.processingDate} · </span>}
-                      {order.positionCount} {t('qr_orders_positions')} · {new Date(order.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <a
-                    href={`${API_BASE}/api/qr/download/${order.reportFileId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] hover:bg-[#141A24]/8 transition-colors shrink-0"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    {t('qr_orders_view_report')}
-                  </a>
-                </div>
-              ))}
+          <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <QrCode className="w-4 h-4 text-[#C89B3C]" />
+              <h2 className="font-semibold text-[#141A24]">{t('qr_orders_title')}</h2>
             </div>
-          )}
-        </div>
+            {loadingQrOrders ? (
+              <div className="text-center py-6 text-slate-400 text-sm">...</div>
+            ) : qrOrders.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">{t('qr_orders_empty')}</p>
+            ) : (
+              <div className="space-y-2">
+                {qrOrders.map(order => (
+                  <div key={order.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#ECEAE2] bg-[#F4F2EB]">
+                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{order.originalFilename}</p>
+                      <p className="text-xs text-slate-400 mt-0.5" dir="ltr">
+                        {order.processingDate && <span>{order.processingDate} · </span>}
+                        {order.positionCount} {t('qr_orders_positions')} · {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <a
+                      href={`${API_BASE}/api/qr/download/${order.reportFileId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#141A24] hover:bg-[#141A24]/8 transition-colors shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      {t('qr_orders_view_report')}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )} {/* end activeTab === 'files' (QR Orders) */}
 
       </div>
@@ -2313,7 +2331,8 @@ export default function ErpProjectDetail() {
         <ParsedDataPreviewModal
           projectId={id}
           fileType={previewSlot}
-          onClose={() => setPreviewSlot(null)}
+          activeFileId={previewFileId}
+          onClose={() => { setPreviewSlot(null); setPreviewFileId(undefined); }}
         />
       ) : null}
 

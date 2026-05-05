@@ -691,6 +691,9 @@ export const translations = {
     contract_share_copy_link: "Copy public link",
     contract_share_expires: "Expires",
     contract_share_copy_link_error: "Could not copy link",
+    contract_share_link_label: "Public link",
+    contract_share_link_copied: "Link copied",
+    contract_share_open_link: "Open",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1382,6 +1385,9 @@ export const translations = {
     contract_share_copy_link: "نسخ الرابط العام",
     contract_share_expires: "ينتهي",
     contract_share_copy_link_error: "تعذّر نسخ الرابط",
+    contract_share_link_label: "الرابط العام",
+    contract_share_link_copied: "تم نسخ الرابط",
+    contract_share_open_link: "فتح",
   }
 };
 
