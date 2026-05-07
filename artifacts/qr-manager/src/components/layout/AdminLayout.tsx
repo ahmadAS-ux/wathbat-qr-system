@@ -3,7 +3,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import {
   LayoutDashboard, Archive, FileText, Users, LogOut, Globe,
-  Menu, X, FolderOpen, CreditCard, List, Settings, ChevronDown, Search, Package, UserCheck,
+  Menu, X, FolderOpen, CreditCard, List, Settings, ChevronDown, Search, Package, UserCheck, UserCircle,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
@@ -192,14 +192,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         onClick={() => { navigate(r.url); setSearchOpen(false); setSearchQ(''); setMobileOpen(false); }}
                       >
                         <div className="w-6 h-6 rounded-md bg-[#ECEAE2] flex items-center justify-center shrink-0">
-                          {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-[#6B6A60]" /> : <FolderOpen className="w-3.5 h-3.5 text-[#6B6A60]" />}
+                          {r.type === 'lead'
+                            ? <Users className="w-3.5 h-3.5 text-[#1a3a5c]" />
+                            : r.type === 'project'
+                            ? <FolderOpen className="w-3.5 h-3.5 text-amber-700" />
+                            : <UserCircle className="w-3.5 h-3.5 text-emerald-700" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-[#141A24] truncate">{r.name}</p>
                           <p className="text-[10px] text-[#6B6A60] truncate">{r.subtitle}</p>
                         </div>
-                        <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]' : 'bg-amber-50 text-amber-700'}`}>
-                          {r.type === 'lead' ? t('search_type_lead') : t('search_type_project')}
+                        <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${
+                          r.type === 'lead' ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]' :
+                          r.type === 'project' ? 'bg-amber-50 text-amber-700' :
+                          'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {r.type === 'lead' ? t('search_type_lead') :
+                           r.type === 'project' ? t('search_type_project') :
+                           t('search_type_customer')}
                         </span>
                       </button>
                     </li>

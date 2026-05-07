@@ -937,6 +937,22 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
       }
     }
 
+    // Search customers — all roles
+    const normalizedPhoneCust = normalizePhoneToE164(q);
+    const custRows = await db.execute(
+      sql`SELECT c.id, c.name, c.phone, c.email, c.location
+          FROM customers c
+          WHERE c.name ILIKE ${pattern}
+             OR c.phone ILIKE ${pattern}
+             OR c.email ILIKE ${pattern}
+             OR c.location ILIKE ${pattern}
+             OR (${normalizedPhoneCust} IS NOT NULL AND c.phone = ${normalizedPhoneCust})
+          ORDER BY c.created_at DESC LIMIT 3`
+    );
+    for (const c of custRows.rows as any[]) {
+      results.push({ type: "customer", id: Number(c.id), name: String(c.name), subtitle: String(c.phone || c.email || c.location || ""), url: "/erp/customers" });
+    }
+
     res.json(results.slice(0, 8));
   } catch (err) {
     logger.error({ err }, "GET /erp/search failed");

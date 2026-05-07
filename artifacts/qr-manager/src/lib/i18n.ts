@@ -457,6 +457,7 @@ export const translations = {
     search_no_results: "No results",
     search_type_lead: "Client",
     search_type_project: "Project",
+    search_type_customer: "Customer",
     // Phase 3 — Vendors
     vendor: "Vendor",
     vendors: "Vendors",
@@ -1151,6 +1152,7 @@ export const translations = {
     search_no_results: "لا نتائج",
     search_type_lead: "عميل",
     search_type_project: "مشروع",
+    search_type_customer: "سجل عميل",
     // Phase 3 — Vendors
     vendor: "مورد",
     vendors: "الموردون",
