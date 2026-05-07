@@ -246,7 +246,7 @@ thead tr {
 }
 
 /* Form inputs & selects — design border + warm white fill */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]):not(.sidebar-search-input),
 select,
 textarea {
   background-color: #FAFAF7;

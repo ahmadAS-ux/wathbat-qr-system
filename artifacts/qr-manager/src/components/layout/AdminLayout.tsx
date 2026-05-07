@@ -175,7 +175,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               onChange={e => { setSearchQ(e.target.value); if (e.target.value.trim().length >= 2) setSearchOpen(true); }}
               onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); } }}
               placeholder={t('sidebar_search_placeholder')}
-              className="w-full bg-white/[0.07] border border-white/10 rounded-xl ps-8 pe-3 py-2 text-xs text-white/80 placeholder:text-white/30 focus:outline-none focus:bg-white/[0.10] focus:border-white/20 transition-all"
+              className="sidebar-search-input w-full bg-white/[0.07] border border-white/10 rounded-xl ps-8 pe-3 py-2 text-xs text-white/80 placeholder:text-white/80 focus:outline-none focus:bg-white/[0.10] focus:border-white/20 transition-all"
             />
           </div>
           {searchOpen && (
