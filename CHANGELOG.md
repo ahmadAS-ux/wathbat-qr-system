@@ -4,6 +4,33 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.1 — AdminLayout design audit fixes
+
+### Fixed
+- **Font (F-01):** English font corrected to DM Sans throughout (was Inter — violation of project rule). Inter removed from Google Fonts import and all CSS declarations.
+- **Sidebar remount bug (F-02):** `SidebarContent` was a nested function component, causing full unmount/remount on every overdue poll and search keystroke. Converted to a JSX variable — sidebar scroll position and search focus now persist correctly.
+- **RTL dir attribute (F-03):** Added `dir={isRtl ? 'rtl' : 'ltr'}` to layout root. All logical CSS properties now have an explicit bidi context.
+- **Collapse state persistence (F-04):** Administration, Manufacturing, and Settings sections now read their collapsed state from localStorage on init (were always expanding on reload despite saving state on toggle).
+- **Dead code removed (F-05):** `navItemStyle` function always returned `{}` for both active/inactive — removed function and all 11 call sites.
+- **RTL chevron direction (F-06):** Section collapse indicators now rotate correctly per locale (Arabic: ▶ when collapsed, LTR: ◀).
+- **Full-page reload on nav click (F-07):** `window.location.href` removed — clicking an already-active route is now a silent no-op instead of a full browser navigation.
+- **Search input dir (F-09):** Added `dir` attribute to search input so Arabic text cursor behaves correctly.
+- **Search results RTL (F-10):** Added `dir` context to search dropdown container; removed conditional `flex-row-reverse` hack and redundant per-element Tajawal class conditionals.
+- **Unguarded nav links (F-14):** Users and Dropdown Editor links were visible to non-admin roles — now wrapped with `{isAdmin && ...}` guard.
+
+### Changed
+- **Brand accent in sidebar (F-08):** Active nav item now shows a 2px golden amber (`#c8962a`) inline-start border. Inactive items carry a transparent border of the same width to prevent layout shift.
+- **Language toggle moved (F-12):** Moved from inside the role-gated Settings section to the always-visible footer — all roles including Accountant can now switch language.
+- **Mobile topbar layout (F-11):** Replaced `flex justify-between` + spacer `<div>` with CSS grid (`grid-cols-3`) — logo is now truly centered without a non-semantic placeholder element.
+- **Accessibility (F-13):** Added `aria-expanded` to all 4 section toggle buttons; added `aria-label` to language toggle button.
+
+### Unchanged
+- All backend/API behavior.
+- Logo asset, imports, styling (deferred to v4.4.2).
+- Page-level components, table content, forms, inputs.
+
+---
+
 ## v4.4.0 — UI density tuning
 
 ### Changed

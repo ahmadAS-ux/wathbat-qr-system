@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.0: UI density tuning (sidebar nav + page title text reduction)
+> **Last updated:** May 2026 — v4.4.1: AdminLayout design audit fixes (font, RTL dir, sidebar architecture, a11y)
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
