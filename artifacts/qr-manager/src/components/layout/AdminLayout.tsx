@@ -130,7 +130,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const navItem = (active: boolean) =>
-    `flex items-center gap-3 px-3 h-10 rounded-lg text-[13.5px] font-medium transition cursor-pointer group ${
+    `flex items-center gap-3 px-3 h-10 rounded-lg text-[13px] font-medium transition cursor-pointer group ${
       active
         ? 'bg-[#28303F] text-white'
         : 'text-white/70 hover:text-white hover:bg-[#1E2532]'

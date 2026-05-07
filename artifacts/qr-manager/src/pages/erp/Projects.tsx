@@ -210,7 +210,7 @@ export default function ErpProjects() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#1B2A4A]">{t('erp_projects_title')}</h1>
+            <h1 className="text-xl font-bold text-[#1B2A4A]">{t('erp_projects_title')}</h1>
             <p className="text-slate-500 text-sm mt-1">{filteredProjects.length} {t('erp_projects_title').toLowerCase()}</p>
           </div>
           <button

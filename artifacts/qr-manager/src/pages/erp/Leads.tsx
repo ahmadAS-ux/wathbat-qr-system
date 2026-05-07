@@ -279,7 +279,7 @@ export default function ErpLeads() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#1B2A4A]">{t('erp_leads_title')}</h1>
+            <h1 className="text-xl font-bold text-[#1B2A4A]">{t('erp_leads_title')}</h1>
             <p className="text-slate-500 text-sm mt-1">
               {activeLeads.length} {t('erp_leads_active')}
             </p>

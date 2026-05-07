@@ -132,7 +132,7 @@ export default function ErpCustomers() {
       <div className="p-6 max-w-5xl mx-auto" dir={isRtl ? 'rtl' : 'ltr'}>
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#1B2A4A]">{t('erp_customers_title')}</h1>
+          <h1 className="text-xl font-bold text-[#1B2A4A]">{t('erp_customers_title')}</h1>
           <p className="text-slate-500 text-sm mt-1">
             {customers.length} {t('erp_customers_subtitle')}
           </p>
