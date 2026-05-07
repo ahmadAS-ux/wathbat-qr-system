@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.3.4: file preview download button + contract URL visibility
+> **Last updated:** May 2026 — v4.4.0: UI density tuning (sidebar nav + page title text reduction)
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -463,6 +463,18 @@ now display the logo correctly without inversion.
 proper dual-asset approach (separate light-color logo for
 dark surfaces, no CSS inversion). Requires designer-provided
 light-variant asset.
+
+---
+
+### L-4 — Default UI text size too dense for default zoom (RESOLVED v4.4.0)
+
+**Description:** Default font sizing of sidebar nav items and page-header titles forced Ahmad to manually zoom the browser to 80–90% to achieve a comfortable working density. New users would land on the default zoom and see oversized chrome.
+
+**Status:** Resolved — v4.4.0
+
+**Resolution:** Reduced sidebar nav text from `text-[13.5px]` to `text-[13px]` in `AdminLayout.tsx`. Reduced page header titles from `text-2xl` to `text-xl` on `Customers.tsx`, `Leads.tsx`, and `Projects.tsx`. ERP pages already at `text-xl` were intentionally left unchanged. Subtitles, table headers, table cells, form labels, form inputs, button labels, search bars, and footers were intentionally NOT modified — content density preserved.
+
+**Reasoning:** Codex empirical review chose these exact swaps to match Ahmad's preferred ~85% zoom default without pushing Tajawal Arabic glyphs below readable size.
 
 ---
 

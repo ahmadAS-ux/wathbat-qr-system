@@ -4,6 +4,31 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.0 — UI density tuning
+
+### Changed
+- Reduced sidebar nav text from `text-[13.5px]` to `text-[13px]` in `AdminLayout.tsx`.
+- Reduced page header titles from `text-2xl` to `text-xl` on Customers, Leads, and Projects pages.
+
+### Unchanged
+- Logo asset, imports, and styling (deferred to v4.4.1 — needs proper brand source files).
+- ERP pages already at `text-xl` for their headers.
+- Subtitles (e.g. "5 عميل" pattern at `text-sm`).
+- Table headers, table cells, form labels, form inputs, button labels, search bar text, footer text.
+- All backend/API behavior.
+- File slot system, Glass parser, Qoyod integration plan.
+
+### Why
+- Default text density felt oversized at 100% browser zoom — Ahmad routinely zoomed to 80–90% to compensate. Scoped reduction (chrome only, content untouched) makes default zoom feel right while keeping tables and forms readable.
+
+### Operational note
+- Frontend-only patch. Version bump applied to: root `package.json`, `artifacts/qr-manager/package.json`, and `artifacts/api-server/package.json`.
+
+### Deferred to v4.4.1
+- Logo asset replacement (transparent dark/light variants, sidebar size bump). Blocked on proper brand source files (vector/SVG) — derivative raster conversions produce edge artifacts unfit for production.
+
+---
+
 ## v4.3.4 — File Preview Download Button + Contract Public URL Display
 
 ### Fixed
