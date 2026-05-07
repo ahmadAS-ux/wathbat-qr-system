@@ -465,6 +465,8 @@ router.get("/erp/customers", requireRole(...CUSTOMER_ROLES), async (req: Request
       conditions.push(or(
         ilike(customersTable.name, `%${q}%`),
         ilike(customersTable.phone, `%${phoneQ}%`),
+        ilike(customersTable.email, `%${q}%`),
+        ilike(customersTable.location, `%${q}%`),
       ));
     }
 
