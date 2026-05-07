@@ -50,7 +50,7 @@ import { logger } from "../lib/logger.js";
 import { parseAndInjectQR } from "./qr.js";
 import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
-import { normalizePhoneToE164 } from "../lib/phone.js";
+import { normalizePhoneToE164, isPhoneShaped } from "../lib/phone.js";
 import { extractDocxToPdf } from "../lib/docx-extractor.js";
 import { generateContractPdf } from "../lib/contract-generator.js";
 
@@ -457,8 +457,15 @@ router.get("/erp/customers", requireRole(...CUSTOMER_ROLES), async (req: Request
     const conditions = [];
     if (status) conditions.push(eq(customersTable.status, status));
     if (q) {
-      const pattern = `%${q}%`;
-      conditions.push(or(ilike(customersTable.name, pattern), ilike(customersTable.phone, pattern)));
+      let phoneQ = q;
+      if (isPhoneShaped(q)) {
+        const normalized = normalizePhoneToE164(q);
+        if (normalized) phoneQ = normalized;
+      }
+      conditions.push(or(
+        ilike(customersTable.name, `%${q}%`),
+        ilike(customersTable.phone, `%${phoneQ}%`),
+      ));
     }
 
     const rows = conditions.length > 0

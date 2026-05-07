@@ -58,6 +58,10 @@ export function normalizePhoneToE164(input: string, defaultCountry: PhoneCountry
   return isValidE164Phone(candidate) ? candidate : null;
 }
 
+export function isPhoneShaped(q: string): boolean {
+  return /^[+0]?\d{7,}$/.test(q.replace(/\s/g, ''));
+}
+
 export function formatSaudiPhoneForDisplay(value: string): string {
   if (!isValidSaudiPhoneE164(value)) return value;
 
