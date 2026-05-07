@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
@@ -173,19 +173,31 @@ export default function ErpProjects() {
   const [filter, setFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadProjects = async () => {
+  const loadProjects = async (q: string, stageFilter: string) => {
     setLoading(true);
     try {
-      const url = filter !== 'all' ? `${API_BASE}/api/erp/projects?stageDisplay=${filter}` : `${API_BASE}/api/erp/projects`;
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      if (stageFilter !== 'all') params.set('stageDisplay', stageFilter);
+      const qs = params.toString();
+      const res = await fetch(`${API_BASE}/api/erp/projects${qs ? `?${qs}` : ''}`);
       if (res.ok) setProjects(await res.json());
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadProjects(); }, [filter]);
+  useEffect(() => { loadProjects(search, filter); }, [filter]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      loadProjects(val, filter);
+    }, 300);
+  };
 
   const stageLabel: Record<string, string> = {
     all:           t('admin_filter_all'),
@@ -197,13 +209,6 @@ export default function ErpProjects() {
 
   const filters = ['all', 'new', 'in_study', 'in_production', 'complete'];
 
-  const filteredProjects = search.trim()
-    ? projects.filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.customerName.toLowerCase().includes(search.toLowerCase())
-      )
-    : projects;
-
   return (
     <AdminLayout>
       <div className="p-6 max-w-6xl mx-auto" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -211,7 +216,7 @@ export default function ErpProjects() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-[#1B2A4A]">{t('erp_projects_title')}</h1>
-            <p className="text-slate-500 text-sm mt-1">{filteredProjects.length} {t('erp_projects_title').toLowerCase()}</p>
+            <p className="text-slate-500 text-sm mt-1">{projects.length} {t('erp_projects_title').toLowerCase()}</p>
           </div>
           <button
             onClick={() => setShowCreate(true)}
@@ -227,7 +232,7 @@ export default function ErpProjects() {
           <Search className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearch(e.target.value)}
             placeholder={t('erp_projects_search')}
             className="w-72 h-9 ps-9 pe-3 rounded-lg border border-[#ECEAE2] ring-1 ring-transparent focus:ring-[#141A24] bg-white text-sm outline-none"
           />
@@ -253,7 +258,7 @@ export default function ErpProjects() {
         {/* Projects Table */}
         {loading ? (
           <div className="text-center py-16 text-slate-400">{t('processing')}</div>
-        ) : filteredProjects.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="text-center py-16 text-slate-400">{t('erp_no_projects')}</div>
         ) : (
           <div className="bg-[#FAFAF7] rounded-xl border border-[#ECEAE2] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden">
@@ -270,7 +275,7 @@ export default function ErpProjects() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#ECEAE2]">
-                {filteredProjects.map(project => {
+                {projects.map(project => {
                   const style = STAGE_STYLES[project.stageDisplay] ?? STAGE_STYLES.new;
                   const dot   = STAGE_DOT[project.stageDisplay]   ?? STAGE_DOT.new;
                   const pct   = Math.round((project.stageInternal + 1) / 15 * 100);
@@ -335,7 +340,7 @@ export default function ErpProjects() {
       {showCreate && (
         <CreateProjectModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); loadProjects(); }}
+          onCreated={() => { setShowCreate(false); loadProjects(search, filter); }}
         />
       )}
     </AdminLayout>
