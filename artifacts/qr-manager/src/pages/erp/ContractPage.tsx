@@ -3,7 +3,7 @@ import { useLocation, useRoute } from 'wouter';
 import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api-base';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
-import { ArrowRight, ArrowLeft, Printer, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Printer, AlertTriangle, CheckCircle, AlertCircle, Copy, ExternalLink } from 'lucide-react';
 import logo from '@assets/wathbah-logo.png';
 
 /* ─── Print + Contract CSS ─────────────────────────────────────────────────── */
@@ -94,6 +94,8 @@ interface ContractData {
   section: any | null;
   drawings: DrawingMeta[];
   template: Record<string, string>;
+  accessToken: string | null;
+  tokenExpiresAt: string | null;
 }
 
 /* ─── Component ────────────────────────────────────────────────────────────── */
@@ -192,6 +194,10 @@ export default function ContractPage() {
     sigEn: renderPlaceholders(data.template.contract_signature_block_en || '', values),
   } : null;
 
+  const handleCopyLink = (token: string) => {
+    navigator.clipboard.writeText(`${API_BASE}/api/erp/contracts/public/${token}`);
+  };
+
   const handlePrint = async () => {
     if (!id) return;
     try {
@@ -288,6 +294,42 @@ export default function ContractPage() {
             <Printer className="w-4 h-4" />
             {t('contract_print')}
           </button>
+
+          {/* Share block — only when a public access token exists */}
+          {data.accessToken && (
+            <div className="space-y-1.5">
+              <p className={`text-xs text-slate-500 ${isRtl ? 'font-[Tajawal]' : ''}`}>{t('contract_share_link_label')}</p>
+              <div className={`flex items-center gap-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <span
+                  dir="ltr"
+                  className="flex-1 min-w-0 text-xs font-mono text-[#4A4940] bg-[#F4F2EB] border border-[#ECEAE2] rounded-lg px-2 py-1 truncate select-all"
+                >
+                  {`${API_BASE}/api/erp/contracts/public/${data.accessToken}`}
+                </span>
+                <button
+                  onClick={() => handleCopyLink(data.accessToken!)}
+                  title={t('contract_share_copy_link')}
+                  className="p-1.5 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors shrink-0"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                <a
+                  href={`${API_BASE}/api/erp/contracts/public/${data.accessToken}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={t('contract_share_open_link')}
+                  className="p-1.5 border border-[#ECEAE2] rounded-lg text-[#4A4940] hover:bg-[#F4F2EB] transition-colors shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+              {data.tokenExpiresAt && (
+                <span className={`text-xs text-slate-400 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                  {t('contract_share_expires')}: {new Date(data.tokenExpiresAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

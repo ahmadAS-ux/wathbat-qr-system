@@ -3126,7 +3126,23 @@ router.get('/erp/projects/:id/contract', requireRole('Admin', 'FactoryManager', 
       .where(inArray(systemSettings.key, [...CONTRACT_TEMPLATE_KEYS]));
     const template = Object.fromEntries(templateRows.map(r => [r.key, r.value]));
 
-    res.json({ project, quotation: quotation ?? null, section: section ?? null, drawings, template });
+    const [latestContract] = await db.select({
+      accessToken: contractsTable.accessToken,
+      tokenExpiresAt: contractsTable.tokenExpiresAt,
+    }).from(contractsTable)
+      .where(and(eq(contractsTable.projectId, projectId), eq(contractsTable.status, 'generated')))
+      .orderBy(desc(contractsTable.createdAt))
+      .limit(1);
+
+    res.json({
+      project,
+      quotation: quotation ?? null,
+      section: section ?? null,
+      drawings,
+      template,
+      accessToken: latestContract?.accessToken ?? null,
+      tokenExpiresAt: latestContract?.tokenExpiresAt ?? null,
+    });
   } catch (err) {
     logger.error({ err }, 'GET /erp/projects/:id/contract failed');
     res.status(500).json({ error: 'Internal error' });
