@@ -136,8 +136,8 @@ router.post("/admin/users", requireAdmin, async (req: Request, res: Response): P
       res.status(400).json({ error: "BadRequest", message: "username, password, and role are required" });
       return;
     }
-    if (!["Admin", "User"].includes(role)) {
-      res.status(400).json({ error: "BadRequest", message: "role must be Admin or User" });
+    if (!["Admin", "FactoryManager", "Employee", "SalesAgent", "Accountant"].includes(role)) {
+      res.status(400).json({ error: "BadRequest", message: "role must be one of: Admin, FactoryManager, Employee, SalesAgent, Accountant" });
       return;
     }
     const passwordHash = hashPassword(password);

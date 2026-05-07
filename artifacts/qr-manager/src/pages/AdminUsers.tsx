@@ -15,8 +15,19 @@ interface UserRow {
 import { API_BASE as BASE } from '@/lib/api-base';
 
 const ROLE_STYLES: Record<string, string> = {
-  Admin: 'bg-[#141A24]/8 text-[#1B2A4A] border-[#1B2A4A]/15',
-  User:  'bg-[#4A6FA5]/10 text-[#141A24] border-[#4A6FA5]/20',
+  Admin:          'bg-[#141A24]/8  text-[#1B2A4A]  border-[#1B2A4A]/15',
+  FactoryManager: 'bg-[#c8962a]/10 text-[#8B6820]  border-[#c8962a]/25',
+  Employee:       'bg-[#4A6FA5]/10 text-[#2E4E80]  border-[#4A6FA5]/20',
+  SalesAgent:     'bg-emerald-50   text-emerald-700 border-emerald-200',
+  Accountant:     'bg-purple-50    text-purple-700  border-purple-200',
+};
+
+const ROLE_I18N: Record<string, string> = {
+  Admin:          'role_admin',
+  FactoryManager: 'role_factory_manager',
+  Employee:       'role_employee',
+  SalesAgent:     'role_sales_agent',
+  Accountant:     'role_accountant',
 };
 
 export default function AdminUsers() {
@@ -27,7 +38,7 @@ export default function AdminUsers() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '', role: 'User' });
+  const [form, setForm] = useState({ username: '', password: '', role: 'Employee' });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -77,7 +88,7 @@ export default function AdminUsers() {
       }
       setUsers(u => [...u, data]);
       setShowCreate(false);
-      setForm({ username: '', password: '', role: 'User' });
+      setForm({ username: '', password: '', role: 'Employee' });
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +111,7 @@ export default function AdminUsers() {
               </div>
             </div>
             <button
-              onClick={() => { setShowCreate(true); setFormError(''); setForm({ username: '', password: '', role: 'User' }); }}
+              onClick={() => { setShowCreate(true); setFormError(''); setForm({ username: '', password: '', role: 'Employee' }); }}
               className={`flex items-center gap-1.5 text-sm font-semibold bg-[#141A24] hover:bg-[#0B1019] text-white px-3.5 py-2 rounded-xl transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isRtl ? 'flex-row-reverse' : ''}`}
             >
               <Plus className="w-4 h-4" />
@@ -147,7 +158,7 @@ export default function AdminUsers() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border ${ROLE_STYLES[u.role] ?? 'bg-[#ECEAE2] text-slate-600 border-[#ECEAE2]'}`}>
-                            {u.role}
+                            {ROLE_I18N[u.role] ? t(ROLE_I18N[u.role] as Parameters<typeof t>[0]) : u.role}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap text-xs">
@@ -219,8 +230,11 @@ export default function AdminUsers() {
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                     className="w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm bg-[#FAFAF7] appearance-none focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 pr-8"
                   >
-                    <option value="User">User</option>
-                    <option value="Admin">Admin</option>
+                    <option value="Employee">{t('role_employee')}</option>
+                    <option value="SalesAgent">{t('role_sales_agent')}</option>
+                    <option value="FactoryManager">{t('role_factory_manager')}</option>
+                    <option value="Accountant">{t('role_accountant')}</option>
+                    <option value="Admin">{t('role_admin')}</option>
                   </select>
                   <ChevronDown className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none ${isRtl ? 'left-3' : 'right-3'}`} />
                 </div>
