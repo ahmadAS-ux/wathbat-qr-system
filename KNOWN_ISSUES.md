@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.2: logo asset replacement, L-3 fully resolved
+> **Last updated:** May 2026 — v4.4.3: H-3 role model fix resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -182,9 +182,9 @@ If a future patch ships before v4.4.0, consider an interim partial fix: just red
 ### H-3 — Role model inconsistency: AdminUsers creates the wrong role string
 
 **Source:** Codex external audit (April 2026)
-**Status:** Open
+**Status:** ✅ Resolved — v4.4.3
 **Discovered:** v4.0.14 audit (independently confirmed our earlier review for v4.4.0)
-**Planned fix:** v4.4.0 (already in roadmap)
+**Fixed in:** v4.4.3
 
 **The bug:**
 1. The user creation form in `artifacts/qr-manager/src/pages/AdminUsers.tsx:217` only allows creating users with role `'Admin'` or `'User'`
@@ -490,6 +490,7 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
+| H-3 | Role model inconsistency: AdminUsers creates wrong role string | v4.4.3 — form, backend validator, schema default all corrected |
 | H-5 | Mammoth is the wrong tool for Orgadata .docx | Resolved in v4.1.0 then Deprecated in v4.1.1 — extraction concept removed for non-Glass/non-Qoyod slots |
 | M-4 | FILE_UPLOAD_GUIDE.md still describes v4.0.13 extractor behavior | v4.1.0 — docs updated |
 

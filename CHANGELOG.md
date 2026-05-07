@@ -4,6 +4,21 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.3 — H-3 role model fix
+
+### Fixed
+- **AdminUsers form:** Dropdown now lists all 5 RBAC roles (Employee, SalesAgent, FactoryManager, Accountant, Admin) in the correct priority order. Previously offered only `User` (legacy) and `Admin`.
+- **AdminUsers form default:** New-user form now defaults to `Employee` instead of the defunct `User` role.
+- **Backend validator:** `POST /api/admin/users` now accepts all 5 valid roles. Previously rejected FactoryManager, SalesAgent, and Accountant with a 400 error, making it impossible to create non-Admin users correctly.
+- **DB schema default:** `users.role` column default corrected from `"User"` → `"Employee"` to match the active RBAC model.
+- **Role display:** User table now shows translated role labels (Arabic/English) via i18n keys. Previously displayed raw English DB strings to all users.
+- **Role badge colors:** Added distinct badge styles for all 5 roles (FactoryManager: amber, Employee: blue, SalesAgent: emerald, Accountant: purple, Admin: navy). Previously only Admin and the defunct User had styles.
+
+### Context
+The active RBAC system uses 5 roles (`Admin | FactoryManager | Employee | SalesAgent | Accountant`). A startup migration at `index.ts` auto-corrects legacy `User` rows to `Employee` on every boot, masking the bug. But newly-created non-Admin users were still written with role `User`, leaving them unable to access anything until the next server restart. This fix makes the form the source of truth and removes the dependency on the startup migration.
+
+---
+
 ## v4.4.2 — Logo asset replacement
 
 ### Changed
