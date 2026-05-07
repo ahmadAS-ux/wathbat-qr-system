@@ -131,13 +131,13 @@ function isHtml(filename: string): boolean {
 }
 
 function isGlassFormat(filename: string): boolean {
-  return isDocx(filename) || isPdf(filename) || isHtml(filename);
+  return isDocx(filename) || isPdf(filename);
 }
 
 // Bilingual format error messages
 const ERR_DOCX_ONLY = 'هذا الحقل يقبل ملفات Word (.docx) فقط / This field accepts Word (.docx) files only';
 const ERR_PDF_ONLY  = 'هذا الحقل يقبل ملفات PDF فقط / This field accepts PDF files only';
-const ERR_GLASS_FMT = 'هذا الحقل يقبل ملفات PDF أو HTML فقط / This field accepts PDF or HTML files only';
+const ERR_GLASS_FMT = 'هذا الحقل يقبل ملفات PDF فقط / This field accepts PDF files only';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2235,8 +2235,10 @@ router.get("/erp/projects/:id/files/:fileId", async (req: Request, res: Response
     if (Number.isNaN(fileId) || Number.isNaN(projectId)) return notFound(res);
     const [file] = await db.select().from(projectFilesTable).where(and(eq(projectFilesTable.id, fileId), eq(projectFilesTable.projectId, projectId)));
     if (!file) return notFound(res);
-    const disposition = req.query.download === '1' ? 'attachment' : 'inline';
-    res.setHeader("Content-Type", file.fileMime || "application/octet-stream");
+    const isHtmlFile = /\.html?$/i.test(file.originalFilename ?? '');
+    const mimeType = isHtmlFile ? 'application/octet-stream' : (file.fileMime || 'application/octet-stream');
+    const disposition = (req.query.download === '1' || isHtmlFile) ? 'attachment' : 'inline';
+    res.setHeader("Content-Type", mimeType);
     res.setHeader("Content-Disposition", `${disposition}; filename="${file.originalFilename}"`);
     res.send(file.fileData);
   } catch (err) {
