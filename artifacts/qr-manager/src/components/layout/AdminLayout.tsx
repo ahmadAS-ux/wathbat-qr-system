@@ -26,10 +26,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [searchResults, setSearchResults] = useState<{ type: string; id: number; name: string; subtitle: string; url: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [adminCollapsed, setAdminCollapsed] = useState(false);
-  const [mfgCollapsed, setMfgCollapsed] = useState(false);
+  // F-04: all 4 sections now read their saved state from localStorage on init
+  const [adminCollapsed, setAdminCollapsed] = useState(() => localStorage.getItem('sidebar_admin_collapsed') === 'true');
+  const [mfgCollapsed, setMfgCollapsed] = useState(() => localStorage.getItem('sidebar_mfg_collapsed') === 'true');
   const [qrCollapsed, setQrCollapsed] = useState(() => localStorage.getItem('sidebar_qr_collapsed') === 'true');
-  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(() => localStorage.getItem('sidebar_settings_collapsed') === 'true');
 
   // TODO Stage 2: canSearch has no 1:1 helper (negative check: role !== 'Accountant') — left as-is
   const canSearch = user?.role !== 'Accountant';
@@ -97,12 +98,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     return location.startsWith(href);
   };
 
-  const handleNavClick = (href: string, exact: boolean) => {
+  // F-07: removed full-page reload on active route — wouter navigate is a no-op on same route
+  const handleNavClick = () => {
     setMobileOpen(false);
-    const active = exact ? location === href : location.startsWith(href);
-    if (active) {
-      window.location.href = href;
-    }
   };
 
   const toggleAdmin = () => {
@@ -129,301 +127,292 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     localStorage.setItem('sidebar_settings_collapsed', String(next));
   };
 
+  // F-08: brand accent (golden amber #c8962a) on active item via inline-start border
   const navItem = (active: boolean) =>
-    `flex items-center gap-3 px-3 h-10 rounded-lg text-[13px] font-medium transition cursor-pointer group ${
+    `flex items-center gap-3 px-3 h-10 rounded-lg text-[13px] font-medium transition cursor-pointer group border-s-2 ${
       active
-        ? 'bg-[#28303F] text-white'
-        : 'text-white/70 hover:text-white hover:bg-[#1E2532]'
+        ? 'bg-[#28303F] text-white border-[#c8962a]'
+        : 'text-white/70 hover:text-white hover:bg-[#1E2532] border-transparent'
     }`;
 
-  const navItemStyle = (active: boolean): React.CSSProperties =>
-    active ? {} : {};
+  // F-05: navItemStyle was dead code (both branches returned {}) — removed
 
   const navIcon = (active: boolean) =>
     `w-5 h-5 shrink-0 transition-colors ${active ? 'text-white' : 'text-white/40 group-hover:text-white/70'}`;
 
   const sectionBtn = 'w-full flex items-center gap-2 px-3 pt-2 pb-1 text-[10.5px] tracking-[.14em] text-white/40 font-bold hover:text-white/60 transition-colors cursor-pointer';
 
-  function SidebarContent() {
-    return (
-      <div className="flex flex-col h-full select-none">
-        {/* Brand */}
-        <div className="px-4 py-5 border-b border-white/10">
-          <Link href="/">
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <img
-                src={logo}
-                alt="Wathbat"
-                className="h-9 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
-              />
-              <div>
-                <p className="text-white font-bold text-sm leading-tight tracking-tight">Wathbat</p>
-                <p className="text-white/40 text-xs mt-0.5">wathbat.sa</p>
-              </div>
+  // F-02: JSX variable instead of nested function component — prevents remount on every render
+  const sidebarContent = (
+    <div className="flex flex-col h-full select-none">
+      {/* Brand */}
+      <div className="px-4 py-5 border-b border-white/10">
+        <Link href="/">
+          <div className="flex items-center gap-3 cursor-pointer group">
+            <img
+              src={logo}
+              alt="Wathbat"
+              className="h-9 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
+            />
+            <div>
+              <p className="text-white font-bold text-sm leading-tight tracking-tight">Wathbat</p>
+              <p className="text-white/40 text-xs mt-0.5">wathbat.sa</p>
             </div>
-          </Link>
-        </div>
-
-        {/* Search */}
-        {canSearch && (
-          <div ref={searchRef} className="px-3 pt-3 pb-2 relative">
-            <div className="relative">
-              <Search className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-white/30 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQ}
-                onChange={e => { setSearchQ(e.target.value); if (e.target.value.trim().length >= 2) setSearchOpen(true); }}
-                onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); } }}
-                placeholder={t('sidebar_search_placeholder')}
-                className="w-full bg-white/[0.07] border border-white/10 rounded-xl ps-8 pe-3 py-2 text-xs text-white/80 placeholder:text-white/30 focus:outline-none focus:bg-white/[0.10] focus:border-white/20 transition-all"
-              />
-            </div>
-            {searchOpen && (
-              <div className="absolute start-3 end-3 top-full mt-1 bg-[#FAFAF7] rounded-xl shadow-2xl border border-[#ECEAE2] overflow-hidden z-50">
-                {searchResults.length === 0 ? (
-                  <p className={`px-4 py-3 text-xs text-[#6B6A60] ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{t('search_no_results')}</p>
-                ) : (
-                  <ul>
-                    {searchResults.map(r => (
-                      <li key={`${r.type}-${r.id}`}>
-                        <button
-                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#F4F2EB] transition-colors text-start ${isRtl ? 'flex-row-reverse' : ''}`}
-                          onClick={() => { navigate(r.url); setSearchOpen(false); setSearchQ(''); setMobileOpen(false); }}
-                        >
-                          <div className="w-6 h-6 rounded-md bg-[#ECEAE2] flex items-center justify-center shrink-0">
-                            {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-[#6B6A60]" /> : <FolderOpen className="w-3.5 h-3.5 text-[#6B6A60]" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-semibold text-[#141A24] truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.name}</p>
-                            <p className={`text-[10px] text-[#6B6A60] truncate ${isRtl ? 'font-[Tajawal] text-end' : ''}`}>{r.subtitle}</p>
-                          </div>
-                          <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]' : 'bg-amber-50 text-amber-700'}`}>
-                            {r.type === 'lead' ? t('search_type_lead') : t('search_type_project')}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
           </div>
-        )}
+        </Link>
+      </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      {/* Search */}
+      {canSearch && (
+        <div ref={searchRef} className="px-3 pt-3 pb-2 relative">
+          <div className="relative">
+            <Search className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-white/30 pointer-events-none" />
+            {/* F-09: explicit dir so Arabic input cursor behaves correctly */}
+            <input
+              type="text"
+              dir={isRtl ? 'rtl' : 'ltr'}
+              value={searchQ}
+              onChange={e => { setSearchQ(e.target.value); if (e.target.value.trim().length >= 2) setSearchOpen(true); }}
+              onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); } }}
+              placeholder={t('sidebar_search_placeholder')}
+              className="w-full bg-white/[0.07] border border-white/10 rounded-xl ps-8 pe-3 py-2 text-xs text-white/80 placeholder:text-white/30 focus:outline-none focus:bg-white/[0.10] focus:border-white/20 transition-all"
+            />
+          </div>
+          {searchOpen && (
+            // F-10: dir context on dropdown — flex order and text align follow naturally
+            <div dir={isRtl ? 'rtl' : 'ltr'} className="absolute start-3 end-3 top-full mt-1 bg-[#FAFAF7] rounded-xl shadow-2xl border border-[#ECEAE2] overflow-hidden z-50">
+              {searchResults.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-[#6B6A60]">{t('search_no_results')}</p>
+              ) : (
+                <ul>
+                  {searchResults.map(r => (
+                    <li key={`${r.type}-${r.id}`}>
+                      <button
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#F4F2EB] transition-colors text-start"
+                        onClick={() => { navigate(r.url); setSearchOpen(false); setSearchQ(''); setMobileOpen(false); }}
+                      >
+                        <div className="w-6 h-6 rounded-md bg-[#ECEAE2] flex items-center justify-center shrink-0">
+                          {r.type === 'lead' ? <Users className="w-3.5 h-3.5 text-[#6B6A60]" /> : <FolderOpen className="w-3.5 h-3.5 text-[#6B6A60]" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-[#141A24] truncate">{r.name}</p>
+                          <p className="text-[10px] text-[#6B6A60] truncate">{r.subtitle}</p>
+                        </div>
+                        <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${r.type === 'lead' ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]' : 'bg-amber-50 text-amber-700'}`}>
+                          {r.type === 'lead' ? t('search_type_lead') : t('search_type_project')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-          {/* ── ADMINISTRATION ── */}
-          <>
-            <button onClick={toggleAdmin} className={sectionBtn}>
-              <span className="flex-1 text-start">{t('admin_section_label')}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${adminCollapsed ? '-rotate-90' : ''}`} />
-            </button>
-            {!adminCollapsed && (
-              <div className="space-y-0.5">
-                <Link href="/admin">
-                  <div onClick={() => handleNavClick('/admin', true)} className={navItem(isActive('/admin', true))} style={navItemStyle(isActive('/admin', true))}>
-                    <LayoutDashboard className={navIcon(isActive('/admin', true))} />
-                    <span className="flex-1">{t('admin_nav')}</span>
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+
+        {/* ── ADMINISTRATION ── */}
+        <>
+          {/* F-13: aria-expanded | F-06: RTL-aware chevron rotation */}
+          <button onClick={toggleAdmin} aria-expanded={!adminCollapsed} className={sectionBtn}>
+            <span className="flex-1 text-start">{t('admin_section_label')}</span>
+            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${adminCollapsed ? (isRtl ? 'rotate-90' : '-rotate-90') : ''}`} />
+          </button>
+          {!adminCollapsed && (
+            <div className="space-y-0.5">
+              <Link href="/admin">
+                <div onClick={handleNavClick} className={navItem(isActive('/admin', true))}>
+                  <LayoutDashboard className={navIcon(isActive('/admin', true))} />
+                  <span className="flex-1">{t('admin_nav')}</span>
+                </div>
+              </Link>
+              {canCreateProject(user?.role) && (
+                <Link href="/admin/requests">
+                  <div onClick={handleNavClick} className={navItem(isActive('/admin/requests', false))}>
+                    <FileText className={navIcon(isActive('/admin/requests', false))} />
+                    <span className="flex-1">{t('requests_title')}</span>
                   </div>
                 </Link>
+              )}
+            </div>
+          )}
+        </>
+
+        {/* ── MANUFACTURING SYSTEM ── */}
+        {(canViewLeads(user?.role) || isPaymentsUser) && (
+          <>
+            <button onClick={toggleMfg} aria-expanded={!mfgCollapsed} className={sectionBtn}>
+              <span className="flex-1 text-start">{t('erp_section_label')}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mfgCollapsed ? (isRtl ? 'rotate-90' : '-rotate-90') : ''}`} />
+            </button>
+            {!mfgCollapsed && (
+              <div className="space-y-0.5">
+                {canViewLeads(user?.role) && (
+                  <Link href="/erp/customers">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/customers', false))}>
+                      <UserCheck className={navIcon(isActive('/erp/customers', false))} />
+                      <span className="flex-1">{t('erp_customers_nav')}</span>
+                    </div>
+                  </Link>
+                )}
+                {canViewLeads(user?.role) && (
+                  <Link href="/erp/leads">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/leads', false))}>
+                      <Users className={navIcon(isActive('/erp/leads', false))} />
+                      <span className="flex-1">{t('erp_clients_nav')}</span>
+                      {overdueCount > 0 && (
+                        <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                          {overdueCount}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )}
                 {canCreateProject(user?.role) && (
-                  <Link href="/admin/requests">
-                    <div onClick={() => handleNavClick('/admin/requests', false)} className={navItem(isActive('/admin/requests', false))} style={navItemStyle(isActive('/admin/requests', false))}>
-                      <FileText className={navIcon(isActive('/admin/requests', false))} />
-                      <span className="flex-1">{t('requests_title')}</span>
+                  <Link href="/erp/projects">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/projects', false))}>
+                      <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
+                      <span className="flex-1">{t('erp_projects_nav')}</span>
+                    </div>
+                  </Link>
+                )}
+                {isPaymentsUser && (
+                  <Link href="/erp/payments">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/payments', false))}>
+                      <CreditCard className={navIcon(isActive('/erp/payments', false))} />
+                      <span className="flex-1">{t('erp_payments_nav')}</span>
+                      {overduePaymentsCount > 0 && (
+                        <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
+                          {overduePaymentsCount}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )}
+                {isVendorsUser && (
+                  <Link href="/erp/vendors">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/vendors', false))}>
+                      <Package className={navIcon(isActive('/erp/vendors', false))} />
+                      <span className="flex-1">{t('erp_vendors_nav')}</span>
                     </div>
                   </Link>
                 )}
               </div>
             )}
           </>
+        )}
 
-          {/* ── MANUFACTURING SYSTEM ── */}
-          {(canViewLeads(user?.role) || isPaymentsUser) && (
-            <>
-              <button onClick={toggleMfg} className={sectionBtn}>
-                <span className="flex-1 text-start">{t('erp_section_label')}</span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${mfgCollapsed ? '-rotate-90' : ''}`} />
-              </button>
-              {!mfgCollapsed && (
-                <div className="space-y-0.5">
-                  {canViewLeads(user?.role) && (
-                    <Link href="/erp/customers">
-                      <div
-                        onClick={() => handleNavClick('/erp/customers', false)}
-                        className={navItem(isActive('/erp/customers', false))}
-                        style={navItemStyle(isActive('/erp/customers', false))}
-                      >
-                        <UserCheck className={navIcon(isActive('/erp/customers', false))} />
-                        <span className="flex-1">{t('erp_customers_nav')}</span>
-                      </div>
-                    </Link>
-                  )}
-                  {canViewLeads(user?.role) && (
-                    <Link href="/erp/leads">
-                      <div
-                        onClick={() => handleNavClick('/erp/leads', false)}
-                        className={navItem(isActive('/erp/leads', false))}
-                        style={navItemStyle(isActive('/erp/leads', false))}
-                      >
-                        <Users className={navIcon(isActive('/erp/leads', false))} />
-                        <span className="flex-1">{t('erp_clients_nav')}</span>
-                        {overdueCount > 0 && (
-                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                            {overdueCount}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  )}
-                  {canCreateProject(user?.role) && (
-                    <Link href="/erp/projects">
-                      <div
-                        onClick={() => handleNavClick('/erp/projects', false)}
-                        className={navItem(isActive('/erp/projects', false))}
-                        style={navItemStyle(isActive('/erp/projects', false))}
-                      >
-                        <FolderOpen className={navIcon(isActive('/erp/projects', false))} />
-                        <span className="flex-1">{t('erp_projects_nav')}</span>
-                      </div>
-                    </Link>
-                  )}
-                  {isPaymentsUser && (
-                    <Link href="/erp/payments">
-                      <div
-                        onClick={() => handleNavClick('/erp/payments', false)}
-                        className={navItem(isActive('/erp/payments', false))}
-                        style={navItemStyle(isActive('/erp/payments', false))}
-                      >
-                        <CreditCard className={navIcon(isActive('/erp/payments', false))} />
-                        <span className="flex-1">{t('erp_payments_nav')}</span>
-                        {overduePaymentsCount > 0 && (
-                          <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 ms-auto shrink-0">
-                            {overduePaymentsCount}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  )}
-                  {isVendorsUser && (
-                    <Link href="/erp/vendors">
-                      <div
-                        onClick={() => handleNavClick('/erp/vendors', false)}
-                        className={navItem(isActive('/erp/vendors', false))}
-                        style={navItemStyle(isActive('/erp/vendors', false))}
-                      >
-                        <Package className={navIcon(isActive('/erp/vendors', false))} />
-                        <span className="flex-1">{t('erp_vendors_nav')}</span>
-                      </div>
-                    </Link>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+        {/* ── DOCUMENT SYSTEM ── */}
+        {isAdmin && (
+          <>
+            <button onClick={toggleQr} aria-expanded={!qrCollapsed} className={sectionBtn}>
+              <span className="flex-1 text-start">{t('qr_section_label')}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${qrCollapsed ? (isRtl ? 'rotate-90' : '-rotate-90') : ''}`} />
+            </button>
+            {!qrCollapsed && (
+              <div className="space-y-0.5">
+                <Link href="/admin/history">
+                  <div onClick={handleNavClick} className={navItem(isActive('/admin/history', false))}>
+                    <Archive className={navIcon(isActive('/admin/history', false))} />
+                    <span className="flex-1">{t('archive_title')}</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </>
+        )}
 
-          {/* ── DOCUMENT SYSTEM ── */}
-          {isAdmin && (
-            <>
-              <button onClick={toggleQr} className={sectionBtn}>
-                <span className="flex-1 text-start">{t('qr_section_label')}</span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${qrCollapsed ? '-rotate-90' : ''}`} />
-              </button>
-              {!qrCollapsed && (
-                <div className="space-y-0.5">
-                  <Link href="/admin/history">
-                    <div onClick={() => handleNavClick('/admin/history', false)} className={navItem(isActive('/admin/history', false))} style={navItemStyle(isActive('/admin/history', false))}>
-                      <Archive className={navIcon(isActive('/admin/history', false))} />
-                      <span className="flex-1">{t('archive_title')}</span>
+        {/* ── SETTINGS ── */}
+        {canViewQRSystem(user?.role) && (
+          <>
+            <button onClick={toggleSettings} aria-expanded={!settingsCollapsed} className={sectionBtn}>
+              <span className="flex-1 text-start">{t('settings_section_label')}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${settingsCollapsed ? (isRtl ? 'rotate-90' : '-rotate-90') : ''}`} />
+            </button>
+            {!settingsCollapsed && (
+              <div className="space-y-0.5">
+                {isAdmin && (
+                  <Link href="/erp/settings">
+                    <div onClick={handleNavClick} className={navItem(isActive('/erp/settings', false))}>
+                      <Settings className={navIcon(isActive('/erp/settings', false))} />
+                      <span className="flex-1">{t('erp_settings_nav')}</span>
                     </div>
                   </Link>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── SETTINGS ── */}
-          {canViewQRSystem(user?.role) && (
-            <>
-              <button onClick={toggleSettings} className={sectionBtn}>
-                <span className="flex-1 text-start">{t('settings_section_label')}</span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${settingsCollapsed ? '-rotate-90' : ''}`} />
-              </button>
-              {!settingsCollapsed && (
-                <div className="space-y-0.5">
-                  {isAdmin && (
-                    <Link href="/erp/settings">
-                      <div onClick={() => handleNavClick('/erp/settings', false)} className={navItem(isActive('/erp/settings', false))} style={navItemStyle(isActive('/erp/settings', false))}>
-                        <Settings className={navIcon(isActive('/erp/settings', false))} />
-                        <span className="flex-1">{t('erp_settings_nav')}</span>
-                      </div>
-                    </Link>
-                  )}
+                )}
+                {/* F-14: Users and Dropdown Editor are admin-only pages — guard their links */}
+                {isAdmin && (
                   <Link href="/admin/users">
-                    <div onClick={() => handleNavClick('/admin/users', false)} className={navItem(isActive('/admin/users', false))} style={navItemStyle(isActive('/admin/users', false))}>
+                    <div onClick={handleNavClick} className={navItem(isActive('/admin/users', false))}>
                       <Users className={navIcon(isActive('/admin/users', false))} />
                       <span className="flex-1">{t('users_nav')}</span>
                     </div>
                   </Link>
+                )}
+                {isAdmin && (
                   <Link href="/admin/dropdowns">
-                    <div onClick={() => handleNavClick('/admin/dropdowns', false)} className={navItem(isActive('/admin/dropdowns', false))} style={navItemStyle(isActive('/admin/dropdowns', false))}>
+                    <div onClick={handleNavClick} className={navItem(isActive('/admin/dropdowns', false))}>
                       <List className={navIcon(isActive('/admin/dropdowns', false))} />
                       <span className="flex-1">{t('dropdown_editor_title')}</span>
                     </div>
                   </Link>
-                  <button
-                    onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-                    className={navItem(false)}
-                  >
-                    <Globe className={navIcon(false)} />
-                    <span className="flex-1">{language === 'en' ? 'العربية' : 'English'}</span>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-          {user && (() => {
-            const roleLabels: Record<string, string> = {
-              Admin: t('role_admin'),
-              FactoryManager: t('role_factory_manager'),
-              Employee: t('role_employee'),
-              SalesAgent: t('role_sales_agent'),
-              Accountant: t('role_accountant'),
-            };
-            return (
-              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white/80 text-sm font-medium truncate">{user.username}</p>
-                  <p className="text-white/35 text-[10px] truncate">{roleLabels[user.role] ?? user.role}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="text-white/30 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-white/[0.07] shrink-0"
-                  title="Sign out"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
+                )}
               </div>
-            );
-          })()}
-        </div>
+            )}
+          </>
+        )}
+      </nav>
+
+      {/* Footer — language toggle always visible (F-12), then user card */}
+      <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
+        {/* F-12: language toggle moved here so all roles (incl. Accountant) can switch */}
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          className={navItem(false)}
+          aria-label={language === 'en' ? 'Switch to Arabic' : 'Switch to English'}
+        >
+          <Globe className={navIcon(false)} />
+          <span className="flex-1">{language === 'en' ? 'العربية' : 'English'}</span>
+        </button>
+        {user && (() => {
+          const roleLabels: Record<string, string> = {
+            Admin: t('role_admin'),
+            FactoryManager: t('role_factory_manager'),
+            Employee: t('role_employee'),
+            SalesAgent: t('role_sales_agent'),
+            Accountant: t('role_accountant'),
+          };
+          return (
+            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl">
+              <div className="w-8 h-8 rounded-full bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white/80 text-sm font-medium truncate">{user.username}</p>
+                <p className="text-white/35 text-[10px] truncate">{roleLabels[user.role] ?? user.role}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="text-white/30 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-white/[0.07] shrink-0"
+                title="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })()}
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="flex min-h-screen bg-[#F4F2EB]">
+    // F-03: explicit dir on layout root so all logical CSS properties work correctly
+    <div className="flex min-h-screen bg-[#F4F2EB]" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[260px] shrink-0 bg-[#141A24] sticky top-0 h-screen shadow-xl [overflow-y:auto] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile sidebar overlay */}
@@ -452,7 +441,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               >
                 <X className="w-4 h-4" />
               </button>
-              <SidebarContent />
+              {sidebarContent}
             </motion.aside>
           </>
         )}
@@ -460,19 +449,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top bar */}
-        <div className="md:hidden sticky top-0 z-30 bg-[#FAFAF7] border-b border-[#ECEAE2] px-4 py-3 flex items-center justify-between shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        {/* F-11: grid layout centers logo without a spacer div */}
+        <div className="md:hidden sticky top-0 z-30 bg-[#FAFAF7] border-b border-[#ECEAE2] px-4 py-3 grid grid-cols-3 items-center shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-xl text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors"
+            className="p-2 rounded-xl text-[#1B2A4A] hover:bg-[#ECEAE2] transition-colors justify-self-start"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link href="/">
+          <Link href="/" className="justify-self-center">
             <img src={logo} alt="Wathbat" className="h-8 w-auto object-contain" />
           </Link>
-          <div className="w-9" />
         </div>
 
         {/* Page content */}
