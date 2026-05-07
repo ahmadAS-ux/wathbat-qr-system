@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.3: H-3 role model fix resolved
+> **Last updated:** May 2026 — v4.4.4: search fixes S-01 through S-04, L-5 resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -311,6 +311,27 @@ The original Stage 6.6 spec was authored without empirical investigation of the 
 
 ---
 
+### L-5 — Search functionality bugs (RESOLVED v4.4.4)
+
+**Source:** Codex audit (May 2026)
+**Status:** ✅ Resolved — v4.4.4
+
+**Description:** Empirical search audit found multiple bugs on Customers/Leads/Projects page-level searches:
+- **S-01 (HIGH):** Projects search ignored project code column entirely. The projects route had no `q` parameter at all — frontend filtered locally on already-loaded data.
+- **S-02 (HIGH):** Customers phone search did not match user-typed local format (e.g., `0501234567` did not match stored `+966501234567`).
+- **S-03 (HIGH):** Leads page had no page-level search bar at all.
+- **S-04 (MEDIUM):** Projects text search and stage filter were mutually exclusive — you couldn't combine them.
+
+**Resolution:**
+- S-01: Projects route now parses `q` and ILIKEs across `code`, `name`, and joined `customers.name`. Frontend stops post-filtering.
+- S-02: Customers route detects phone-shaped queries and normalizes via `normalizePhoneToE164()`. New `isPhoneShaped()` helper added to `phone.ts`.
+- S-03: Added search input to Leads page. Backend leads route now accepts `?q=`, joins `customersTable`, and ILIKEs joined `customers.name` / `customers.phone`.
+- S-04: Projects route combines `q` and `stageDisplay` in a single WHERE clause.
+
+**Deferred to v4.4.5+:** S-05 (Customers tab/status + search), S-06 (Arabic normalization), S-07 (email/location columns), S-08 (race conditions), partial phone-prefix matching.
+
+---
+
 ## Medium Severity (active)
 
 ### M-1 — File ingestion is RAM-heavy and DB-heavy
@@ -490,6 +511,7 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
+| L-5 | Search bugs: no q on projects, no phone normalization, no Leads search, stage+search conflict | v4.4.4 — S-01/02/03/04 fixed |
 | H-3 | Role model inconsistency: AdminUsers creates wrong role string | v4.4.3 — form, backend validator, schema default all corrected |
 | H-5 | Mammoth is the wrong tool for Orgadata .docx | Resolved in v4.1.0 then Deprecated in v4.1.1 — extraction concept removed for non-Glass/non-Qoyod slots |
 | M-4 | FILE_UPLOAD_GUIDE.md still describes v4.0.13 extractor behavior | v4.1.0 — docs updated |

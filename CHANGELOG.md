@@ -4,6 +4,26 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.4 — Search functionality fixes (S-01 through S-04)
+
+### Fixed
+- **Projects search now finds project codes (S-01)**: The projects route now accepts a `q` parameter and ILIKEs across `code`, `name`, and joined `customers.name`. Searching `WT-VL-K7X2M` (full or partial) now works.
+- **Customers phone search handles Saudi local format (S-02)**: Searching `0501234567` now matches customers stored as `+966501234567`. Phone-shaped queries are detected and normalized via `normalizePhoneToE164()` before ILIKE. Partial-prefix phone matching (e.g., `050`) still does not work — deferred to a future patch.
+- **Projects search no longer hidden by stage filter (S-04)**: Stage tabs and text search now combine in the backend. Searching while on a stage tab no longer pre-filters away matches in other stages.
+
+### Added
+- **Leads page search bar (S-03)**: Frontend mirrors the Customers search input pattern. Backend joins `customersTable` (since leads have no direct name/phone columns) and searches the joined customer name and phone.
+
+### Unchanged
+- Customers, Leads, Projects search behavior in all other respects.
+- Sidebar global search. CustomerPicker search. Pagination, sorting, status filters.
+
+### Deferred (to v4.4.5+)
+- S-05 (Customers tab/status interaction), S-06 (Arabic normalization), S-07 (Customers email/location columns), S-08 (race conditions)
+- Partial phone-prefix matching (e.g., `050` matching all `+9665…` numbers)
+
+---
+
 ## v4.4.3 — H-3 role model fix
 
 ### Fixed
