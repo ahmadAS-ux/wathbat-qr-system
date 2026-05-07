@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.5: H-1 XSS resolved, L-X ContractPage share resolved, S-07 resolved
+> **Last updated:** May 2026 — v4.4.6: L-6 sidebar contrast resolved, L-7 customer search branch resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -405,6 +405,38 @@ This is low-effort to fix but should happen at the same time as the extractor de
 
 ---
 
+### L-6 — Sidebar search input contrast (RESOLVED v4.4.6)
+
+**Severity:** Low
+**Source:** v4.4.6 hotfix
+**Status:** Resolved — v4.4.6
+
+**Description:** Sidebar search input had `text-white/80` set in JSX, but a global `input:not(...)` rule in `index.css` forced `#FAFAF7` cream background, producing white-on-cream text that was nearly invisible. The earlier reference to a "v4.4.3 contrast fix" was inaccurate — v4.4.3 was an unrelated RBAC fix, not a sidebar contrast change.
+
+**Resolution:** Added `.sidebar-search-input` marker class to the input JSX, then excluded that class from the global cream-input rule in `index.css` via `:not(.sidebar-search-input)`. The input now keeps its dark-sidebar Tailwind classes (`bg-white/[0.07]` + `text-white/80`), producing white text on a semi-transparent dark background — fully readable.
+
+**Reversibility:** Trivial. Remove the marker class from JSX and from the CSS exclusion.
+
+---
+
+### L-7 — Sidebar global search did not return customers (RESOLVED v4.4.6)
+
+**Severity:** Low
+**Source:** v4.4.6 hotfix
+**Status:** Resolved — v4.4.6
+
+**Description:** The sidebar search route at `GET /api/erp/search` returned only leads and projects results. Customer records were not searchable directly — they could only appear via leads/projects joins. Customer-only entities (no leads, no projects) were invisible to global search.
+
+**Resolution:** Added a third query branch to the search route. Customer branch searches `customers.name`, `customers.phone` (with E.164 normalization), `customers.email`, and `customers.location`. Returns customer records as `type: 'customer'` in the dropdown. Frontend dropdown updated to display customer-typed results with a distinct icon (UserCircle, emerald) and label.
+
+**Navigation:** Customer results navigate to `/erp/customers` (the list page). A future version may add `/erp/customers/:id` detail page for direct linking.
+
+**Deferred:**
+- SalesAgent role mismatch (sees search input but backend suppresses project results) — separate session.
+- Project code in sidebar search — not currently searched. Separate enhancement for future version.
+
+---
+
 ### L-1 — Default user `admin/admin123` exists on first startup
 
 **Source:** Wathbah handoff documentation
@@ -486,6 +518,8 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
+| L-7 | Sidebar global search did not return customers | v4.4.6 — customer branch added to /erp/search route |
+| L-6 | Sidebar search input contrast | v4.4.6 — .sidebar-search-input marker class + global CSS exclusion |
 | S-07 | Customers search missing email/location columns | v4.4.5 — added to customers listing ILIKE predicate |
 | L-X | ContractPage missing share UI | v4.4.5 — share block added, backend expanded to return token fields |
 | H-1 | Stored XSS via .html glass uploads + inline serving | v4.4.5 — upload rejected, serve-time defanging applied |

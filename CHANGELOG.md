@@ -4,6 +4,31 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.6 — Sidebar search hotfix
+
+### Fixed
+- **Sidebar search input contrast (B1 / L-6)**: Search input text now visible. Added `.sidebar-search-input` marker class to opt the input out of the global cream-input rule. The earlier "v4.4.3 contrast fix" never actually shipped under that tag — this is the real fix.
+- **Sidebar global search now returns customers (B2 / L-7)**: Added a customer branch to `GET /api/erp/search`. Searching by customer name, phone (E.164 normalized), email, or location now returns the customer directly, in addition to any related leads or projects. Customer results navigate to `/erp/customers`.
+
+### Unchanged
+- v4.4.4 page-level search behaviors (Customers/Leads/Projects pages).
+- v4.4.5 H-1 XSS protections.
+- All upload behaviors.
+- Backend pagination, sorting, status filters.
+
+### Deferred
+- SalesAgent role mismatch (sidebar shows search but suppresses project results) — separate session.
+- Customer detail page route (`/erp/customers/:id`) — separate feature.
+- Project code in sidebar search — separate enhancement.
+- Arabic normalization (S-06) — v4.4.8.
+- Race conditions / AbortController (S-08) — v4.4.8.
+- Force password change (L-1), auth overhaul (H-2) — v4.4.7+.
+
+### Operational note
+- Touches `artifacts/api-server/src/routes/erp.ts` — API service WILL redeploy. Both `qr-manager` and `api-server` package versions bumped.
+
+---
+
 ## v4.4.5 — XSS hotfix + ContractPage share + customers search expansion
 
 ### Fixed
