@@ -1292,17 +1292,23 @@ export async function generateAndSetProjectCode(newProjectId: number, tx: DbTx):
 // GET /erp/projects — list (no SalesAgent, no Accountant)
 router.get("/erp/projects", requireRole(...NO_SALES_NO_ACCT), async (req: Request, res: Response) => {
   try {
+    const q = String(req.query.q ?? '').trim();
     const { stageDisplay } = req.query;
-    const rows = stageDisplay
-      ? await db.select(projectSelectFields)
-        .from(projectsTable)
-        .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
-        .where(eq(projectsTable.stageDisplay, stageDisplay as string))
-        .orderBy(projectsTable.createdAt)
-      : await db.select(projectSelectFields)
-        .from(projectsTable)
-        .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
-        .orderBy(projectsTable.createdAt);
+    const conditions = [];
+    if (stageDisplay) conditions.push(eq(projectsTable.stageDisplay, stageDisplay as string));
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(or(
+        ilike(projectsTable.code, pattern),
+        ilike(projectsTable.name, pattern),
+        ilike(customersTable.name, pattern),
+      ));
+    }
+    const rows = await db.select(projectSelectFields)
+      .from(projectsTable)
+      .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(projectsTable.createdAt);
     res.json(rows);
   } catch (err) {
     logger.error({ err }, "GET /erp/projects failed");
