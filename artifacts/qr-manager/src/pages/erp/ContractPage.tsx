@@ -4,7 +4,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api-base';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
 import { ArrowRight, ArrowLeft, Printer, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
-import logo from '@assets/image_1774733777220.png';
+import logo from '@assets/wathbah-logo.png';
 
 /* ─── Print + Contract CSS ─────────────────────────────────────────────────── */
 const PRINT_STYLE = `

@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '@/lib/api-base';
 import { canManageUsers, canViewVendors, canViewPayments, canViewLeads, canCreateProject, canViewQRSystem } from '@/lib/permissions';
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '@assets/image_1774733777220.png';
+import logo from '@assets/wathbah-logo.png';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -152,7 +152,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <img
               src={logo}
               alt="Wathbat"
-              className="h-9 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
+              className="h-12 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
             />
             <div>
               <p className="text-white font-bold text-sm leading-tight tracking-tight">Wathbat</p>
@@ -459,7 +459,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Menu className="w-5 h-5" />
           </button>
           <Link href="/" className="justify-self-center">
-            <img src={logo} alt="Wathbat" className="h-8 w-auto object-contain" />
+            <img src={logo} alt="Wathbat" className="h-10 w-auto object-contain" />
           </Link>
         </div>
 

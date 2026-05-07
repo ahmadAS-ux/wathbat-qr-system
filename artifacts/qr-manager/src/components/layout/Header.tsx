@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Globe, LayoutDashboard, ArrowLeft, ArrowRight, LogOut, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import logo from '@assets/image_1774733777220.png';
+import logo from '@assets/wathbah-logo.png';
 
 export function Header() {
   const { language, setLanguage, t, isRtl } = useLanguage();

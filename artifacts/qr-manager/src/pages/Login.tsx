@@ -4,7 +4,7 @@ import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Loader2, Lock, User, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
-import logo from '@assets/image_1774733777220.png';
+import logo from '@assets/wathbah-logo.png';
 
 export default function Login() {
   const { login } = useAuth();
