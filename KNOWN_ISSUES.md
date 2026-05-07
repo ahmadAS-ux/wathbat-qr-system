@@ -5,8 +5,69 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.3.1: PDF generation pipeline + project-delete fix
+> **Last updated:** May 2026 — v4.3.4: file preview download button + contract URL visibility
 > **Status:** Active — update when issues are resolved or new ones found
+
+---
+
+## L-X — ContractPage missing share UI (DEFERRED, post v4.3.4)
+
+**Severity:** Low
+**Source:** v4.3.4 implementation review
+**Status:** Open — deferred for post-pause triage
+
+**Description:**
+v4.3.4 added visible URL + Copy + Open Public View buttons to the Project Detail Contract tab. The same share block was NOT added to ContractPage (the separate route that opens when users click the primary "Generate / Print Contract" button on a project).
+
+If a user follows the Generate/Print Contract path, they land on ContractPage and have no share affordance there. They must navigate back to Project Detail's Contract tab to access the share UI.
+
+**Current mitigation:** Share UI is accessible via Project Detail → Contract tab.
+
+**Why deferred:**
+- It's unclear which surface internal staff actually use day-to-day
+- Real usage during the planned pause (2–3 weeks) will reveal whether this is a real workflow gap or a non-issue
+- The fix is small (~30 min) — duplicate the share block JSX from ProjectDetail into ContractPage's render path
+
+**Trigger to fix:**
+- A team member reports they "can't find the share button" while on ContractPage
+- OR a real customer-share workflow gets blocked because the primary CTA leads to a dead end
+
+**Files affected:**
+- `artifacts/qr-manager/src/pages/erp/ContractPage.tsx`
+- Template: ProjectDetail.tsx contract tab share block (lines ~1980–2006)
+
+---
+
+## L-X — Silent parser failure on .docx upload (DEFERRED, post v4.3.4)
+
+**Severity:** Medium
+**Source:** v4.3.4 investigation (codex_investigation_v4_3_4.md, Q2)
+**Status:** Open — deferred for post-pause triage
+
+**Description:**
+When a .docx file is uploaded to a parsed slot type (Quotation, Section, Assembly List, Cut Optimisation), the file is saved successfully but parsing can fail silently. The user has no indication that the parsed data extraction failed — the file appears uploaded normally.
+
+The v4.3.4 ParsedDataPreviewModal Download button is a workaround: even if parsed data is empty, users can always download the original file. But the underlying issue — that parsing can fail without user feedback — is not fixed.
+
+**Current mitigation:** Download button in preview modal always available regardless of parse state.
+
+**Why deferred:**
+- Workaround exists (Download from preview modal)
+- Premature investigation now = guessing at scope
+- Deferred investigation after real usage = grounded in real failure patterns
+
+**Trigger to fix:**
+- A team member uploads a file expecting parsed data and gets nothing
+- Frequent enough to be a real workflow problem (vs. rare edge case)
+
+**Investigation needed before fixing:**
+- Which parsers can fail (quotation, section, assembly_list, cut_optimisation)?
+- What error states do they hit (timeout, malformed XML, unexpected structure)?
+- Should failures show a banner on the file slot, block the upload, or log to console for admins?
+
+**Files affected:**
+- `artifacts/api-server/src/routes/erp.ts` — silent catch blocks at lines ~2031, ~2047
+- `artifacts/qr-manager/src/pages/erp/ProjectDetail.tsx` — upload success handler
 
 ---
 

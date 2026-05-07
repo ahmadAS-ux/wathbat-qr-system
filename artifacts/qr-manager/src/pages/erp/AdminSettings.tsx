@@ -137,17 +137,16 @@ export default function AdminSettings() {
   const inputClass = `w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 transition-colors bg-[#FAFAF7]`;
 
   const textareaClass = (dir: 'rtl' | 'ltr') =>
-    `w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 transition-colors bg-[#FAFAF7] ${
-      dir === 'rtl' ? 'font-[Tajawal]' : 'font-[DM_Sans,sans-serif]'
+    `w-full border border-[#ECEAE2] rounded-xl px-3 py-2.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 focus:border-[#141A24]/40 transition-colors bg-[#FAFAF7] ${dir === 'rtl' ? 'font-[Tajawal]' : 'font-[DM_Sans,sans-serif]'
     }`;
 
   const labelConfigs: Array<{ key: ContractKey; labelKey: string; rows: number; dir: 'rtl' | 'ltr' }> = [
-    { key: 'contract_cover_intro_ar',      labelKey: 'contract_cover_intro_ar_label',     rows: 10, dir: 'rtl' },
-    { key: 'contract_cover_intro_en',      labelKey: 'contract_cover_intro_en_label',     rows: 10, dir: 'ltr' },
-    { key: 'contract_terms_ar',            labelKey: 'contract_terms_ar_label',           rows: 12, dir: 'rtl' },
-    { key: 'contract_terms_en',            labelKey: 'contract_terms_en_label',           rows: 12, dir: 'ltr' },
-    { key: 'contract_signature_block_ar',  labelKey: 'contract_signature_block_ar_label', rows: 6,  dir: 'rtl' },
-    { key: 'contract_signature_block_en',  labelKey: 'contract_signature_block_en_label', rows: 6,  dir: 'ltr' },
+    { key: 'contract_cover_intro_ar', labelKey: 'contract_cover_intro_ar_label', rows: 10, dir: 'rtl' },
+    { key: 'contract_cover_intro_en', labelKey: 'contract_cover_intro_en_label', rows: 10, dir: 'ltr' },
+    { key: 'contract_terms_ar', labelKey: 'contract_terms_ar_label', rows: 12, dir: 'rtl' },
+    { key: 'contract_terms_en', labelKey: 'contract_terms_en_label', rows: 12, dir: 'ltr' },
+    { key: 'contract_signature_block_ar', labelKey: 'contract_signature_block_ar_label', rows: 6, dir: 'rtl' },
+    { key: 'contract_signature_block_en', labelKey: 'contract_signature_block_en_label', rows: 6, dir: 'ltr' },
   ];
 
   return (
