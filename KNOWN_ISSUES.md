@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.4: search fixes S-01 through S-04, L-5 resolved
+> **Last updated:** May 2026 — v4.4.5: H-1 XSS resolved, L-X ContractPage share resolved, S-07 resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -14,27 +14,9 @@
 
 **Severity:** Low
 **Source:** v4.3.4 implementation review
-**Status:** Open — deferred for post-pause triage
+**Status:** Resolved — v4.4.5
 
-**Description:**
-v4.3.4 added visible URL + Copy + Open Public View buttons to the Project Detail Contract tab. The same share block was NOT added to ContractPage (the separate route that opens when users click the primary "Generate / Print Contract" button on a project).
-
-If a user follows the Generate/Print Contract path, they land on ContractPage and have no share affordance there. They must navigate back to Project Detail's Contract tab to access the share UI.
-
-**Current mitigation:** Share UI is accessible via Project Detail → Contract tab.
-
-**Why deferred:**
-- It's unclear which surface internal staff actually use day-to-day
-- Real usage during the planned pause (2–3 weeks) will reveal whether this is a real workflow gap or a non-issue
-- The fix is small (~30 min) — duplicate the share block JSX from ProjectDetail into ContractPage's render path
-
-**Trigger to fix:**
-- A team member reports they "can't find the share button" while on ContractPage
-- OR a real customer-share workflow gets blocked because the primary CTA leads to a dead end
-
-**Files affected:**
-- `artifacts/qr-manager/src/pages/erp/ContractPage.tsx`
-- Template: ProjectDetail.tsx contract tab share block (lines ~1980–2006)
+**Resolution:** Share block added to `ContractPage.tsx`. When a contract has an access token, ContractPage now shows the public URL, copy button, and open-in-new-tab button — mirroring the existing pattern in ProjectDetail.tsx. Backend GET contract endpoint (`GET /api/erp/projects/:id/contract`) expanded to join the `contracts` table and return `accessToken` and `tokenExpiresAt` in its response.
 
 ---
 
@@ -114,33 +96,14 @@ When an issue is resolved, **do not delete it** — change status to Resolved an
 ### H-1 — Stored XSS risk via .html uploads + public file serving
 
 **Source:** Codex external audit (April 2026)
-**Status:** Open
+**Status:** Resolved — v4.4.5
 **Discovered:** v4.0.14 audit
-**Planned fix:** v4.1.2 or v4.1.3 (after extractor decision is made)
 
-**The chain:**
-1. The Glass Order upload endpoint accepts `.html` files in addition to `.docx` and `.pdf` (`artifacts/api-server/src/routes/erp.ts:113`)
-2. Uploaded `.html` files are stored in `project_files.file_data` as bytes
-3. The file-serving endpoints (`GET /api/erp/projects/:id/files/:fileId` and `.../extracted`) are public — added to `isPublic` in v4.0.12 (`artifacts/api-server/src/app.ts`)
-4. Files are served `inline` with their stored mime type — meaning `.html` files render as live HTML in the browser
-5. **Anyone authenticated with upload access could upload an HTML file containing JavaScript, then any user navigating to the file URL would execute that JavaScript on the API origin — stealing JWTs from localStorage**
+**Resolution:**
+- **Part A:** `isGlassFormat()` no longer accepts `.html` files — Glass Order slot uploads of `.html`/`.htm` now return 400. The `isHtml` helper function is preserved (still used by glass extraction logic for legacy rows) — only its role in upload gating is removed.
+- **Part B:** The file-serving handler (`GET /api/erp/projects/:id/files/:fileId`) now detects `.html`/`.htm` extensions on stored filenames and forces `Content-Type: application/octet-stream` + `Content-Disposition: attachment`, defanging any `.html` files already in the database. Browsers download them rather than rendering them as HTML, eliminating the stored-XSS chain.
 
-**Why it's not actively exploited:**
-- Only authenticated users can upload (still requires login)
-- Internal team only — no external user uploads in production
-- File IDs are sequential integers — enumerable but not guessable to outsiders
-- No known threat actors with upload access
-
-**Files affected:**
-- `artifacts/api-server/src/routes/erp.ts:113` (.html acceptance for glass)
-- `artifacts/api-server/src/app.ts:33` (isPublic list)
-- `artifacts/api-server/src/routes/erp.ts:2144` (inline serving)
-
-**Planned fix:**
-- **Option A (smaller):** Reject `.html` glass uploads. Only accept `.docx` and `.pdf`. The HTML support was for legacy data that doesn't exist in production.
-- **Option B (larger, future):** Move file serving to a different subdomain (`files.wathbat.sa`) with no auth cookie scope. Standard isolation pattern.
-
-A future patch will implement Option A as the immediate mitigation. Option B is a v4.4.0+ consideration.
+**Note on Option B:** Moving file serving to a separate subdomain (`files.wathbat.sa`) remains a future hardening option but is not required given Part A + Part B coverage.
 
 ---
 
@@ -430,6 +393,18 @@ This is low-effort to fix but should happen at the same time as the extractor de
 
 ## Low Severity (active)
 
+### S-07 — Customers search missing email/location columns (RESOLVED v4.4.5)
+
+**Severity:** Low
+**Source:** v4.4.5 search expansion sweep
+**Status:** Resolved — v4.4.5
+
+**Description:** The customers listing search predicate covered only `name` and `phone`. Searching by email address or location text returned no results even when those values were visible in the customer row.
+
+**Resolution:** Added `ilike(customersTable.email, ...)` and `ilike(customersTable.location, ...)` to the existing `or(...)` predicate in the customers listing route in `erp.ts`. v4.4.4 phone normalization (`isPhoneShaped`/`normalizePhoneToE164`) preserved unchanged.
+
+---
+
 ### L-1 — Default user `admin/admin123` exists on first startup
 
 **Source:** Wathbah handoff documentation
@@ -511,6 +486,9 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
+| S-07 | Customers search missing email/location columns | v4.4.5 — added to customers listing ILIKE predicate |
+| L-X | ContractPage missing share UI | v4.4.5 — share block added, backend expanded to return token fields |
+| H-1 | Stored XSS via .html glass uploads + inline serving | v4.4.5 — upload rejected, serve-time defanging applied |
 | L-5 | Search bugs: no q on projects, no phone normalization, no Leads search, stage+search conflict | v4.4.4 — S-01/02/03/04 fixed |
 | H-3 | Role model inconsistency: AdminUsers creates wrong role string | v4.4.3 — form, backend validator, schema default all corrected |
 | H-5 | Mammoth is the wrong tool for Orgadata .docx | Resolved in v4.1.0 then Deprecated in v4.1.1 — extraction concept removed for non-Glass/non-Qoyod slots |

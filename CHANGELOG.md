@@ -4,6 +4,28 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.5 — XSS hotfix + ContractPage share + customers search expansion
+
+### Fixed
+- **Stored XSS via .html uploads (H-1, HIGH severity)**: Glass Order slot now rejects `.html` uploads (400). Any `.html` files already in the database are served with `Content-Type: application/octet-stream` + `Content-Disposition: attachment`, defanging the stored-XSS chain. The `isHtml` helper is preserved for glass extraction logic — only its role in upload gating is removed.
+- **Customers search includes email and location (S-07)**: Searching by partial email or location text now returns matching customers. v4.4.4 name and phone search behavior (including phone normalization) unchanged.
+
+### Added
+- **ContractPage share block (L-X)**: Generated contracts on ContractPage now show the public share URL with copy and open-in-new-tab buttons, matching the existing ProjectDetail pattern. Backend GET contract endpoint expanded to join the `contracts` table and return `accessToken` and `tokenExpiresAt`.
+
+### Unchanged
+- v4.4.4 search behaviors (project code search, phone normalization, leads search, stage+text combine)
+- v4.4.3 sidebar search contrast
+- All upload behavior except `.html` rejection at Glass Order slot
+
+### Operational note
+- Touches `artifacts/api-server/src/routes/erp.ts` — API service WILL redeploy. Both `qr-manager` and `api-server` package versions bumped to 4.4.5.
+
+### Security note
+- H-1: Any admin could previously upload a malicious `.html` to a Glass Order slot; other admins viewing the extracted file would render arbitrary HTML/JS in their authenticated browser session. Upload-time rejection (Part A) + serve-time defanging (Part B) both now in place.
+
+---
+
 ## v4.4.4 — Search functionality fixes (S-01 through S-04)
 
 ### Fixed
