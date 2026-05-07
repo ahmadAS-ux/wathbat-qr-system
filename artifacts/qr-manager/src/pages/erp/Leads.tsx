@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useLanguage } from '@/hooks/use-language';
@@ -243,20 +243,33 @@ export default function ErpLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
-  const loadLeads = async () => {
+  const loadLeads = async (q: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/erp/leads`);
+      const params = new URLSearchParams();
+      if (q.trim()) params.set('q', q.trim());
+      const qs = params.toString();
+      const res = await fetch(`${API_BASE}/api/erp/leads${qs ? `?${qs}` : ''}`);
       if (res.ok) setLeads(await res.json());
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadLeads(); }, []);
+  useEffect(() => { loadLeads(searchQ); }, [tab]);
+
+  const handleSearch = (val: string) => {
+    setSearchQ(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      loadLeads(val);
+    }, 300);
+  };
 
   const activeLeads = leads.filter(l => l.status === 'new' || l.status === 'followup');
   const display = tab === 'active' ? activeLeads : leads;
@@ -291,6 +304,25 @@ export default function ErpLeads() {
             <Plus className="w-4 h-4" />
             {t('erp_lead_new')}
           </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-4 max-w-xs">
+          <svg
+            className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-slate-400 pointer-events-none"
+            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={searchQ}
+            onChange={e => handleSearch(e.target.value)}
+            placeholder={t('erp_customers_search_ph')}
+            dir={isRtl ? 'rtl' : 'ltr'}
+            className="w-full border border-[#ECEAE2] rounded-xl ps-9 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#141A24]/20 bg-[#FAFAF7]"
+          />
         </div>
 
         {/* Tabs */}
@@ -376,7 +408,7 @@ export default function ErpLeads() {
       {showCreate && (
         <CreateLeadModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); loadLeads(); }}
+          onCreated={() => { setShowCreate(false); loadLeads(searchQ); }}
         />
       )}
     </AdminLayout>

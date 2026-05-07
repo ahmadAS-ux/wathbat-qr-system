@@ -728,6 +728,7 @@ router.delete("/erp/customers/:id", requireRole(...ADMIN_ONLY), async (req: Requ
 
 router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "SalesAgent"), async (req: Request, res: Response) => {
   try {
+    const q = String(req.query.q ?? '').trim();
     const { status, assignedTo, overdue } = req.query;
     const conditions = [];
     if (status) conditions.push(eq(leadsTable.status, status as string));
@@ -736,17 +737,23 @@ router.get("/erp/leads", requireRole("Admin", "FactoryManager", "Employee", "Sal
       conditions.push(lt(leadsTable.firstFollowupDate, new Date().toISOString().split("T")[0]));
       conditions.push(eq(leadsTable.status, "followup"));
     }
+    if (q) {
+      let phoneQ = q;
+      if (isPhoneShaped(q)) {
+        const normalized = normalizePhoneToE164(q);
+        if (normalized) phoneQ = normalized;
+      }
+      conditions.push(or(
+        ilike(customersTable.name, `%${q}%`),
+        ilike(customersTable.phone, `%${phoneQ}%`),
+      ));
+    }
 
-    const rows = conditions.length > 0
-      ? await db.select(leadSelectFields)
-        .from(leadsTable)
-        .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
-        .where(and(...conditions))
-        .orderBy(leadsTable.createdAt)
-      : await db.select(leadSelectFields)
-        .from(leadsTable)
-        .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
-        .orderBy(leadsTable.createdAt);
+    const rows = await db.select(leadSelectFields)
+      .from(leadsTable)
+      .leftJoin(customersTable, eq(leadsTable.customerId, customersTable.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(leadsTable.createdAt);
 
     res.json(rows);
   } catch (err) {
