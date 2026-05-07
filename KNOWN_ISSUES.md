@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.1: AdminLayout design audit fixes (font, RTL dir, sidebar architecture, a11y)
+> **Last updated:** May 2026 — v4.4.2: logo asset replacement, L-3 fully resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -442,7 +442,7 @@ in ProjectDetail.tsx.
 
 ---
 
-### L-3 — Logo asset display issues (PARTIAL — stopgap v4.1.2)
+### L-3 — Logo asset display issues (RESOLVED v4.4.2)
 
 **Description:** Company logo (image_1774733777220.png) had a
 white background. Sidebar (AdminLayout.tsx:157) and Login
@@ -452,12 +452,18 @@ ContractPage (ContractPage.tsx:373) rendered the white-
 background logo on light surfaces, where it appeared invisible
 (white-on-white).
 
-**Status:** Partially resolved (stopgap) — v4.1.2
+**Status:** Resolved — v4.4.2
 
 **Resolution (v4.1.2 stopgap):** Replaced the logo file with a
 transparent-background PNG version of the real Wathbah brand
 logo. CSS inversion on dark surfaces retained. Light surfaces
 now display the logo correctly without inversion.
+
+**Resolution (v4.4.2 final):** Replaced stopgap with `wathbah-logo.png`
+(292×220 px RGBA, proper brand asset). CSS inversion retained on dark
+surfaces (sidebar, login); no inversion on light surfaces (header,
+contract). Sidebar logo bumped h-9 → h-12. White-background artifacts
+fully eliminated.
 
 **Future work:** v4.1.3 or later — replace stopgap with
 proper dual-asset approach (separate light-color logo for

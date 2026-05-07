@@ -4,6 +4,20 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.2 — Logo asset replacement
+
+### Changed
+- Replaced `image_1774733777220.png` with `wathbah-logo.png` (292×220 px RGBA) across all 4 surfaces: sidebar, mobile topbar, header, contract print header.
+- Sidebar logo size bumped `h-9` → `h-12` for better visual weight at default zoom.
+- Mobile topbar logo size bumped `h-8` → `h-10` to match.
+- CSS inversion (`brightness-0 invert`) retained on dark surfaces (sidebar, login page) — new asset is dark-on-transparent, same treatment applies without the white-background artifacts of the previous file.
+- No inversion on light surfaces (header, contract) — unchanged.
+
+### Resolved
+- L-3 (logo asset display issues) — fully resolved. Prior stopgap (transparent PNG + CSS inversion) replaced with the proper brand asset. White-background artifacts on dark surfaces are gone.
+
+---
+
 ## v4.4.1 — AdminLayout design audit fixes
 
 ### Fixed
