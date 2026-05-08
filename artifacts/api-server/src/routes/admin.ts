@@ -120,7 +120,7 @@ router.get("/admin/history", async (_req: Request, res: Response): Promise<void>
 router.get("/admin/users", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   try {
     const rows = await db
-      .select({ id: usersTable.id, username: usersTable.username, role: usersTable.role, createdAt: usersTable.createdAt })
+      .select({ id: usersTable.id, username: usersTable.username, role: usersTable.role, createdAt: usersTable.createdAt, mustChangePassword: usersTable.mustChangePassword })
       .from(usersTable)
       .orderBy(usersTable.createdAt);
     res.json(rows);
@@ -143,7 +143,7 @@ router.post("/admin/users", requireAdmin, async (req: Request, res: Response): P
     const passwordHash = hashPassword(password);
     const [created] = await db
       .insert(usersTable)
-      .values({ username, passwordHash, role })
+      .values({ username, passwordHash, role, mustChangePassword: true })
       .returning({ id: usersTable.id, username: usersTable.username, role: usersTable.role, createdAt: usersTable.createdAt });
     res.status(201).json(created);
   } catch (err: any) {
@@ -179,6 +179,20 @@ router.delete("/admin/users/:id", requireAdmin, async (req: Request, res: Respon
     await db.delete(usersTable).where(eq(usersTable.id, id));
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
+router.post("/admin/users/:id/clear-must-change", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.id as string, 10);
+    if (isNaN(targetId)) {
+      res.status(400).json({ error: "Invalid user ID" });
+      return;
+    }
+    await db.update(usersTable).set({ mustChangePassword: false }).where(eq(usersTable.id, targetId));
+    res.json({ ok: true });
+  } catch {
     res.status(500).json({ error: "InternalError" });
   }
 });
