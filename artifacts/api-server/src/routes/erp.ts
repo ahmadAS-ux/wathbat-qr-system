@@ -856,6 +856,9 @@ router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee
       return;
     }
     const normalizedPhone = normalizePhoneToE164(q);
+    const phoneExactMatch = normalizedPhone
+      ? sql`OR c.phone = ${normalizedPhone}`
+      : sql.empty();
     const pattern = `%${q}%`;
     const rows = await db.execute(
       sql`SELECT
@@ -870,7 +873,7 @@ router.get("/erp/leads/search", requireRole("Admin", "FactoryManager", "Employee
           LEFT JOIN customers c ON c.id = l.customer_id
           WHERE c.name ILIKE ${pattern}
              OR c.phone ILIKE ${pattern}
-             OR (${normalizedPhone} IS NOT NULL AND c.phone = ${normalizedPhone})
+             ${phoneExactMatch}
           ORDER BY l.created_at DESC
           LIMIT 5`
     );
@@ -902,6 +905,9 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
     // Search leads (not for Accountant)
     if (sess.role !== "Accountant") {
       const normalizedPhone = normalizePhoneToE164(q);
+      const phoneExactMatchLead = normalizedPhone
+        ? sql`OR c.phone = ${normalizedPhone}`
+        : sql.empty();
       const leadRows = await db.execute(
         sql`SELECT
               l.id,
@@ -912,7 +918,7 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
             LEFT JOIN customers c ON c.id = l.customer_id
             WHERE c.name ILIKE ${pattern}
                OR c.phone ILIKE ${pattern}
-               OR (${normalizedPhone} IS NOT NULL AND c.phone = ${normalizedPhone})
+               ${phoneExactMatchLead}
             ORDER BY l.created_at DESC LIMIT 5`
       );
       for (const r of leadRows.rows as any[]) {
@@ -939,6 +945,9 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
 
     // Search customers — all roles
     const normalizedPhoneCust = normalizePhoneToE164(q);
+    const phoneExactMatchCust = normalizedPhoneCust
+      ? sql`OR c.phone = ${normalizedPhoneCust}`
+      : sql.empty();
     const custRows = await db.execute(
       sql`SELECT c.id, c.name, c.phone, c.email, c.location
           FROM customers c
@@ -946,7 +955,7 @@ router.get("/erp/search", requireRole("Admin", "FactoryManager", "Employee", "Sa
              OR c.phone ILIKE ${pattern}
              OR c.email ILIKE ${pattern}
              OR c.location ILIKE ${pattern}
-             OR (${normalizedPhoneCust} IS NOT NULL AND c.phone = ${normalizedPhoneCust})
+             ${phoneExactMatchCust}
           ORDER BY c.created_at DESC LIMIT 3`
     );
     for (const c of custRows.rows as any[]) {
