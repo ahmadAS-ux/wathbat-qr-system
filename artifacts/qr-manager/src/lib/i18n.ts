@@ -695,6 +695,14 @@ export const translations = {
     contract_share_link_label: "Public link",
     contract_share_link_copied: "Link copied",
     contract_share_open_link: "Open",
+    change_password_title: "Change Password",
+    change_password_new: "New password",
+    change_password_confirm: "Confirm password",
+    change_password_submit: "Change password",
+    change_password_mismatch: "Passwords do not match",
+    change_password_success: "Password changed",
+    change_password_default_err: "Cannot use a default password",
+    users_reset_password_flag: "Force password change",
   },
   ar: {
     app_title: "مدير QR للأصول",
@@ -1390,6 +1398,14 @@ export const translations = {
     contract_share_link_label: "الرابط العام",
     contract_share_link_copied: "تم نسخ الرابط",
     contract_share_open_link: "فتح",
+    change_password_title: "تغيير كلمة المرور",
+    change_password_new: "كلمة المرور الجديدة",
+    change_password_confirm: "تأكيد كلمة المرور",
+    change_password_submit: "تغيير كلمة المرور",
+    change_password_mismatch: "كلمتا المرور غير متطابقتين",
+    change_password_success: "تم تغيير كلمة المرور",
+    change_password_default_err: "لا يمكن استخدام كلمة مرور افتراضية",
+    users_reset_password_flag: "فرض تغيير كلمة المرور",
   }
 };
 

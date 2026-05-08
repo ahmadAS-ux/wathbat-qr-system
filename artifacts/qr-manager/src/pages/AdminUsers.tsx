@@ -10,6 +10,7 @@ interface UserRow {
   username: string;
   role: string;
   createdAt: string;
+  mustChangePassword: boolean;
 }
 
 import { API_BASE as BASE } from '@/lib/api-base';
@@ -66,6 +67,15 @@ export default function AdminUsers() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const resetPassword = async (id: number) => {
+    if (!window.confirm(`${t('users_reset_password_flag')}?`)) return;
+    await fetch(`${BASE}/api/admin/users/${id}/clear-must-change`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+    });
+    fetchUsers();
   };
 
   const createUser = async () => {
@@ -165,14 +175,23 @@ export default function AdminUsers() {
                           {new Date(u.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-3.5">
-                          <button
-                            onClick={() => deleteUser(u.id, u.username)}
-                            disabled={deletingId === u.id || u.id === me?.userId}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                            title={t('users_delete')}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => deleteUser(u.id, u.username)}
+                              disabled={deletingId === u.id || u.id === me?.userId}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title={t('users_delete')}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => resetPassword(u.id)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                              title={t('users_reset_password_flag')}
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </motion.tr>
                     ))

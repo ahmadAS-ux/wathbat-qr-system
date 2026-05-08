@@ -28,6 +28,7 @@ import ErpPayments from "@/pages/erp/Payments";
 import ErpVendors from "@/pages/erp/Vendors";
 import ErpPhaseConfirm from "@/pages/erp/PhaseConfirm";
 import ErpCustomers from "@/pages/erp/Customers";
+import ChangePassword from "@/pages/ChangePassword";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ function AppRoutes() {
   const isLoginPage = location === '/login';
   const isConfirmPage = location.startsWith('/confirm/');
   const isAdminPage = location.startsWith('/admin') || location.startsWith('/erp') || location.startsWith('/qr');
+  const isChangePasswordPage = location === '/change-password';
 
   // Redirect already-logged-in users away from /login
   useEffect(() => {
@@ -79,7 +81,7 @@ function AppRoutes() {
 
   return (
     <div className="flex flex-col min-h-screen relative">
-      {!isScanPage && !isLoginPage && !isAdminPage && !isConfirmPage && <Header />}
+      {!isScanPage && !isLoginPage && !isAdminPage && !isConfirmPage && !isChangePasswordPage && <Header />}
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/scan" component={Scan} />
@@ -99,6 +101,7 @@ function AppRoutes() {
         <Route path="/erp/payments" component={P(ErpPayments)} />
         <Route path="/erp/vendors" component={P(ErpVendors)} />
         <Route path="/erp/settings" component={P(ErpAdminSettings, true)} />
+        <Route path="/change-password" component={ChangePassword} />
         <Route component={NotFound} />
       </Switch>
     </div>

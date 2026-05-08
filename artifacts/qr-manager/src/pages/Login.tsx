@@ -22,7 +22,7 @@ export default function Login() {
     const result = await login(username, password);
     setLoading(false);
     if (result.ok) {
-      navigate('/');
+      navigate(result.mustChangePassword ? '/change-password' : '/');
     } else {
       setError(result.error || t('login_error'));
     }

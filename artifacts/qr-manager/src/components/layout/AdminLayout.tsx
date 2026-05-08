@@ -88,6 +88,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       .catch(() => {});
   }, [isPaymentsUser]);
 
+  useEffect(() => {
+    if (user?.mustChangePassword && location !== '/change-password' && location !== '/login') {
+      navigate('/change-password');
+    }
+  }, [user?.mustChangePassword, location]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');

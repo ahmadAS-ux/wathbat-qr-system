@@ -4,12 +4,13 @@ export interface AuthUser {
   userId: number;
   username: string;
   role: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string; mustChangePassword?: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return { ok: false, error: data.message || 'Invalid credentials' };
       localStorage.setItem('auth_token', data.token);
       setUser(data.user);
-      return { ok: true };
+      return { ok: true, mustChangePassword: data.user.mustChangePassword ?? false };
     } catch {
       return { ok: false, error: 'Connection error. Please try again.' };
     }
