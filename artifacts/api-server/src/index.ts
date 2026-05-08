@@ -677,6 +677,11 @@ async function runStartupMigrations() {
       await db.insert(dropdownOptionsTable).values({ category, value, labelAr, labelEn, sortOrder }).onConflictDoNothing();
     }
     logger.info("Dropdown options seed check complete (ON CONFLICT DO NOTHING)");
+
+    // v4.4.8: force-password-change flag
+    await db.execute(sql`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+    `);
   } catch (err) {
     logger.error({ err }, "Failed to initialise tables — server will still start");
   }
