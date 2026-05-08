@@ -4,6 +4,29 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.7 — Drizzle null-param hotfix (sidebar search 500 errors)
+
+### Fixed
+- **Sidebar search no longer throws 500 errors (L-8)**: All sidebar search queries (`/api/erp/search`, `/api/erp/leads/search`) were failing with Postgres `42P18: could not determine data type of parameter`. The routes' null-phone branch used an untyped null parameter inside `IS NOT NULL`, defeating Drizzle's prepared-statement type inference. Fixed at three sites in `erp.ts` by replacing the broken pattern with a conditional `sql.empty()` fragment that renders as a no-op when `normalizedPhone` is null.
+
+### Why this was missed
+- Two prior Codex audits performed static SQL review (the SQL string IS correct as written). The bug only manifested at runtime parameter binding. The v4.4.7 audit performed empirical reproduction in a PostgreSQL cluster, confirming both the bug and the fix.
+
+### User-visible impact (now resolved)
+- Sidebar search dropdown showing "No results" for every query, including valid customer/lead/project names. The dropdown was receiving 500 responses and rendering them as empty.
+
+### Unchanged
+- v4.4.6 customer branch logic (still searches name/phone/email/location — now actually works)
+- v4.4.6 contrast fix
+- v4.4.5 H-1 XSS protections
+- v4.4.4 page-level search behaviors
+- All upload behaviors
+
+### Operational note
+- Touches `artifacts/api-server/src/routes/erp.ts` — API service WILL redeploy. Both `qr-manager` and `api-server` package versions bumped.
+
+---
+
 ## v4.4.6 — Sidebar search hotfix
 
 ### Fixed

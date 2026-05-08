@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.6: L-6 sidebar contrast resolved, L-7 customer search branch resolved
+> **Last updated:** May 2026 — v4.4.7: L-8 Drizzle null-param 42P18 error resolved
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -437,6 +437,37 @@ This is low-effort to fix but should happen at the same time as the extractor de
 
 ---
 
+### L-8 — Sidebar search threw 500 errors due to Drizzle null-param binding (RESOLVED v4.4.7)
+
+**Severity:** Low (search failures — not a data-loss issue)
+**Source:** v4.4.7 Codex empirical audit
+**Status:** Resolved — v4.4.7
+
+**Description:** All sidebar search queries triggered Postgres error `42P18: could not determine data type of parameter` and returned 500 from `/api/erp/search` (and `/api/erp/leads/search`). User-visible symptom: "No results" dropdown for every query, even valid ones like a customer name that clearly existed.
+
+**Root cause:** Three Drizzle SQL template literals used the pattern `OR (${normalizedPhone} IS NOT NULL AND c.phone = ${normalizedPhone})` where `normalizedPhone` could be `null` (returned by `normalizePhoneToE164` for non-phone-shaped queries). Postgres prepared-statement type inference cannot resolve the type of an untyped null parameter inside a bare `IS NOT NULL` check, so the entire query failed at bind time.
+
+**Why this wasn't caught earlier:** Two prior Codex audits performed static SQL string review and concluded the SQL was correct (it IS, when types are explicitly declared). The bug only manifests at runtime parameter binding via Drizzle/pg. The v4.4.7 audit performed empirical reproduction in a real PostgreSQL cluster, confirming both the bug and the fix.
+
+**Resolution:** Replaced the broken pattern at three sites in `artifacts/api-server/src/routes/erp.ts`:
+- `/erp/leads/search` (lines 858–875)
+- `/erp/search` leads branch (lines 904–916)
+- `/erp/search` customer branch (lines 941–950)
+
+Each now uses Drizzle's `sql.empty()` for a conditional fragment:
+
+```typescript
+const phoneExactMatch = normalizedPhone
+  ? sql`OR c.phone = ${normalizedPhone}`
+  : sql.empty();
+```
+
+Interpolated as `${phoneExactMatch}` into the parent query. When `normalizedPhone` is null, `sql.empty()` renders as a no-op (no SQL text, no parameters), eliminating the untyped-null binding.
+
+**Reversibility:** Revert single commit. The conditional-fragment pattern is well-known Drizzle idiom; no new dependencies.
+
+---
+
 ### L-1 — Default user `admin/admin123` exists on first startup
 
 **Source:** Wathbah handoff documentation
@@ -518,6 +549,7 @@ When resolving an issue, change its status to **Resolved**, add the version that
 
 | ID | Title | Resolved in |
 |----|-------|-------------|
+| L-8 | Sidebar search 500 errors — Drizzle null-param 42P18 | v4.4.7 — sql.empty() conditional fragment at 3 sites |
 | L-7 | Sidebar global search did not return customers | v4.4.6 — customer branch added to /erp/search route |
 | L-6 | Sidebar search input contrast | v4.4.6 — .sidebar-search-input marker class + global CSS exclusion |
 | S-07 | Customers search missing email/location columns | v4.4.5 — added to customers listing ILIKE predicate |
