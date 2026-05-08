@@ -4,6 +4,49 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.8 — Force password change on first login (L-1)
+
+### Added
+- **Force password change for default-password users (L-1)**: When a user logs in with a known weak password (`admin123`, `password`, `12345678`, `admin`, `wathbah`, `password123`), they are automatically flagged and redirected to `/change-password` after authentication. New users created via Admin panel are also flagged on creation. Admins can clear the flag via a per-user "Force password change" button on the AdminUsers page.
+
+### Schema change
+- New `must_change_password` boolean column on `users` table (idempotent migration).
+
+### New endpoints
+- `POST /api/auth/change-password` — change password (rejects defaults, requires ≥6 chars).
+- `POST /api/admin/users/:id/clear-must-change` — admin-only rollback for stuck users.
+
+### Modified endpoints
+- `POST /api/auth/login` — auto-flags users with default passwords, returns `mustChangePassword` in response.
+- `GET /api/auth/me` — now does DB lookup to return `mustChangePassword` (survives reload).
+- `POST /api/admin/users` — new users always flagged on creation.
+- `GET /api/admin/users` — response includes `mustChangePassword`.
+
+### Frontend additions
+- New `/change-password` page (standalone, not wrapped in AdminLayout).
+- AdminLayout guard redirects to `/change-password` if user has flag set (excluding `/change-password` and `/login` from redirect to prevent loops).
+- AdminUsers per-row "Force password change" button.
+- 8 new i18n keys (EN + AR).
+
+### Unchanged
+- v4.4.7 Drizzle null-param fix.
+- v4.4.6 sidebar contrast + customer search branch.
+- v4.4.5 H-1 XSS protections.
+- All other auth flow and token handling (H-2 deferred to v4.4.9).
+
+### Operational note
+- API service WILL redeploy (touches `auth.ts`, `admin.ts`, `lib/default-passwords.ts`, `index.ts`).
+- Both `qr-manager` and `api-server` package versions bumped to 4.4.8.
+- No manual post-deploy SQL required — auto-detect at login handles the seeded admin.
+
+### Emergency rollback
+If users get locked into the change-password page due to an unexpected bug:
+```sql
+UPDATE users SET must_change_password = FALSE;
+```
+
+---
+
 ## v4.4.7 — Drizzle null-param hotfix (sidebar search 500 errors)
 
 ### Fixed

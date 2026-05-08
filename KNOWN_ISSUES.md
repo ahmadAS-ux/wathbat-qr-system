@@ -471,14 +471,22 @@ Interpolated as `${phoneExactMatch}` into the parent query. When `normalizedPhon
 ### L-1 — Default user `admin/admin123` exists on first startup
 
 **Source:** Wathbah handoff documentation
-**Status:** Documented — operational concern, not a bug
-**Planned fix:** v4.4.0 (force password change on first login)
+**Status:** Resolved — v4.4.8
 
-The default `admin/admin123` account is created on every fresh DB. This is intended for first-time setup but should be:
-1. Force a password change on first login
-2. Or generate a random password printed to logs once
+**Resolution:** Implemented force-password-change flow with scrypt-safe default detection.
 
-Schedule with v4.4.0 since the user management dashboard is being rebuilt then.
+- Schema: added `must_change_password` boolean column to `users` table (idempotent ALTER TABLE migration).
+- Backend lib: `artifacts/api-server/src/lib/default-passwords.ts` exports an `isDefaultPassword()` check against a known weak-password Set (`admin123`, `password`, `12345678`, `admin`, `wathbah`, `password123`).
+- Login auto-flag: when a user authenticates with a password matching the defaults Set, the flag is set automatically (post-auth, idempotent). No deterministic-hash comparison needed (which would not work with scrypt's per-salt non-determinism).
+- `/auth/me` does DB lookup so the flag survives page reload.
+- `/auth/change-password` endpoint validates new password (≥6 chars, not on defaults list).
+- `/admin/users/:id/clear-must-change` admin-only rollback endpoint for stuck users.
+- Frontend: standalone ChangePassword page (NOT wrapped in AdminLayout — prevents redirect loop). AdminLayout guard redirects to `/change-password` unless already on `/change-password` or `/login`. Login redirects to `/change-password` instead of `/` when flag is set.
+- AdminUsers shows per-row "Force password change" button.
+
+**Auto-handles seeded admin:** No manual SQL needed. First time admin logs in with `admin123`, the auto-flag fires, and they're redirected to `/change-password`.
+
+**Rollback (emergency, all users stuck):** `UPDATE users SET must_change_password = FALSE;`
 
 ---
 
