@@ -4,6 +4,31 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.9 — Token revocation blocklist (H-2)
+
+### Added
+- **Server-side token revocation (H-2)**: Logout now actually invalidates tokens. A `revoked_tokens` table stores the jti of every logged-out token. `requireAuth` checks the blocklist after signature verification — revoked tokens get 401 immediately.
+- New `revoked_tokens` table with idempotent startup migration and index on `expires_at`.
+- Startup cleanup: expired revoked token records are purged on each server start.
+
+### Changed
+- JWT expiry reduced from 7 days to 24 hours.
+- `createSession` now embeds a `jti` (UUID) in every token for blocklist identification.
+- `deleteSession` is now async and inserts the jti into `revoked_tokens` on logout.
+- `/auth/logout` handler is now async and awaits token revocation.
+
+### Unchanged
+- Tokens still stored in `localStorage` (httpOnly cookie deferred).
+- Refresh token mechanism not implemented — 24h expiry is the interim mitigation.
+- All v4.4.8 features (force password change, L-1) unchanged.
+
+### Operational note
+- API service WILL redeploy. Migration is idempotent (`CREATE TABLE IF NOT EXISTS`).
+- Existing 7d tokens pass through until natural expiry (backward compatible — no global logout on deploy).
+- After 24h from deploy, all active sessions will have jti-based revocability.
+
+---
+
 ## v4.4.8 — Force password change on first login (L-1)
 
 ### Added

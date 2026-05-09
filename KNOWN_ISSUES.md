@@ -110,35 +110,22 @@ When an issue is resolved, **do not delete it** — change status to Resolved an
 ### H-2 — Auth tokens are long-lived and logout doesn't revoke
 
 **Source:** Codex external audit (April 2026)
-**Status:** Open
+**Status:** Resolved — v4.4.9
 **Discovered:** v4.0.14 audit
-**Planned fix:** v4.4.0 (paired with permissions dashboard)
 
-**The issues, compounding:**
-1. JWTs have 7-day expiry — `artifacts/api-server/src/lib/auth.ts:34`
-2. Logout is a client-only no-op — `artifacts/api-server/src/lib/auth.ts:38` does nothing server-side; the token remains valid until natural expiry
-3. Tokens stored in `localStorage` — `artifacts/qr-manager/src/hooks/use-auth.tsx:25` — readable by any JavaScript on the page (compounds H-1)
-4. No server-side blacklist — once issued, a token is valid for 7 days regardless of password change, role change, or account disable
+**Resolution:** Implemented jti-based server-side token revocation.
 
-**Real-world implication:** if H-1 is exploited (or a token leaks via any other XSS vector), the attacker has 7 days of access that cannot be revoked except by changing JWT signing keys (which logs out everyone).
+- JWT expiry reduced from 7 days to 24 hours (`createSession` in `artifacts/api-server/src/lib/auth.ts`).
+- `createSession` now embeds a `jti: crypto.randomUUID()` in every token payload.
+- New `revoked_tokens` table (idempotent `CREATE TABLE IF NOT EXISTS` migration) stores revoked jtis with their expiry timestamps.
+- `deleteSession` is now async and inserts the token's jti into `revoked_tokens` on logout.
+- `requireAuth` checks the blocklist after `jwt.verify` succeeds: if jti is found in `revoked_tokens`, returns 401. If DB lookup fails, returns 500 (never silently passes through).
+- Startup cleanup: `DELETE FROM revoked_tokens WHERE expires_at < NOW()` runs on each server start.
+- Backward compatibility: pre-v4.4.9 tokens without jti pass through and expire on their original schedule (max 7 days post-deploy).
 
-**Why it's not actively exploited:** small team, internal use, no known active XSS vectors in v4.0.14. But H-1 + H-2 together form a real risk if both are present.
-
-**Files affected:**
-- `artifacts/api-server/src/lib/auth.ts:34` (token expiry)
-- `artifacts/api-server/src/lib/auth.ts:38` (no-op logout)
-- `artifacts/qr-manager/src/hooks/use-auth.tsx:25` (localStorage)
-- `artifacts/qr-manager/src/main.tsx:10` (global injection)
-
-**Planned fix (v4.4.0):**
-The permissions stage already plans to address auth as part of the dashboard work. The fix combines:
-- Server-side token blacklist (revoked JTI table, checked on every requireAuth)
-- Logout endpoint that adds the current token to the blacklist
-- Reduce JWT expiry to 24 hours
-- Refresh token mechanism for active sessions
-- httpOnly cookie auth for new tab navigation (which we considered earlier in v4.0.12 but deferred)
-
-If a future patch ships before v4.4.0, consider an interim partial fix: just reduce JWT expiry to 24 hours (one-line change, no schema work).
+**Remaining (deferred):**
+- Tokens still stored in `localStorage` — httpOnly cookie auth deferred to future patch.
+- Refresh token mechanism not implemented — 24h expiry is the mitigation.
 
 ---
 
