@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
+import { db, revokedTokensTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export interface SessionData {
   userId: number;
@@ -32,11 +34,21 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 export function createSession(data: SessionData): string {
-  return jwt.sign(data, getSecret(), { expiresIn: "7d" });
+  return jwt.sign({ ...data, jti: crypto.randomUUID() }, getSecret(), { expiresIn: "24h" });
 }
 
-// No-op kept for API compatibility (logout still clears the client-side token)
-export function deleteSession(_token: string): void {}
+export async function deleteSession(token: string): Promise<void> {
+  try {
+    const decoded = jwt.decode(token) as { jti?: string; exp?: number } | null;
+    if (!decoded?.jti) return;
+    const expiresAt = decoded.exp
+      ? new Date(decoded.exp * 1000)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.insert(revokedTokensTable).values({ jti: decoded.jti, expiresAt }).onConflictDoNothing();
+  } catch {
+    // best-effort — never throw on logout
+  }
+}
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers.authorization;
@@ -45,14 +57,35 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
   const token = auth.slice(7);
+  let payload: SessionData;
   try {
-    const payload = jwt.verify(token, getSecret()) as SessionData;
-    (req as any).session = payload;
-    (req as any).token = token;
-    next();
+    payload = jwt.verify(token, getSecret()) as SessionData;
   } catch {
     res.status(401).json({ error: "Unauthorized" });
+    return;
   }
+  // jwt.verify succeeded — set session, then check blocklist
+  (req as any).session = payload;
+  (req as any).token = token;
+  const jti = (payload as any).jti as string | undefined;
+  if (!jti) {
+    // Pre-v4.4.9 token without jti — pass through, expires on original schedule
+    next();
+    return;
+  }
+  db.select({ id: revokedTokensTable.id })
+    .from(revokedTokensTable)
+    .where(eq(revokedTokensTable.jti, jti))
+    .then(([found]) => {
+      if (found) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      next();
+    })
+    .catch(() => {
+      res.status(500).json({ error: "InternalError" });
+    });
 }
 
 export function requireRole(...roles: string[]) {

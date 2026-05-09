@@ -33,9 +33,9 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
 });
 
 // POST /api/auth/logout — requires auth
-router.post("/auth/logout", requireAuth, (req: Request, res: Response): void => {
+router.post("/auth/logout", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const token = (req as any).token as string;
-  deleteSession(token);
+  await deleteSession(token);
   res.json({ ok: true });
 });
 
