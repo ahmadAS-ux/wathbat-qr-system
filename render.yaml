@@ -63,7 +63,7 @@ services:
 # ── Managed PostgreSQL ───────────────────────────────────────────────────────
 databases:
   - name: qr-asset-manager-db
-    plan: free
+    plan: basic-256mb
     databaseName: qrdb
     user: qrdbuser
     region: oregon        # must match the API service region above
