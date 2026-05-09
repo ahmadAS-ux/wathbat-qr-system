@@ -4,6 +4,39 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.11 — pnpm overrides cleanup + version pin
+
+### Fixed
+- Removed accumulated platform-specific exclusions from
+  pnpm.overrides in root package.json. The overrides block
+  had grown to ~76 entries excluding native binary variants
+  of rollup, lightningcss, and esbuild for nearly every
+  platform — but inconsistently (e.g. excluding
+  @rollup/rollup-linux-x64-gnu but not @esbuild/linux-x64).
+  The mismatch between excluded entries and what the lockfile
+  still contained caused ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
+  on Linux Docker builds (Render production), which had been
+  masking the v4.1.0 LibreOffice runtime migration.
+- Pinned Dockerfile pnpm version to 10.33.0 (was: pnpm@latest).
+  Reproducible production builds; eliminates non-deterministic
+  pnpm version pulls on every Docker rebuild.
+- Regenerated pnpm-lock.yaml against the cleaned overrides.
+
+### Notes
+- No dependency versions changed.
+- No source code changed.
+- The two retained overrides (@esbuild-kit/esm-loader alias
+  to tsx, esbuild pinned to 0.27.3) are intentional and remain.
+- Local Windows installs may now print warnings about
+  optional native binaries for non-host platforms (e.g.
+  "skipping optional dependency @rollup/rollup-darwin-arm64").
+  These are harmless and expected — pnpm picks the right
+  binary at install time on each platform.
+- H-6 (soffice ENOENT) remains open pending end-to-end PDF
+  generation test after this build deploys.
+
+---
+
 ## v4.4.10 — Render Blueprint sync fix (database plan alignment)
 
 ### Fixed

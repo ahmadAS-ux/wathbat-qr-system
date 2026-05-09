@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-09 — v4.4.10: H-6 soffice ENOENT root cause identified; Render Blueprint sync fix applied
+> **Last updated:** 2026-05-09 — v4.4.11: pnpm overrides cleaned, Docker build unblocked; H-6 awaiting E2E PDF confirmation
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -320,6 +320,16 @@ outcomes are possible:
 **Current mitigation:** None — PDF contract generation is
 non-functional in production until the runtime carries
 LibreOffice.
+
+**Status update (v4.4.11):** v4.4.10 unblocked the Render
+Blueprint sync but exposed a separate pnpm overrides issue
+that prevented the Docker build from completing. v4.4.11
+fixes the overrides; Docker build should now complete and
+the LibreOffice-equipped container should start. H-6 will
+resolve when end-to-end PDF generation is confirmed working
+in production. If the v4.4.11 build deploys successfully
+and login works but PDF generation still fails, open a
+follow-up investigation under H-6.
 
 ---
 
