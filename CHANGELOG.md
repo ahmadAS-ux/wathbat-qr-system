@@ -4,6 +4,39 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.10 — Render Blueprint sync fix (database plan alignment)
+
+### Fixed
+- Render Blueprint sync had been failing since v4.1.0
+  (commit de3fb2f) due to a database plan mismatch:
+  render.yaml declared `plan: free` but the actual managed
+  Postgres instance was on `basic-256mb`. All blueprint
+  syncs were rejected at validation, blocking the
+  LibreOffice Docker runtime migration. Aligned render.yaml
+  `databases[0].plan` to `basic-256mb` to match the
+  instance state.
+
+### Notes
+- This is an infrastructure config fix, not a code change.
+  No package source files modified; api-server and qr-manager
+  builds are unaffected.
+- H-6 (`spawn soffice ENOENT` PDF generation crash) is a
+  downstream consequence of this sync failure. If the
+  blueprint sync now succeeds AND Render flips the API
+  service runtime from Node to Docker, H-6 will resolve
+  automatically. If runtime stays Node (Render's spec lists
+  runtime as immutable), the API service will need to be
+  deleted and recreated via the dashboard in a follow-up
+  operation; that is NOT part of v4.4.10.
+
+### Unchanged
+- All application source code
+- All other render.yaml fields (api runtime: docker stays,
+  static site config stays, all envVars stay)
+- Database itself (no migration, no data movement)
+
+---
+
 ## v4.4.9 — Token revocation blocklist (H-2)
 
 ### Added
