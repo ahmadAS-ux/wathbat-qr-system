@@ -682,6 +682,20 @@ async function runStartupMigrations() {
     await db.execute(sql`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
     `);
+
+    // v4.4.9: token revocation blocklist
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS revoked_tokens (
+        id SERIAL PRIMARY KEY,
+        jti TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS revoked_tokens_expires_at_idx ON revoked_tokens(expires_at)
+    `);
+    await db.execute(sql`DELETE FROM revoked_tokens WHERE expires_at < NOW()`);
   } catch (err) {
     logger.error({ err }, "Failed to initialise tables — server will still start");
   }

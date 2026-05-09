@@ -21,3 +21,4 @@ export * from "./manufacturing_orders";
 export * from "./contracts";
 export * from "./system_files";
 export * from "./contract_access_logs";
+export * from "./revoked-tokens";
