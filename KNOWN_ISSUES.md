@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** May 2026 — v4.4.7: L-8 Drizzle null-param 42P18 error resolved
+> **Last updated:** 2026-05-09 — v4.4.10: H-6 soffice ENOENT root cause identified; Render Blueprint sync fix applied
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -258,6 +258,68 @@ If H-5 is fixed via Option Medium (LibreOffice), the Preview button on .docx fil
 
 **Lesson learned (process):**
 The original Stage 6.6 spec was authored without empirical investigation of the actual files being processed. We invented an extractor concept based on what "should" be in a .docx, not on what was actually there. Future "extract" or "parse" stages must include an empirical investigation step (open the actual file, inspect the actual structure) before code is written. This is now codified for future sessions.
+
+---
+
+### H-6 — PDF contract generation crashes the API process (`spawn soffice ENOENT`)
+
+**Source:** Production error logs; Render Blueprint sync audit (May 2026)
+**Status:** Identified — sync fix applied in v4.4.10; runtime recreation may be required as follow-up
+**Discovered:** v4.4.10 investigation
+
+**Symptom:**
+Production logs show `Error: spawn soffice ENOENT` from
+`lib/html-to-pdf.ts` and `lib/docx-extractor.ts` when the
+"Generate PDF Contract" button is used. The API process
+crashes or returns 500; no PDF is produced.
+
+**Root cause:**
+The crash is a downstream consequence of a Render Blueprint
+sync failure that has been blocking since v4.1.0 (commit
+de3fb2f). `render.yaml` declared `databases[0].plan: free`
+while the actual managed Postgres instance was already on
+`basic-256mb`. Render rejects blueprint syncs that would
+downgrade a database plan, so every sync since de3fb2f was
+rejected at validation — the Render UI shows the error:
+
+  databases[0].plan cannot downgrade database from Basic-256mb to Free
+
+Because the blueprint never applied, the LibreOffice Docker
+runtime migration (introduced in de3fb2f / v4.1.0) never
+took effect. The `qr-asset-manager-api` service has been
+running on the Node runtime from before v4.1.0, with no
+`soffice` binary present. Any call path that invokes
+`libreoffice --headless --convert-to pdf` fails immediately
+with ENOENT.
+
+**Files affected:**
+- `artifacts/api-server/src/lib/html-to-pdf.ts` — spawns soffice
+- `artifacts/api-server/src/lib/docx-extractor.ts` — spawns soffice
+- `render.yaml` — database plan declaration (fixed in v4.4.10)
+
+**Fix applied in v4.4.10:**
+`render.yaml` `databases[0].plan` corrected from `free` to
+`basic-256mb` to match the actual Render instance state,
+unblocking blueprint sync.
+
+**Remaining path to full resolution:**
+Render's documentation lists `runtime` as immutable on
+existing services. After the v4.4.10 sync unblocks, two
+outcomes are possible:
+
+1. **Auto-flip (best case):** Render detects the Dockerfile
+   declaration and flips the API service runtime from Node to
+   Docker automatically. H-6 resolves without further action.
+2. **Runtime stays Node:** The API service must be deleted
+   and recreated via the Render dashboard so it provisions
+   fresh with `runtime: docker`. This is a manual dashboard
+   operation; a brief service outage (~2–5 min) is expected.
+   Ahmad monitors the Render Blueprint Syncs page after
+   v4.4.10 deploys to determine which path applies.
+
+**Current mitigation:** None — PDF contract generation is
+non-functional in production until the runtime carries
+LibreOffice.
 
 ---
 
