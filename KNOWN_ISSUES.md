@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-09 — v4.4.11: pnpm overrides cleaned, Docker build unblocked; H-6 awaiting E2E PDF confirmation
+> **Last updated:** 2026-05-10 — v4.4.12: H-6 resolved (LibreOffice profile isolation + CSS Grid fix + font stack); C-9 added
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -264,7 +264,7 @@ The original Stage 6.6 spec was authored without empirical investigation of the 
 ### H-6 — PDF contract generation crashes the API process (`spawn soffice ENOENT`)
 
 **Source:** Production error logs; Render Blueprint sync audit (May 2026)
-**Status:** Identified — sync fix applied in v4.4.10; runtime recreation may be required as follow-up
+**Status:** ✅ RESOLVED — v4.4.12
 **Discovered:** v4.4.10 investigation
 
 **Symptom:**
@@ -330,6 +330,11 @@ resolve when end-to-end PDF generation is confirmed working
 in production. If the v4.4.11 build deploys successfully
 and login works but PDF generation still fails, open a
 follow-up investigation under H-6.
+
+**Resolution path (v4.4.10 + v4.4.11 + v4.4.12):**
+- v4.4.10 unblocked Render Blueprint sync (databases plan mismatch — render.yaml said free, actual Postgres on basic-256mb).
+- v4.4.11 fixed pnpm overrides (Docker build was failing on platform-specific exclusions causing ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
+- v4.4.12 added LibreOffice profile isolation, stderr capture, removed CSS Grid, and corrected the font stack — together resolving the exit 1 failures.
 
 ---
 
@@ -447,6 +452,21 @@ No additional action needed beyond what's already planned.
 `FILE_UPLOAD_GUIDE.md:70` still says the .docx extractor excludes images. This was true in v4.0.13 (briefly) and was reverted in v4.0.14. The guide is now stale on this specific topic.
 
 This is low-effort to fix but should happen at the same time as the extractor decision (H-5), so the guide ends up describing whatever the extractor actually does post-fix.
+
+---
+
+## C-9 — Contract PDF: parser-derived fields blank, signature signer fields blank
+
+**Severity:** Medium
+**Status:** Identified — v4.4.13+ work
+**First observed:** 2026-05-10 (after v4.4.12 ship)
+
+After v4.4.12, contract PDF generation works end-to-end. Two field categories still render as visible em-dashes/empty lines:
+
+1. quotationNumber / quotationDate — parser bug C-5/C-6.
+2. Signature signer fields — no DB schema yet.
+
+Neither is a runtime failure; both are visible placeholders.
 
 ---
 

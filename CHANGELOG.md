@@ -4,6 +4,38 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.12 — Contract PDF: crash fix + structural rewrite + dual-language
+
+**Date:** 2026-05-10
+
+### Fixed
+- **LibreOffice profile race condition.** generateContractPdf runs htmlToPdf and extractDocxToPdf concurrently via Promise.all. Without per-invocation user-profile isolation, both soffice processes shared ~/.config/libreoffice and raced over lock files, causing non-deterministic exit 1 failures. Both call sites now pass `-env:UserInstallation=file://<tmpdir>/profile`.
+- **html-to-pdf.ts diagnostic parity.** Added stdout/stderr capture, on-error handler, and detailed error messages — bringing it to parity with docx-extractor.ts. Future LibreOffice failures now surface their actual error in Render logs instead of bare exit codes.
+- **C-7 template key prefix mismatch.** The /contracts/generate route was reading template fields with bare keys (cover_intro_ar, terms_ar, etc.), but AdminSettings, the startup seed, and the ContractPage preview all use the contract_ prefix. Result: every generated contract had empty intro/terms/signature blocks since feature inception, even though the seeded Arabic content existed in the database the entire time. No migration needed.
+- **CSS Grid in contract HTML.** LibreOffice's HTML import filter does not support display: grid. Replaced with table-based layouts throughout. Was a contributing cause of exit 1 failures.
+- **Font stack.** Tahoma/Arial/'Traditional Arabic' replaced with Liberation Sans (Arial-compatible metrics) and Noto Naskh Arabic/Noto Sans Arabic, all already installed in the Render container. No font bundling, no licensing concerns.
+
+### Added
+- **Single-language Arabic and English contract PDFs.** buildCoverHtml is now a language-aware dispatcher that calls one of two new single-language renderers:
+  - buildCoverHtmlAr: RTL, Noto Naskh Arabic, full 8 sections matching wathbah_contract_template_AR.docx structure.
+  - buildCoverHtmlEn: LTR, Liberation Sans, same 8-section structure in English.
+- **8-section contract layout:** contract data, parties, introduction, payment milestones table, general terms, attachments, signatures (4-field × 2-party), footer.
+- **Dual-language frontend buttons.** Project detail page now has separate "Generate Arabic PDF" and "Generate English PDF" buttons. Both share disabled state during generation but show per-language spinner via new pdfContractGeneratingLang state.
+- **?lang=ar|en query parameter** on /api/erp/projects/:id/contracts/generate. Default is Arabic.
+- **Language stored in templateSnapshot JSON** — no schema migration. Allows reproducing the exact contract variant at any later download.
+- **ContractData interface expanded** with language, projectCode, customerPhone, customerEmail, customerLocation, contractNumber (format WTH-YYYY-####), contractDate, quotationNumber, quotationDate, quotationFileName, and milestones[].
+- **Saudi phone formatter** inlined in route — converts E.164 to 05X XXX XXXX for display.
+- **safeStr() helper** to normalize null/undefined/number/Date/string to safe string before escHtml().
+- **4 new i18n keys**: contract_pdf_generate_ar/_en, contract_pdf_generating_ar/_en (in both English and Arabic blocks).
+
+### Notes
+- Quotation number/date placeholders remain blank pending parser fixes (C-4, C-5, C-6 — Orgadata altChunk RTF parser, scheduled v4.4.13+).
+- Signature signer fields render as empty lines for hand-signing after printing; no signer DB schema yet.
+- No database migrations.
+- The HTML-based contract preview at /api/erp/projects/:id/contract is unchanged (separate feature, separate route).
+
+---
+
 ## v4.4.11 — pnpm overrides cleanup + version pin
 
 ### Fixed
