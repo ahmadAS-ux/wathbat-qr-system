@@ -2928,7 +2928,7 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
     }
 
     // Fetch template fields
-    const TEMPLATE_KEYS = ['cover_intro_ar', 'cover_intro_en', 'terms_ar', 'terms_en', 'signature_block_ar', 'signature_block_en'];
+    const TEMPLATE_KEYS = ['contract_cover_intro_ar', 'contract_cover_intro_en', 'contract_terms_ar', 'contract_terms_en', 'contract_signature_block_ar', 'contract_signature_block_en'];
     const templateRows = await db
       .select({ key: systemSettings.key, value: systemSettings.value })
       .from(systemSettings)
@@ -2977,12 +2977,12 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
           projectName: project.name,
           customerName: project.customerName ?? '',
           generatedDate: new Date().toISOString().split('T')[0]!,
-          coverIntroAr: templateMap['cover_intro_ar'] ?? '',
-          coverIntroEn: templateMap['cover_intro_en'] ?? '',
-          termsAr: templateMap['terms_ar'] ?? '',
-          termsEn: templateMap['terms_en'] ?? '',
-          signatureBlockAr: templateMap['signature_block_ar'] ?? '',
-          signatureBlockEn: templateMap['signature_block_en'] ?? '',
+          coverIntroAr: templateMap['contract_cover_intro_ar'] ?? '',
+          coverIntroEn: templateMap['contract_cover_intro_en'] ?? '',
+          termsAr: templateMap['contract_terms_ar'] ?? '',
+          termsEn: templateMap['contract_terms_en'] ?? '',
+          signatureBlockAr: templateMap['contract_signature_block_ar'] ?? '',
+          signatureBlockEn: templateMap['contract_signature_block_en'] ?? '',
         },
       );
 
