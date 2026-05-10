@@ -59,3 +59,6 @@ quotation_sample_*.docx
 *-CONFIDENTIAL.docx
 *-PRIVATE.docx
 ~$*.docx
+
+# Staging directory for anonymized fixtures (pre-verification)
+test-fixtures-staging/
