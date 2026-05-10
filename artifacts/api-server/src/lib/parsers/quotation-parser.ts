@@ -62,7 +62,11 @@ export function parseQuotationDocx(buffer: Buffer): ParsedQuotation {
   }
 
   // --- Positions ---
-  const posRegex = /([A-Z]+-\d+[A-Za-z]?)\s+(\d+)\s+Pcs\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)/g;
+  // Position codes can include digits between letters and hyphen (e.g., D1-01
+  // in addition to G-01 / W-01). Codex Audit 3.1 confirmed all 3 real Orgadata
+  // quotation samples use comma-thousand / dot-decimal price format; only the
+  // code prefix varies. v4.4.13 broadens the prefix to [A-Z]+\d*.
+  const posRegex = /([A-Z]+\d*-\d+[A-Za-z]?)\s+(\d+)\s+Pcs\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)/g;
   const rawPositions: QuotationPosition[] = [];
   const matchesArr: Array<{ match: RegExpExecArray; start: number; end: number }> = [];
   let pm: RegExpExecArray | null;
