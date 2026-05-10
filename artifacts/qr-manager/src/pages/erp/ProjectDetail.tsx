@@ -942,6 +942,7 @@ export default function ErpProjectDetail() {
   // PDF contract generation state (v4.3.1 + v4.3.2)
   const [pdfContracts, setPdfContracts] = useState<Array<{ id: number; status: string; generatedAt: string | null; createdAt: string; accessToken: string | null; tokenExpiresAt: string | null }>>([]);
   const [pdfContractGenerating, setPdfContractGenerating] = useState(false);
+  const [pdfContractGeneratingLang, setPdfContractGeneratingLang] = useState<'ar' | 'en' | null>(null);
   const [pdfContractError, setPdfContractError] = useState('');
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
@@ -1064,11 +1065,12 @@ export default function ErpProjectDetail() {
       .catch(() => showToast(t('contract_share_copy_link_error'), 'error'));
   };
 
-  const handleGeneratePdf = async () => {
+  const handleGeneratePdf = async (lang: 'ar' | 'en') => {
     setPdfContractGenerating(true);
+    setPdfContractGeneratingLang(lang);
     setPdfContractError('');
     try {
-      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/contracts/generate`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/erp/projects/${id}/contracts/generate?lang=${lang}`, { method: 'POST' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? t('contract_pdf_generate_error'));
@@ -1079,6 +1081,7 @@ export default function ErpProjectDetail() {
       setPdfContractError(err instanceof Error ? err.message : t('contract_pdf_generate_error'));
     } finally {
       setPdfContractGenerating(false);
+      setPdfContractGeneratingLang(null);
     }
   };
 
@@ -1952,14 +1955,24 @@ export default function ErpProjectDetail() {
               <h3 className={`text-base font-bold mb-3 text-[#141A24] ${isRtl ? 'font-[Tajawal]' : ''}`}>
                 {t('contract_pdf_title')}
               </h3>
-              <button
-                onClick={handleGeneratePdf}
-                disabled={pdfContractGenerating || !project?.files?.some(f => f.fileType === 'quotation' && f.isActive)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-[#141A24] text-[#141A24] rounded-xl hover:bg-[#141A24] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
-              >
-                <FileDown className="w-4 h-4" />
-                {pdfContractGenerating ? t('contract_pdf_generating') : t('contract_pdf_generate')}
-              </button>
+              <div className={`flex items-center gap-3 flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <button
+                  onClick={() => handleGeneratePdf('ar')}
+                  disabled={pdfContractGenerating || !project?.files?.some(f => f.fileType === 'quotation' && f.isActive)}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-[#141A24] text-[#141A24] rounded-xl hover:bg-[#141A24] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  <FileDown className="w-4 h-4" />
+                  {pdfContractGeneratingLang === 'ar' ? t('contract_pdf_generating_ar') : t('contract_pdf_generate_ar')}
+                </button>
+                <button
+                  onClick={() => handleGeneratePdf('en')}
+                  disabled={pdfContractGenerating || !project?.files?.some(f => f.fileType === 'quotation' && f.isActive)}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-[#141A24] text-[#141A24] rounded-xl hover:bg-[#141A24] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  <FileDown className="w-4 h-4" />
+                  {pdfContractGeneratingLang === 'en' ? t('contract_pdf_generating_en') : t('contract_pdf_generate_en')}
+                </button>
+              </div>
               {pdfContractError && (
                 <p className={`text-sm text-red-600 mt-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>{pdfContractError}</p>
               )}

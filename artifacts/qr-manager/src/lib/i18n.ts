@@ -683,6 +683,10 @@ export const translations = {
     // PDF Contract — v4.3.1
     contract_pdf_title: "PDF Contract",
     contract_pdf_generate: "Generate PDF Contract",
+    contract_pdf_generate_ar: "Generate Arabic PDF",
+    contract_pdf_generate_en: "Generate English PDF",
+    contract_pdf_generating_ar: "Generating Arabic...",
+    contract_pdf_generating_en: "Generating English...",
     contract_pdf_generating: "Generating...",
     contract_pdf_generate_error: "PDF generation failed",
     contract_pdf_download: "Download PDF",
@@ -1386,6 +1390,10 @@ export const translations = {
     // PDF Contract — v4.3.1
     contract_pdf_title: "العقد PDF",
     contract_pdf_generate: "إنشاء عقد PDF",
+    contract_pdf_generate_ar: "إنشاء PDF عربي",
+    contract_pdf_generate_en: "إنشاء PDF إنجليزي",
+    contract_pdf_generating_ar: "جاري إنشاء العربي...",
+    contract_pdf_generating_en: "جاري إنشاء الإنجليزي...",
     contract_pdf_generating: "جاري الإنشاء...",
     contract_pdf_generate_error: "فشل إنشاء العقد",
     contract_pdf_download: "تنزيل PDF",
