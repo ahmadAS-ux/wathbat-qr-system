@@ -4,6 +4,37 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.13 — Production hotfix + QR HTML cleanup + parser fix + test fixtures
+
+**Date:** 2026-05-11
+
+### Fixed
+- **Contract PDF generation (production 500).** stampFooter passed Arabic company name into pdf-lib's StandardFonts.Helvetica.drawText. Helvetica is WinAnsi-only and threw on every Arabic glyph, breaking every PDF generation in v4.4.12. Footer now strips non-WinAnsi characters from infoText before drawText (Latin-only on per-page footers; the cover page HTML footer continues to render Arabic correctly via LibreOffice + Noto fonts).
+- **C-4 line totals always zero.** Quotation parser position regex did not match codes with digits before the hyphen (e.g., D1-01 from real Orgadata exports). Broadened from `[A-Z]+-` to `[A-Z]+\d*-`. Codex Audit 3.1 validated against 3 independent real customer files.
+- **C-6 position count always zero.** Derived from position regex matches; resolved by the same fix as C-4.
+- **QR HTML contract report bilingual mix.** ContractPage rendered both Arabic and English template blocks together. Now reads `?lang=ar|en` via wouter's `useSearch` and conditionally renders only the matching language. Frontend gained two buttons (View Arabic / View English).
+- **Contract preview included drawing pages from parsed section data.** Per user complaint that the preview "includes many sections that should not be included." Drawings removed from contract preview; drawings remain in the Files tab.
+
+### Added
+- 3 anonymized quotation test fixtures in `artifacts/api-server/test-fixtures/` covering aFChunk-augmented exports, D1-01 position-code style, and split-run formatting.
+- 2 new i18n keys (`contract_html_view_ar`, `contract_html_view_en`) in both English and Arabic blocks.
+- `?lang=ar|en` query parameter handling on the contract HTML preview.
+
+### Changed
+- Quotation parser test updated to reference `quotation-fixture-3-rose-villa.docx` and extended with a D1-01 test case. Test file typechecks cleanly; runner will be wired up in a future release.
+
+### Investigated, not changed
+- **C-5 quotation number unfilled.** Codex Audit 3.1 could not reproduce on any of 3 real Orgadata files; existing regex succeeds on all three including the split-run Sample 3. Will reopen if real-world reports persist.
+
+### Notes
+- Per-page contract PDF footer renders ASCII-only company info. Full Arabic per-page rendering requires @pdf-lib/fontkit + Arabic shaping library; deferred to v4.4.14+.
+- No database migrations.
+- No backend route or schema changes.
+- The contract PDF cover page (added in v4.4.12) is unchanged.
+- Sample 1's aFChunk/RTF structure is preserved by the parser today but represents long-term technical debt.
+
+---
+
 ## v4.4.12 — Contract PDF: crash fix + structural rewrite + dual-language
 
 **Date:** 2026-05-10

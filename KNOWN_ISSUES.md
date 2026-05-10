@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-10 — v4.4.12: H-6 resolved (LibreOffice profile isolation + CSS Grid fix + font stack); C-9 added
+> **Last updated:** 2026-05-11 — v4.4.13: C-4/C-6 resolved (position regex); C-9 narrowed (parser piece resolved, signer schema still open); C-10 added; v4.4.13 resolutions block added
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -455,18 +455,46 @@ This is low-effort to fix but should happen at the same time as the extractor de
 
 ---
 
-## C-9 — Contract PDF: parser-derived fields blank, signature signer fields blank
+## C-9 — Contract PDF: signature signer fields blank
 
-**Severity:** Medium
-**Status:** Identified — v4.4.13+ work
+**Severity:** Low
+**Status:** Partially resolved — v4.4.13 fixed position/line-total fields; signer schema still open
 **First observed:** 2026-05-10 (after v4.4.12 ship)
 
-After v4.4.12, contract PDF generation works end-to-end. Two field categories still render as visible em-dashes/empty lines:
+After v4.4.12, contract PDF generation works end-to-end but two field categories rendered as em-dashes/empty lines. v4.4.13 status:
 
-1. quotationNumber / quotationDate — parser bug C-5/C-6.
-2. Signature signer fields — no DB schema yet.
+1. quotationNumber / quotationDate — C-6 (position count = 0) resolved by position regex broadening. C-5 (quotationNumber unfilled) investigated against 3 real samples; could not reproduce — existing regex succeeds on all three. Will reopen if production reports persist.
+2. Signature signer fields — no DB schema yet. Still renders as placeholder lines.
 
-Neither is a runtime failure; both are visible placeholders.
+Remaining work: add signer name/title fields to DB schema and wire into contract generator.
+
+---
+
+## v4.4.13 resolutions — production hotfix and parser improvements
+
+**Date:** 2026-05-11
+
+The following issues were resolved or investigated in v4.4.13:
+
+- **PDF generation 500 (stampFooter):** stripNonWinAnsi added. Latin-only per-page footer; cover page Arabic unaffected.
+- **Line totals = 0 (C-4):** Position regex broadened from `[A-Z]+-` to `[A-Z]+\d*-`. Validated against 3 real Orgadata samples by Codex Audit 3.1.
+- **Position count = 0 (C-6):** Same root cause as C-4; resolved by same fix.
+- **QR HTML report bilingual mix:** Split into language-specific renderers via wouter `useSearch` reading `?lang=`. Drawing pages removed.
+- **Quotation number unfilled (C-5):** Investigated against 3 real samples; could not reproduce. Existing regex succeeds. Will reopen if production reports persist.
+
+---
+
+## C-10 — Contract PDF per-page footer is ASCII-only
+
+**Severity:** Low
+**Status:** Identified — v4.4.14+ scope
+**First observed:** 2026-05-11 (introduced by v4.4.13 stampFooter fix)
+
+After v4.4.13, the per-page footer on merged contract pages strips non-WinAnsi characters before drawText. Arabic company names render as empty strings in per-page footers. CR/VAT/Tel render in ASCII. The cover page HTML footer (rendered by LibreOffice with Noto fonts) is unaffected and shows Arabic correctly.
+
+To render Arabic in per-page footers: add @pdf-lib/fontkit, read TTF from /usr/share/fonts/truetype/noto/, add harfbuzzjs for shaping, implement BiDi reordering. Codex Audit 1 confirmed embedding TTF alone (without shaping) produces disconnected glyphs — unprofessional. Deferred until shaping can be properly validated.
+
+Alternative: drop pdf-lib stamping; have LibreOffice render full multi-page contract with HTML footers.
 
 ---
 
