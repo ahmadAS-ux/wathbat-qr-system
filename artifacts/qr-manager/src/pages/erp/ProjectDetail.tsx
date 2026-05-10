@@ -1915,14 +1915,24 @@ export default function ErpProjectDetail() {
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => navigate(`/erp/projects/${id}/contract`)}
-                disabled={!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
-              >
-                <FileText className="w-4 h-4" />
-                {t('contract_generate_button')}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigate(`/erp/projects/${id}/contract?lang=ar`)}
+                  disabled={!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation')}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  <FileText className="w-4 h-4" />
+                  {t('contract_html_view_ar')}
+                </button>
+                <button
+                  onClick={() => navigate(`/erp/projects/${id}/contract?lang=en`)}
+                  disabled={!project?.files?.some(f => f.fileType === 'price_quotation' || f.fileType === 'quotation')}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-[#141A24] text-white rounded-xl hover:bg-[#0B1019] disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  <FileText className="w-4 h-4" />
+                  {t('contract_html_view_en')}
+                </button>
+              </div>
             </div>
 
             {/* Issue list */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useRoute } from 'wouter';
+import { useLocation, useRoute, useSearch } from 'wouter';
 import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api-base';
 import { checkContractIntegrity, renderPlaceholders, type IntegrityReport } from './contract-integrity';
@@ -37,7 +37,7 @@ const PRINT_STYLE = `
     page-break-after: always;
   }
   .contract-page:last-child { page-break-after: auto; }
-  tr, .drawing-figure { page-break-inside: avoid; }
+  tr { page-break-inside: avoid; }
   thead { display: table-header-group; }
 }
 .contract-page {
@@ -68,9 +68,6 @@ const PRINT_STYLE = `
 }
 .positions-table .totals-row td { font-weight: 700; background: #fafafa; }
 .positions-table .grand-total-row td { font-weight: 700; font-size: 11pt; background: #eaeaea; }
-.drawing-figure { width: 100%; max-width: 174mm; margin: 0 auto; text-align: center; }
-.drawing-figure img { max-width: 100%; max-height: 240mm; object-fit: contain; }
-.drawing-header { font-size: 11pt; font-weight: 600; margin-bottom: 6mm; text-align: start; }
 `;
 
 function formatDate(dateStr: string): string {
@@ -104,6 +101,10 @@ export default function ContractPage() {
   const [, params] = useRoute('/erp/projects/:id/contract');
   const [, navigate] = useLocation();
   const id = params?.id;
+  const searchString = useSearch();
+  const langParam = new URLSearchParams(searchString).get('lang');
+  const contractLang: 'ar' | 'en' =
+    langParam === 'ar' || langParam === 'en' ? langParam : (isRtl ? 'ar' : 'en');
 
   const [data, setData] = useState<ContractData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -433,14 +434,14 @@ export default function ContractPage() {
           </div>
 
           {/* Cover intro Arabic */}
-          {rendered?.introAr && (
+          {contractLang === 'ar' && rendered?.introAr && (
             <div style={{ whiteSpace: 'pre-wrap', fontSize: '11pt', lineHeight: 1.8, fontFamily: 'Tajawal, sans-serif', marginBottom: '6mm' }} dir="rtl">
               {rendered.introAr}
             </div>
           )}
 
           {/* Cover intro English */}
-          {rendered?.introEn && (
+          {contractLang === 'en' && rendered?.introEn && (
             <div style={{ whiteSpace: 'pre-wrap', fontSize: '10pt', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif", color: '#333', marginTop: '6mm' }} dir="ltr">
               {rendered.introEn}
             </div>
@@ -514,32 +515,10 @@ export default function ContractPage() {
           )}
         </div>
 
-        {/* PAGES 3..N: Drawings */}
-        {data.drawings.map((drawing, idx) => {
-          const matchedPosition = positions[idx];
-          const headerLabel = drawing.positionCode
-            ? `${t('contract_position')}: ${drawing.positionCode}`
-            : matchedPosition?.position
-              ? `${t('contract_position')}: ${matchedPosition.position}`
-              : `${t('contract_drawing')} ${drawing.orderIndex + 1}`;
-
-          return (
-            <div key={drawing.id} className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
-              <div className="drawing-header">{headerLabel}</div>
-              <figure className="drawing-figure">
-                <img
-                  src={`data:${drawing.mimeType};base64,${drawing.imageDataB64}`}
-                  alt={`Drawing ${drawing.orderIndex + 1}`}
-                />
-              </figure>
-            </div>
-          );
-        })}
-
-        {/* PAGE N+1: Terms + Signatures */}
+        {/* Terms + Signatures */}
         <div className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
           {/* Terms Arabic */}
-          {rendered?.termsAr && (
+          {contractLang === 'ar' && rendered?.termsAr && (
             <div style={{ marginBottom: '8mm' }} dir="rtl">
               <h2 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: '4mm', fontFamily: 'Tajawal, sans-serif' }}>
                 {t('contract_terms_heading')}
@@ -551,7 +530,7 @@ export default function ContractPage() {
           )}
 
           {/* Terms English */}
-          {rendered?.termsEn && (
+          {contractLang === 'en' && rendered?.termsEn && (
             <div style={{ marginBottom: '8mm' }} dir="ltr">
               <h2 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: '4mm', fontFamily: "'DM Sans', sans-serif" }}>
                 {t('contract_terms_heading')}
@@ -563,14 +542,14 @@ export default function ContractPage() {
           )}
 
           {/* Signature block Arabic */}
-          {rendered?.sigAr && (
+          {contractLang === 'ar' && rendered?.sigAr && (
             <div style={{ marginTop: '12mm', whiteSpace: 'pre-wrap', fontSize: '10pt', lineHeight: 2.2, fontFamily: 'Tajawal, sans-serif' }} dir="rtl">
               {rendered.sigAr}
             </div>
           )}
 
           {/* Signature block English */}
-          {rendered?.sigEn && (
+          {contractLang === 'en' && rendered?.sigEn && (
             <div style={{ marginTop: '8mm', whiteSpace: 'pre-wrap', fontSize: '10pt', lineHeight: 2.2, fontFamily: "'DM Sans', sans-serif" }} dir="ltr">
               {rendered.sigEn}
             </div>
