@@ -51,3 +51,11 @@ Thumbs.db
 # Claude Code settings
 .claude/
 settings.local.json
+
+# Local sample files â€” never commit (contain real customer data)
+Documents samples/
+sample_*.docx
+quotation_sample_*.docx
+*-CONFIDENTIAL.docx
+*-PRIVATE.docx
+~$*.docx
