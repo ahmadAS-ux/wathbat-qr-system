@@ -43,6 +43,7 @@ export async function extractDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
 function runLibreOffice(inputPath: string, outDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const args = [
+      `-env:UserInstallation=file://${outDir}/profile`,
       "--headless",
       "--nologo",
       "--nodefault",
