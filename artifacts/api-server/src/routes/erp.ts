@@ -2887,16 +2887,40 @@ router.get('/erp/settings/company-logo', async (_req: Request, res: Response) =>
 
 // ─── PDF CONTRACT GENERATION (v4.3.1) ─────────────────────────────────────────
 
+function formatSaudiPhone(e164: string): string {
+  if (!e164) return '';
+  if (e164.startsWith('+966')) {
+    const local = '0' + e164.slice(4);
+    if (local.length === 10) {
+      return `${local.slice(0, 3)} ${local.slice(3, 7)} ${local.slice(7)}`;
+    }
+  }
+  return e164;
+}
+
+function formatContractNumber(id: number, year: number): string {
+  return `WTH-${year}-${String(id).padStart(4, '0')}`;
+}
+
 // POST /erp/projects/:id/contracts/generate — Admin/FM only, generates PDF contract
 router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), async (req: Request, res: Response) => {
   try {
     const projectId = Number(req.params.id);
     if (Number.isNaN(projectId)) return notFound(res);
+    const language: 'ar' | 'en' = req.query['lang'] === 'en' ? 'en' : 'ar';
     const sess = (req as any).session as { userId: number };
 
-    // Fetch project + customer name via join
+    // Fetch project + customer details via join
     const [project] = await db
-      .select({ id: projectsTable.id, name: projectsTable.name, customerName: customersTable.name })
+      .select({
+        id: projectsTable.id,
+        name: projectsTable.name,
+        code: projectsTable.code,
+        customerName: customersTable.name,
+        customerPhone: customersTable.phone,
+        customerEmail: customersTable.email,
+        customerLocation: customersTable.location,
+      })
       .from(projectsTable)
       .leftJoin(customersTable, eq(projectsTable.customerId, customersTable.id))
       .where(eq(projectsTable.id, projectId));
@@ -2904,7 +2928,11 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
 
     // Validate active quotation file exists
     const [quotationFile] = await db
-      .select({ id: projectFilesTable.id, content: projectFilesTable.fileData })
+      .select({
+        id: projectFilesTable.id,
+        content: projectFilesTable.fileData,
+        originalName: projectFilesTable.originalFilename,
+      })
       .from(projectFilesTable)
       .where(and(
         eq(projectFilesTable.projectId, projectId),
@@ -2948,7 +2976,14 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
     }
 
     const companyInfoSnapshot = { ...settingsMap };
-    const templateSnapshot = { ...templateMap };
+    const templateSnapshot = { ...templateMap, language };
+
+    // Load payment milestones
+    const milestoneRows = await db
+      .select()
+      .from(paymentMilestonesTable)
+      .where(eq(paymentMilestonesTable.projectId, projectId))
+      .orderBy(asc(paymentMilestonesTable.id));
 
     // Insert a pending contract row first (for audit trail even on failure)
     const [contractRow] = await db
@@ -2966,24 +3001,59 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
     try {
       const pdfBuffer = await generateContractPdf(
         Buffer.from(quotationFile.content as unknown as Buffer),
-        {
-          companyName: settingsMap['company_name'] ?? '',
-          companyAddress: settingsMap['company_address'] ?? '',
-          companyCr: settingsMap['company_cr'] ?? '',
-          companyVat: settingsMap['company_vat'] ?? '',
-          companyPhone: settingsMap['company_phone'] ?? '',
-          logoBase64,
-          logoMime,
-          projectName: project.name,
-          customerName: project.customerName ?? '',
-          generatedDate: new Date().toISOString().split('T')[0]!,
-          coverIntroAr: templateMap['contract_cover_intro_ar'] ?? '',
-          coverIntroEn: templateMap['contract_cover_intro_en'] ?? '',
-          termsAr: templateMap['contract_terms_ar'] ?? '',
-          termsEn: templateMap['contract_terms_en'] ?? '',
-          signatureBlockAr: templateMap['contract_signature_block_ar'] ?? '',
-          signatureBlockEn: templateMap['contract_signature_block_en'] ?? '',
-        },
+        (() => {
+          const now = new Date();
+          const todayIso = now.toISOString().split('T')[0]!;
+          return {
+            // Output language
+            language,
+
+            // Company
+            companyName: settingsMap['company_name'] ?? '',
+            companyAddress: settingsMap['company_address'] ?? '',
+            companyCr: settingsMap['company_cr'] ?? '',
+            companyVat: settingsMap['company_vat'] ?? '',
+            companyPhone: settingsMap['company_phone'] ?? '',
+            logoBase64,
+            logoMime,
+
+            // Project
+            projectName: project.name,
+            projectCode: project.code ?? '',
+
+            // Customer
+            customerName: project.customerName ?? '',
+            customerPhone: formatSaudiPhone(project.customerPhone ?? ''),
+            customerEmail: project.customerEmail ?? '',
+            customerLocation: project.customerLocation ?? '',
+
+            // Contract metadata
+            contractNumber: formatContractNumber(contractRow.id, now.getFullYear()),
+            contractDate: todayIso,
+            generatedDate: todayIso,
+            quotationNumber: '',
+            quotationDate: '',
+            quotationFileName: quotationFile.originalName ?? '',
+
+            // Template content
+            coverIntroAr: templateMap['contract_cover_intro_ar'] ?? '',
+            coverIntroEn: templateMap['contract_cover_intro_en'] ?? '',
+            termsAr: templateMap['contract_terms_ar'] ?? '',
+            termsEn: templateMap['contract_terms_en'] ?? '',
+            signatureBlockAr: templateMap['contract_signature_block_ar'] ?? '',
+            signatureBlockEn: templateMap['contract_signature_block_en'] ?? '',
+
+            // Milestones
+            milestones: milestoneRows.map((m, idx) => ({
+              index: idx + 1,
+              label: m.label,
+              percentage: m.percentage,
+              amount: m.amount,
+              dueDate: m.dueDate,
+              status: m.status ?? 'pending',
+            })),
+          };
+        })(),
       );
 
       const [updated] = await db

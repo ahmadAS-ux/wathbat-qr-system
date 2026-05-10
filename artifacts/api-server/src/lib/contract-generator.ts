@@ -2,7 +2,20 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { extractDocxToPdf } from "./docx-extractor.js";
 import { htmlToPdf } from "./html-to-pdf.js";
 
-interface ContractData {
+export interface ContractMilestone {
+  index: number;
+  label: string;
+  percentage: number | null;
+  amount: number | null;
+  dueDate: string | null;
+  status: string;
+}
+
+export interface ContractData {
+  // Output language: 'ar' or 'en'
+  language: 'ar' | 'en';
+
+  // Company info
   companyName: string;
   companyAddress: string;
   companyCr: string;
@@ -10,15 +23,35 @@ interface ContractData {
   companyPhone: string;
   logoBase64?: string;
   logoMime?: string;
+
+  // Project
   projectName: string;
+  projectCode: string;
+
+  // Customer
   customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerLocation: string;
+
+  // Contract metadata
+  contractNumber: string;
+  contractDate: string;
   generatedDate: string;
+  quotationNumber: string;
+  quotationDate: string;
+  quotationFileName: string;
+
+  // Template content
   coverIntroAr: string;
   coverIntroEn: string;
   termsAr: string;
   termsEn: string;
   signatureBlockAr: string;
   signatureBlockEn: string;
+
+  // Payment milestones (may be empty)
+  milestones: ContractMilestone[];
 }
 
 function escHtml(s: string): string {
@@ -30,6 +63,7 @@ export function buildCoverHtml(data: ContractData): Buffer {
     ? `<img src="data:${data.logoMime};base64,${data.logoBase64}" style="max-height:80px;max-width:200px;object-fit:contain;" />`
     : "";
 
+  void data.language;  // sub-commit 4 will use this
   const html = `<!DOCTYPE html>
 <html lang="ar">
 <head>
