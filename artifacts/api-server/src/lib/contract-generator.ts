@@ -638,6 +638,11 @@ function buildCoverHtmlEn(data: ContractData): Buffer {
   return Buffer.from(html, 'utf-8');
 }
 
+function stripNonWinAnsi(s: string): string {
+  // Keep: tabs, newlines, CR, and basic ASCII + Latin-1 supplement (U+00A0..U+00FF)
+  return s.replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '').trim();
+}
+
 async function stampFooter(
   pdfBuffer: Buffer,
   data: ContractData,
@@ -665,14 +670,14 @@ async function stampFooter(
     }
   }
 
-  const infoText = [
+  const infoText = stripNonWinAnsi([
     data.companyName,
     data.companyCr ? `CR: ${data.companyCr}` : null,
     data.companyVat ? `VAT: ${data.companyVat}` : null,
     data.companyPhone ? `Tel: ${data.companyPhone}` : null,
   ]
     .filter(Boolean)
-    .join("  |  ");
+    .join("  |  "));
 
   for (let i = 0; i < totalPages; i++) {
     const page = doc.getPage(i);
@@ -687,13 +692,15 @@ async function stampFooter(
       color: lineColor,
     });
 
-    page.drawText(infoText, {
-      x: 36,
-      y: footerY,
-      size: fontSize,
-      font,
-      color: footerColor,
-    });
+    if (infoText.length > 0) {
+      page.drawText(infoText, {
+        x: 36,
+        y: footerY,
+        size: fontSize,
+        font,
+        color: footerColor,
+      });
+    }
 
     page.drawText(pageLabel, {
       x: width - 36 - pageLabelWidth,
