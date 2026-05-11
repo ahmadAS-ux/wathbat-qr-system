@@ -134,19 +134,6 @@ export function checkContractIntegrity(data: {
     }
   }
 
-  // 🟡 Warning: position count vs drawing count mismatch
-  if (data.quotation && data.drawings.length > 0) {
-    const posCount = (data.quotation.positions || []).length;
-    if (posCount !== data.drawings.length) {
-      issues.push({
-        severity: 'warning',
-        code: 'POSITION_DRAWING_COUNT_MISMATCH',
-        messageAr: `عدد البنود (${posCount}) لا يساوي عدد الرسومات (${data.drawings.length})`,
-        messageEn: `Position count (${posCount}) differs from drawing count (${data.drawings.length})`,
-      });
-    }
-  }
-
   const hasError = issues.some(i => i.severity === 'error');
   const hasWarning = issues.some(i => i.severity === 'warning');
   const overall = hasError ? 'red' : hasWarning ? 'amber' : 'green';
