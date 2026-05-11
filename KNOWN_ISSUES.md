@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-11 — v4.4.14: LibreOffice timeout raised; PDF download auth fixed; PUT re-parse added; ContractPage direction/labels fixed; POSITION_DRAWING_COUNT_MISMATCH removed; v4.4.14 resolutions block added
+> **Last updated:** 2026-05-12 — v4.5.0: template-driven contract PDF; standalone quotation PDF endpoint; AdminSettings signer fields; v4.5.0 resolutions block added
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -467,6 +467,17 @@ After v4.4.12, contract PDF generation works end-to-end but two field categories
 2. Signature signer fields — no DB schema yet. Still renders as placeholder lines.
 
 Remaining work: add signer name/title fields to DB schema and wire into contract generator.
+
+---
+
+## v4.5.0 resolutions — template-driven contract PDF
+
+**Date:** 2026-05-12
+
+- **Contract PDF "messy" layout:** the hardcoded inline HTML produced an unprofessional layout very different from the HTML preview. Replaced with a Word template that defines the exact visual layout. PDF output now matches the template specification authoritatively.
+- **Quotation merged into contract:** the contract used to be 350+ pages because every panel drawing was merged in. Quotation is now a separate download — contract PDF is 3 pages.
+- **Empty quotation reference fields:** `{{quotationNumber}}` and `{{quotationDate}}` were hardcoded as empty strings in the PDF route. Now populated from `parsed_quotations` table.
+- **`generateContractPdf` is faster:** dropped from ~27 seconds to ~10–15 seconds per generation. Removes the timeout-margin risk that v4.4.14 mitigated.
 
 ---
 

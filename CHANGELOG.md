@@ -4,6 +4,32 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.5.0 — Template-driven contract PDF + standalone quotation PDF
+
+**Date:** 2026-05-12
+
+### Added
+- **Contract PDF now renders from a Word template** (`wathbah_contract_template_AR.docx` / `wathbah_contract_template_EN.docx`). Visual layout lives entirely in the .docx files — non-technical layout changes happen in Word, not code. Uses docxtemplater for placeholder substitution and `{{#each milestones}}` loop expansion.
+- **Standalone Quotation PDF download.** New endpoint `GET /api/erp/projects/:id/quotation-pdf` converts the active quotation `.docx` to PDF on demand. New "Download Quotation PDF" button on the project Contract section.
+- **Three new AdminSettings fields** for contract metadata: Commercial Registration Number, Authorized Signatory Name, Authorized Signatory Title. Stored as system_settings keys `company_cr_number`, `company_signer_name`, `company_signer_role`.
+
+### Changed
+- **Contract PDF no longer merges the quotation .docx** as appendix pages. Quotation is now a separate download. Customer chooses what to view.
+- **Contract PDF generation is faster.** One LibreOffice conversion (template) instead of two (template + quotation merge). Expected drop from ~27s to ~10-15s.
+- **`generateContractPdf` signature refactored** to `(ContractRenderData, lang, StampData) → Buffer`. `stampFooter` now accepts a minimal `StampData` interface instead of the full old `ContractData`.
+
+### Removed
+- ~500 lines of hardcoded inline HTML from `contract-generator.ts` (`buildCoverHtml`, `buildCoverHtmlAr`, `buildCoverHtmlEn` and their helpers).
+- pdf-lib merge step for the quotation appendix.
+
+### Notes
+- No database migrations.
+- New dependencies: `docxtemplater@^3.60.2`, `pizzip@^3.1.7`.
+- Existing contracts in the DB are read-only — they retain their original PDF format. Only newly generated contracts after this deploy use the template.
+- HTML browser preview (`ContractPage.tsx`) is unchanged. Slight visual divergence from the downloaded PDF is acceptable; future work may unify them.
+
+---
+
 ## v4.4.14 — PDF stability + auth fix + parser sync + bilingual contract
 
 **Date:** 2026-05-11
