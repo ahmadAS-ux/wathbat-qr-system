@@ -52,7 +52,8 @@ import { extractOrgadataMetadata } from "../lib/orgadata.js";
 import { findFuzzyMatches } from "../lib/fuzzy-match.js";
 import { normalizePhoneToE164, isPhoneShaped } from "../lib/phone.js";
 import { extractDocxToPdf } from "../lib/docx-extractor.js";
-import { generateContractPdf } from "../lib/contract-generator.js";
+import { generateContractPdf, StampData } from "../lib/contract-generator.js";
+import { ContractRenderData } from "../lib/contract-renderer.js";
 
 const router: IRouter = Router();
 
@@ -2931,20 +2932,16 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
       .where(eq(projectsTable.id, projectId));
     if (!project) return notFound(res);
 
-    // Validate active quotation file exists
+    // Validate active quotation file exists (we only need the id for the FK)
     const [quotationFile] = await db
-      .select({
-        id: projectFilesTable.id,
-        content: projectFilesTable.fileData,
-        originalName: projectFilesTable.originalFilename,
-      })
+      .select({ id: projectFilesTable.id })
       .from(projectFilesTable)
       .where(and(
         eq(projectFilesTable.projectId, projectId),
         eq(projectFilesTable.fileType, 'quotation'),
         eq(projectFilesTable.isActive, true),
       ));
-    if (!quotationFile || !quotationFile.content) {
+    if (!quotationFile) {
       return res.status(400).json({ error: 'No active quotation file found for this project' });
     }
 
@@ -2960,13 +2957,15 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
       return res.status(400).json({ error: `Company info incomplete: ${missingKeys.join(', ')}` });
     }
 
-    // Fetch template fields
-    const TEMPLATE_KEYS = ['contract_cover_intro_ar', 'contract_cover_intro_en', 'contract_terms_ar', 'contract_terms_en', 'contract_signature_block_ar', 'contract_signature_block_en'];
+    // Fetch all contract template settings (including new signer + CR keys)
     const templateRows = await db
       .select({ key: systemSettings.key, value: systemSettings.value })
       .from(systemSettings)
-      .where(inArray(systemSettings.key, TEMPLATE_KEYS));
-    const templateMap = Object.fromEntries(templateRows.map(s => [s.key, s.value ?? '']));
+      .where(inArray(systemSettings.key, [...CONTRACT_TEMPLATE_KEYS]));
+    const allSettings: Record<string, string> = {
+      ...settingsMap,
+      ...Object.fromEntries(templateRows.map(s => [s.key, s.value ?? ''])),
+    };
 
     // Fetch company logo (optional)
     let logoBase64: string | undefined;
@@ -2981,7 +2980,7 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
     }
 
     const companyInfoSnapshot = { ...settingsMap };
-    const templateSnapshot = { ...templateMap, language };
+    const templateSnapshot = { ...allSettings, language };
 
     // Load payment milestones
     const milestoneRows = await db
@@ -2989,6 +2988,16 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
       .from(paymentMilestonesTable)
       .where(eq(paymentMilestonesTable.projectId, projectId))
       .orderBy(asc(paymentMilestonesTable.id));
+
+    // Load parsed quotation for quotationNumber + quotationDate (F4)
+    const [parsedQ] = await db
+      .select({
+        quotationNumber: parsedQuotationsTable.quotationNumber,
+        quotationDate: parsedQuotationsTable.quotationDate,
+      })
+      .from(parsedQuotationsTable)
+      .where(eq(parsedQuotationsTable.projectId, projectId))
+      .limit(1);
 
     // Insert a pending contract row first (for audit trail even on failure)
     const [contractRow] = await db
@@ -3004,62 +3013,46 @@ router.post('/erp/projects/:id/contracts/generate', requireRole(...ADMIN_FM), as
       .returning();
 
     try {
-      const pdfBuffer = await generateContractPdf(
-        Buffer.from(quotationFile.content as unknown as Buffer),
-        (() => {
-          const now = new Date();
-          const todayIso = now.toISOString().split('T')[0]!;
-          return {
-            // Output language
-            language,
+      const now = new Date();
+      const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
-            // Company
-            companyName: settingsMap['company_name'] ?? '',
-            companyAddress: settingsMap['company_address'] ?? '',
-            companyCr: settingsMap['company_cr'] ?? '',
-            companyVat: settingsMap['company_vat'] ?? '',
-            companyPhone: settingsMap['company_phone'] ?? '',
-            logoBase64,
-            logoMime,
+      const renderData: ContractRenderData = {
+        contractNumber: formatContractNumber(contractRow.id, now.getFullYear()),
+        contractDate: todayStr,
+        projectCode: project.code ?? '',
+        projectName: project.name,
+        customerName: project.customerName ?? '',
+        customerPhone: formatSaudiPhone(project.customerPhone ?? ''),
+        customerEmail: project.customerEmail ?? '',
+        customerLocation: project.customerLocation ?? '',
+        quotationNumber: parsedQ?.quotationNumber ?? '',
+        quotationDate: parsedQ?.quotationDate ?? '',
+        milestones: milestoneRows.map((m, i) => ({
+          index: i + 1,
+          label: m.label,
+          percent: m.percentage ?? 0,
+          amount: m.amount ?? 0,
+        })),
+        companyCRNumber: allSettings['company_cr_number'] ?? '',
+        coverIntroAr: allSettings['contract_cover_intro_ar'] ?? '',
+        coverIntroEn: allSettings['contract_cover_intro_en'] ?? '',
+        termsAr: allSettings['contract_terms_ar'] ?? '',
+        termsEn: allSettings['contract_terms_en'] ?? '',
+        companySignerName: allSettings['company_signer_name'] ?? '',
+        companySignerRole: allSettings['company_signer_role'] ?? '',
+        companySignDate: todayStr,
+      };
 
-            // Project
-            projectName: project.name,
-            projectCode: project.code ?? '',
+      const stamp: StampData = {
+        companyName: settingsMap['company_name'] ?? '',
+        companyPhone: settingsMap['company_phone'] ?? '',
+        companyCr: settingsMap['company_cr'] ?? '',
+        companyVat: settingsMap['company_vat'] ?? '',
+        logoBase64,
+        logoMime,
+      };
 
-            // Customer
-            customerName: project.customerName ?? '',
-            customerPhone: formatSaudiPhone(project.customerPhone ?? ''),
-            customerEmail: project.customerEmail ?? '',
-            customerLocation: project.customerLocation ?? '',
-
-            // Contract metadata
-            contractNumber: formatContractNumber(contractRow.id, now.getFullYear()),
-            contractDate: todayIso,
-            generatedDate: todayIso,
-            quotationNumber: '',
-            quotationDate: '',
-            quotationFileName: quotationFile.originalName ?? '',
-
-            // Template content
-            coverIntroAr: templateMap['contract_cover_intro_ar'] ?? '',
-            coverIntroEn: templateMap['contract_cover_intro_en'] ?? '',
-            termsAr: templateMap['contract_terms_ar'] ?? '',
-            termsEn: templateMap['contract_terms_en'] ?? '',
-            signatureBlockAr: templateMap['contract_signature_block_ar'] ?? '',
-            signatureBlockEn: templateMap['contract_signature_block_en'] ?? '',
-
-            // Milestones
-            milestones: milestoneRows.map((m, idx) => ({
-              index: idx + 1,
-              label: m.label,
-              percentage: m.percentage,
-              amount: m.amount,
-              dueDate: m.dueDate,
-              status: m.status ?? 'pending',
-            })),
-          };
-        })(),
-      );
+      const pdfBuffer = await generateContractPdf(renderData, language, stamp);
 
       const [updated] = await db
         .update(contractsTable)
@@ -3101,6 +3094,47 @@ router.get('/erp/projects/:id/contracts', requireRole('Admin', 'FactoryManager',
     res.status(500).json({ error: 'Internal error' });
   }
 });
+
+// GET /erp/projects/:id/quotation-pdf — convert active quotation .docx to PDF on demand
+router.get(
+  '/erp/projects/:id/quotation-pdf',
+  requireRole('Admin', 'FactoryManager', 'SalesAgent', 'Accountant'),
+  async (req: Request, res: Response) => {
+    try {
+      const projectId = Number(req.params.id);
+      if (Number.isNaN(projectId)) {
+        return res.status(400).json({ error: 'Invalid project id' });
+      }
+
+      const [file] = await db
+        .select({ fileData: projectFilesTable.fileData })
+        .from(projectFilesTable)
+        .where(
+          and(
+            eq(projectFilesTable.projectId, projectId),
+            eq(projectFilesTable.fileType, 'quotation'),
+            eq(projectFilesTable.isActive, true),
+          ),
+        )
+        .limit(1);
+
+      if (!file?.fileData) {
+        return res.status(404).json({ error: 'No active quotation file' });
+      }
+
+      const pdfBuffer = await extractDocxToPdf(Buffer.from(file.fileData as unknown as Buffer));
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="quotation-project-${projectId}.pdf"`,
+      );
+      return res.send(pdfBuffer);
+    } catch (err) {
+      logger.error({ err }, 'GET /erp/projects/:id/quotation-pdf failed');
+      return res.status(500).json({ error: 'Quotation PDF generation failed' });
+    }
+  },
+);
 
 // POST /erp/contracts/:id/token — Admin/FM only, generate 30-day public access token
 router.post('/erp/contracts/:id/token', requireRole(...ADMIN_FM), async (req: Request, res: Response) => {

@@ -1982,6 +1982,33 @@ export default function ErpProjectDetail() {
                   <FileDown className="w-4 h-4" />
                   {pdfContractGeneratingLang === 'en' ? t('contract_pdf_generating_en') : t('contract_pdf_generate_en')}
                 </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const resp = await fetch(`${API_BASE}/api/erp/projects/${project.id}/quotation-pdf`);
+                      if (!resp.ok) {
+                        console.error('Quotation PDF download failed:', resp.status);
+                        return;
+                      }
+                      const blob = await resp.blob();
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `quotation-project-${project.id}.pdf`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      console.error('Quotation PDF download error:', err);
+                    }
+                  }}
+                  disabled={!project?.files?.some(f => f.fileType === 'quotation' && f.isActive)}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-[#141A24] text-[#141A24] rounded-xl hover:bg-[#141A24] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${isRtl ? 'flex-row-reverse font-[Tajawal]' : ''}`}
+                >
+                  <FileDown className="w-4 h-4" />
+                  {t('contract_download_quotation_pdf')}
+                </button>
               </div>
               {pdfContractError && (
                 <p className={`text-sm text-red-600 mt-2 ${isRtl ? 'font-[Tajawal]' : ''}`}>{pdfContractError}</p>
