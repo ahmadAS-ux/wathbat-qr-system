@@ -5,7 +5,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 
 const LIBREOFFICE_BIN = process.env["LIBREOFFICE_BIN"] ?? "soffice";
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 90_000;
 
 export async function htmlToPdf(htmlBuffer: Buffer): Promise<Buffer> {
   const tmpDir = join(tmpdir(), `html-pdf-${randomUUID()}`);

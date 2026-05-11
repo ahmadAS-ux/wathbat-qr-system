@@ -5,7 +5,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 
 const LIBREOFFICE_BIN = process.env.LIBREOFFICE_BIN || "soffice";
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 90_000;
 
 /**
  * Converts a .docx buffer to a PDF buffer using LibreOffice headless.
@@ -63,7 +63,13 @@ function runLibreOffice(inputPath: string, outDir: string): Promise<void> {
 
     const timer = setTimeout(() => {
       proc.kill("SIGKILL");
-      reject(new Error(`LibreOffice conversion timed out after ${TIMEOUT_MS}ms`));
+      const out = Buffer.concat(stdout).toString("utf8").trim();
+      const err = Buffer.concat(stderr).toString("utf8").trim();
+      reject(
+        new Error(
+          `LibreOffice DOCX→PDF timed out after ${TIMEOUT_MS}ms. stdout: ${out.slice(0, 500)} stderr: ${err.slice(0, 2000)}`,
+        ),
+      );
     }, TIMEOUT_MS);
 
     proc.on("close", (code) => {
