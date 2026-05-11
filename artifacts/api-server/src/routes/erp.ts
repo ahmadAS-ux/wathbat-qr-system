@@ -2245,6 +2245,8 @@ router.put("/erp/projects/:id/files/:fileId", requireRole(...NO_SALES_NO_ACCT), 
       .where(eq(projectFilesTable.id, fileId))
       .returning();
 
+    await runParsersForFile(existing.fileType, uploadedFile.buffer, fileId, projectId);
+
     res.json({ id: updated.id, fileType: updated.fileType, originalFilename: updated.originalFilename, uploadedAt: updated.uploadedAt });
   } catch (err) {
     logger.error({ err }, 'PUT /erp/projects/:id/files/:fileId failed');
