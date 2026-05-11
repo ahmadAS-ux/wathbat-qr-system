@@ -1993,14 +1993,32 @@ export default function ErpProjectDetail() {
                       <div className={`flex items-center gap-3 text-sm flex-wrap ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <span className="text-slate-500">{c.generatedAt ? new Date(c.generatedAt).toLocaleString() : '—'}</span>
                         {c.status === 'generated' && (
-                          <a
-                            href={`${API_BASE}/api/erp/contracts/${c.id}/pdf`}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const resp = await fetch(`${API_BASE}/api/erp/contracts/${c.id}/pdf`);
+                                if (!resp.ok) {
+                                  setPdfContractError(t('contract_pdf_generate_error'));
+                                  return;
+                                }
+                                const blob = await resp.blob();
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `contract-${c.id}.pdf`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(url);
+                              } catch {
+                                setPdfContractError(t('contract_pdf_generate_error'));
+                              }
+                            }}
                             className={`text-[#141A24] underline font-medium hover:opacity-70 ${isRtl ? 'font-[Tajawal]' : ''}`}
                           >
                             {t('contract_pdf_download')}
-                          </a>
+                          </button>
                         )}
                       </div>
                       {/* Share public link — v4.3.2 / v4.3.4: URL now visible */}
