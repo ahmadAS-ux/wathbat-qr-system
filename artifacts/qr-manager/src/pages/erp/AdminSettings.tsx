@@ -11,6 +11,9 @@ const CONTRACT_KEYS = [
   'contract_terms_en',
   'contract_signature_block_ar',
   'contract_signature_block_en',
+  'company_cr_number',
+  'company_signer_name',
+  'company_signer_role',
 ] as const;
 type ContractKey = typeof CONTRACT_KEYS[number];
 
@@ -30,6 +33,9 @@ export default function AdminSettings() {
     contract_terms_en: '',
     contract_signature_block_ar: '',
     contract_signature_block_en: '',
+    company_cr_number: '',
+    company_signer_name: '',
+    company_signer_role: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -200,6 +206,45 @@ export default function AdminSettings() {
                 />
               </div>
             ))}
+
+            <div>
+              <label className={`block text-sm font-medium text-slate-700 mb-1.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('admin_company_cr_number_for_contracts')}
+              </label>
+              <input
+                dir="ltr"
+                type="text"
+                className={inputClass}
+                value={fields['company_cr_number']}
+                onChange={e => setFields(prev => ({ ...prev, company_cr_number: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium text-slate-700 mb-1.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('admin_company_signer_name')}
+              </label>
+              <input
+                dir={isRtl ? 'rtl' : 'ltr'}
+                type="text"
+                className={inputClass}
+                value={fields['company_signer_name']}
+                onChange={e => setFields(prev => ({ ...prev, company_signer_name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium text-slate-700 mb-1.5 ${isRtl ? 'font-[Tajawal]' : ''}`}>
+                {t('admin_company_signer_role')}
+              </label>
+              <input
+                dir={isRtl ? 'rtl' : 'ltr'}
+                type="text"
+                className={inputClass}
+                value={fields['company_signer_role']}
+                onChange={e => setFields(prev => ({ ...prev, company_signer_role: e.target.value }))}
+              />
+            </div>
 
             {error && (
               <p className={`text-sm text-red-600 ${isRtl ? 'font-[Tajawal]' : ''}`}>{error}</p>
