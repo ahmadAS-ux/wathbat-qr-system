@@ -24,6 +24,8 @@
     "pino": "^9",
     "pino-http": "^10",
     "qrcode": "^1.5.4",
+    "docxtemplater": "^3.60.2",
+    "pizzip": "^3.1.7",
     "string-similarity": "^4.0.4"
   },
   "devDependencies": {
