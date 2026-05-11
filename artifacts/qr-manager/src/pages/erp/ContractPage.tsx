@@ -97,7 +97,7 @@ interface ContractData {
 
 /* ─── Component ────────────────────────────────────────────────────────────── */
 export default function ContractPage() {
-  const { t, isRtl, language } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [, params] = useRoute('/erp/projects/:id/contract');
   const [, navigate] = useLocation();
   const id = params?.id;
@@ -105,6 +105,9 @@ export default function ContractPage() {
   const langParam = new URLSearchParams(searchString).get('lang');
   const contractLang: 'ar' | 'en' =
     langParam === 'ar' || langParam === 'en' ? langParam : (isRtl ? 'ar' : 'en');
+  const contractIsRtl = contractLang === 'ar';
+  const ct = (arText: string, enText: string): string =>
+    contractLang === 'ar' ? arText : enText;
 
   const [data, setData] = useState<ContractData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,7 +127,6 @@ export default function ContractPage() {
 
         const today = new Date();
         const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-        const lang = language;
         const values: Record<string, string | null | undefined> = {
           customerName: d.project?.customerName,
           projectName: d.project?.name,
@@ -136,7 +138,7 @@ export default function ContractPage() {
           taxRate: d.quotation?.taxRate ? `${d.quotation.taxRate}%` : null,
           taxAmount: d.quotation?.taxAmount ? `${d.quotation.taxAmount} SAR` : null,
           today: todayFormatted,
-          companyName: lang === 'ar' ? 'وثبة للألمنيوم' : 'Wathbah Aluminum',
+          companyName: contractLang === 'ar' ? 'وثبة للألمنيوم' : 'Wathbah Aluminum',
         };
 
         const rendered = {
@@ -183,7 +185,7 @@ export default function ContractPage() {
     taxRate: data.quotation?.taxRate ? `${data.quotation.taxRate}%` : null,
     taxAmount: data.quotation?.taxAmount ? `${data.quotation.taxAmount} SAR` : null,
     today: todayFormatted,
-    companyName: language === 'ar' ? 'وثبة للألمنيوم' : 'Wathbah Aluminum',
+    companyName: contractLang === 'ar' ? 'وثبة للألمنيوم' : 'Wathbah Aluminum',
   } : {};
 
   const rendered = data ? {
@@ -410,7 +412,7 @@ export default function ContractPage() {
       <div className="contract-print-bg py-6">
 
         {/* PAGE 1: Cover */}
-        <div className="contract-page" dir="rtl">
+        <div className="contract-page" dir={contractIsRtl ? 'rtl' : 'ltr'}>
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
             <img src={logo} alt="Wathbah" style={{ height: '50px', objectFit: 'contain' }} />
@@ -418,17 +420,17 @@ export default function ContractPage() {
 
           {/* Title */}
           <h1 style={{ textAlign: 'center', fontSize: '18pt', fontWeight: 700, color: '#1B2A4A', marginBottom: '6mm', fontFamily: 'Tajawal, sans-serif' }}>
-            {t('contract_title')}
+            {ct('عقد اتفاقية', 'Contract Agreement')}
           </h1>
 
           {/* Project / Customer info */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2mm', marginBottom: '8mm', fontSize: '11pt', fontFamily: 'Tajawal, sans-serif' }}>
             <div>
-              <span style={{ fontWeight: 700 }}>{t('contract_page_project')}: </span>
+              <span style={{ fontWeight: 700 }}>{ct('المشروع', 'Project')}: </span>
               <span dir="ltr" className="ltr">{data.project?.name}</span>
             </div>
             <div>
-              <span style={{ fontWeight: 700 }}>{t('contract_page_customer')}: </span>
+              <span style={{ fontWeight: 700 }}>{ct('العميل', 'Customer')}: </span>
               <span>{data.project?.customerName}</span>
             </div>
           </div>
@@ -449,15 +451,15 @@ export default function ContractPage() {
         </div>
 
         {/* PAGE 2: Positions Table */}
-        <div className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="contract-page" dir={contractIsRtl ? 'rtl' : 'ltr'}>
           {/* Header */}
           <div style={{ marginBottom: '4mm', fontFamily: 'Tajawal, sans-serif' }}>
             <div style={{ fontSize: '14pt', fontWeight: 700, color: '#1B2A4A', marginBottom: '3mm' }}>
-              {t('contract_page_project')}: <span dir="ltr" className="ltr">{data.project?.name}</span>
+              {ct('المشروع', 'Project')}: <span dir="ltr" className="ltr">{data.project?.name}</span>
             </div>
             <div style={{ display: 'flex', gap: '8mm', fontSize: '10pt', color: '#555' }}>
-              <span>{t('contract_page_quotation_no')}: <span dir="ltr" className="ltr">{data.quotation?.quotationNumber ?? '—'}</span></span>
-              <span>{t('contract_page_date')}: <span dir="ltr" className="ltr">{data.quotation?.quotationDate ?? todayFormatted}</span></span>
+              <span>{ct('رقم عرض السعر', 'Quotation No.')}: <span dir="ltr" className="ltr">{data.quotation?.quotationNumber ?? '—'}</span></span>
+              <span>{ct('التاريخ', 'Date')}: <span dir="ltr" className="ltr">{data.quotation?.quotationDate ?? todayFormatted}</span></span>
             </div>
           </div>
 
@@ -465,11 +467,11 @@ export default function ContractPage() {
             <table className="positions-table">
               <thead>
                 <tr>
-                  <th className="col-position">{t('contract_table_position')}</th>
-                  <th className="col-qty">{t('contract_table_quantity')}</th>
-                  <th className="col-desc">{t('contract_table_description')}</th>
-                  <th className="col-price">{t('contract_table_price')}</th>
-                  <th className="col-total">{t('contract_table_total')}</th>
+                  <th className="col-position">{ct('البند', 'Position')}</th>
+                  <th className="col-qty">{ct('الكمية', 'Quantity')}</th>
+                  <th className="col-desc">{ct('الوصف', 'Description')}</th>
+                  <th className="col-price">{ct('السعر (ر.س)', 'Price (SAR)')}</th>
+                  <th className="col-total">{ct('الإجمالي (ر.س)', 'Total (SAR)')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -516,12 +518,12 @@ export default function ContractPage() {
         </div>
 
         {/* Terms + Signatures */}
-        <div className="contract-page" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="contract-page" dir={contractIsRtl ? 'rtl' : 'ltr'}>
           {/* Terms Arabic */}
           {contractLang === 'ar' && rendered?.termsAr && (
             <div style={{ marginBottom: '8mm' }} dir="rtl">
               <h2 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: '4mm', fontFamily: 'Tajawal, sans-serif' }}>
-                {t('contract_terms_heading')}
+                {ct('الشروط والأحكام', 'Terms and Conditions')}
               </h2>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '10pt', lineHeight: 1.8, fontFamily: 'Tajawal, sans-serif' }}>
                 {rendered.termsAr}
@@ -533,7 +535,7 @@ export default function ContractPage() {
           {contractLang === 'en' && rendered?.termsEn && (
             <div style={{ marginBottom: '8mm' }} dir="ltr">
               <h2 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: '4mm', fontFamily: "'DM Sans', sans-serif" }}>
-                {t('contract_terms_heading')}
+                {ct('الشروط والأحكام', 'Terms and Conditions')}
               </h2>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '10pt', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif" }}>
                 {rendered.termsEn}
