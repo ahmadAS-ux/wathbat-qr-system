@@ -4,6 +4,19 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.4.14 — PDF stability + auth fix + parser sync + bilingual contract
+
+**Date:** 2026-05-11
+
+### Fixed
+- **LibreOffice timeout too close to observed latency.** Arabic HTML→PDF was taking 27.57s against a 30s limit — one Render hiccup away from a 500. Raised timeout from 30s to 90s in both `html-to-pdf.ts` and `docx-extractor.ts`. Timeout error message now includes LibreOffice stdout/stderr for easier diagnosis.
+- **"Download PDF" button returned 401 Unauthorized.** The link in ProjectDetail was a plain `<a href>` — browsers cannot send custom `Authorization` headers on link navigation. Replaced with a `fetch`+blob download button; the global fetch monkey-patch in `main.tsx` auto-injects the JWT.
+- **File replace left stale parser cache.** PUT `/erp/projects/:id/files/:fileId` updated file bytes without calling `runParsersForFile`, so `parsed_quotations` continued showing pre-replacement data (zeros, old quotation numbers). Now re-parses after every PUT.
+- **Contract pages used UI language for direction and labels.** `contractLang` controlled content block selection but the three page `dir=` attributes and all `t(...)` label calls still followed the UI language. Added `contractIsRtl` and inline `ct(ar, en)` helper; all contract document labels and directions now follow `contractLang` (`?lang=ar|en`). UI chrome continues to use `t()`.
+- **Misleading position/drawing count integrity warning.** The check compared quotation line item count (~16) against extracted drawing count (~354 panel images). These are incommensurable — the warning fired on every real project. Removed entirely.
+
+---
+
 ## v4.4.13 — Production hotfix + QR HTML cleanup + parser fix + test fixtures
 
 **Date:** 2026-05-11

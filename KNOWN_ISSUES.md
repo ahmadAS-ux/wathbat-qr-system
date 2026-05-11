@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-11 — v4.4.13: C-4/C-6 resolved (position regex); C-9 narrowed (parser piece resolved, signer schema still open); C-10 added; v4.4.13 resolutions block added
+> **Last updated:** 2026-05-11 — v4.4.14: LibreOffice timeout raised; PDF download auth fixed; PUT re-parse added; ContractPage direction/labels fixed; POSITION_DRAWING_COUNT_MISMATCH removed; v4.4.14 resolutions block added
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
@@ -467,6 +467,18 @@ After v4.4.12, contract PDF generation works end-to-end but two field categories
 2. Signature signer fields — no DB schema yet. Still renders as placeholder lines.
 
 Remaining work: add signer name/title fields to DB schema and wire into contract generator.
+
+---
+
+## v4.4.14 resolutions — PDF stability, auth fix, parser sync, bilingual contract
+
+**Date:** 2026-05-11
+
+- **LibreOffice timeout raised 30s → 90s.** Arabic PDF was taking 27.57s observed vs 30s limit — one hiccup from 500. Raised in both `html-to-pdf.ts` and `docx-extractor.ts`. Timeout error now includes stdout/stderr.
+- **"Download PDF" 401 fixed.** Plain `<a href>` replaced with fetch+blob button in ProjectDetail. Global fetch monkey-patch auto-injects JWT.
+- **PUT file replace now re-parses.** `runParsersForFile` called after PUT `/files/:fileId` so `parsed_quotations` stays current after a file replacement.
+- **ContractPage direction + labels follow document language.** Added `contractIsRtl` + `ct(ar, en)` helper. Three page `dir=` attributes, companyName at 2 sites, and 11 label sites now use `contractLang` instead of UI `isRtl`.
+- **POSITION_DRAWING_COUNT_MISMATCH removed.** Check compared incommensurable quantities (quotation line items vs drawing panel images) — fired amber on every real project. Removed from `contract-integrity.ts`.
 
 ---
 
