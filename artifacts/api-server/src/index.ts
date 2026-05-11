@@ -711,6 +711,9 @@ runStartupMigrations().then(async () => {
       'contract_terms_en',
       'contract_signature_block_ar',
       'contract_signature_block_en',
+      'company_cr_number',
+      'company_signer_name',
+      'company_signer_role',
     ];
     const existing = await db.select().from(systemSettings)
       .where(inArray(systemSettings.key, templateKeys));
@@ -766,6 +769,10 @@ Name: _______________________                Name: _______________________
 Signature: ___________________                Signature: ___________________
 
 Date: _______________________                Date: _______________________`,
+
+      company_cr_number: '',
+      company_signer_name: '',
+      company_signer_role: '',
     };
 
     for (const key of templateKeys) {

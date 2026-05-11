@@ -2734,6 +2734,9 @@ const CONTRACT_TEMPLATE_KEYS = [
   'contract_terms_en',
   'contract_signature_block_ar',
   'contract_signature_block_en',
+  'company_cr_number',
+  'company_signer_name',
+  'company_signer_role',
 ] as const;
 
 // GET /erp/settings/contract-template — Admin only
