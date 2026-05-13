@@ -4,6 +4,23 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.5.1 — Hotfix: contract PDF "Multi error" on every generation attempt
+
+**Date:** 2026-05-13
+
+### Fixed
+- **Contract PDF generation 500 on every attempt.** Two root causes found via Render log inspection + docxtemplater source + raw template XML:
+  1. Docxtemplater defaults to single-brace `{var}` delimiters; both templates use double-brace `{{var}}`. Every tag was parsed as a "Duplicate open tag" error. Fixed by adding `delimiters: { start: '{{', end: '}}' }` to the Docxtemplater constructor in `contract-renderer.ts`.
+  2. Both templates used Handlebars/Mustache loop syntax `{{#each milestones}}...{{/each}}` with `{{milestone.X}}` accessors. Docxtemplater native syntax is `{{#milestones}}...{{/milestones}}` with bare `{{X}}` accessors inside the loop. Fixed via XML surgery on both `.docx` files.
+  AR template had `{{#each milestones}}` split across 3 XML `<w:t>` runs due to RTL formatting; each run patched individually. EN template had all tags in single runs; direct text replacement.
+
+### Notes
+- No database migrations.
+- No Dockerfile change (no Docker rebuild required on Render — JS-only change).
+- Both Arabic and English contract PDFs are fixed by this commit.
+
+---
+
 ## v4.5.0 — Template-driven contract PDF + standalone quotation PDF
 
 **Date:** 2026-05-12

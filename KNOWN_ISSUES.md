@@ -470,6 +470,14 @@ Remaining work: add signer name/title fields to DB schema and wire into contract
 
 ---
 
+## v4.5.1 resolutions — contract PDF "Multi error" hotfix
+
+**Date:** 2026-05-13
+
+- **Contract PDF "Multi error" on every generation attempt (v4.5.0).** Docxtemplater delimiter mismatch: code used default single-brace `{var}`; templates used `{{var}}`. Every tag parsed as "Duplicate open tag". Fixed by adding `delimiters: { start: '{{', end: '}}' }`. Also fixed Handlebars-style `{{#each milestones}}...{{/each}}` → docxtemplater-native `{{#milestones}}...{{/milestones}}` in both `.docx` template files, and `{{milestone.X}}` → `{{X}}` for inner loop accessors.
+
+---
+
 ## v4.5.0 resolutions — template-driven contract PDF
 
 **Date:** 2026-05-12
