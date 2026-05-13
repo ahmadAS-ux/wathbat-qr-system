@@ -50,6 +50,7 @@ export function renderContractDocx(
     paragraphLoop: true,
     linebreaks: true,
     nullGetter: () => '',
+    delimiters: { start: '{{', end: '}}' },
   });
 
   doc.render({
