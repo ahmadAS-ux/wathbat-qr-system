@@ -4,6 +4,20 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.5.2 — Hotfix: contract PDF download forced to attachment
+
+**Date:** 2026-05-14
+
+### Fixed
+- **Contract PDF "Save" does nothing in Adobe DC.** The authenticated download route (`GET /api/erp/contracts/:id/pdf`) was sending `Content-Disposition: inline`, which caused browsers with Adobe DC plugin to open the PDF in-browser (embedded context). In that context the Save toolbar is inoperative. Changed to `Content-Disposition: attachment` so the browser always downloads the file to disk first. Adobe DC standalone can then save normally. The public token route (`GET /api/erp/contracts/public/:token`) keeps `inline` — it is intended for in-browser viewing.
+
+### Notes
+- No database migrations.
+- No Dockerfile change (no Docker rebuild required on Render — JS-only change).
+- One-line change in `artifacts/api-server/src/routes/erp.ts:3205`.
+
+---
+
 ## v4.5.1 — Hotfix: contract PDF "Multi error" on every generation attempt
 
 **Date:** 2026-05-13

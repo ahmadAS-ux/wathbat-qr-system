@@ -3202,7 +3202,7 @@ router.get('/erp/contracts/:contractId/pdf', requireRole('Admin', 'FactoryManage
       .where(eq(contractsTable.id, contractId));
     if (!row || row.status !== 'generated' || !row.pdfContent) return notFound(res);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="contract-${contractId}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="contract-${contractId}.pdf"`);
     res.send(Buffer.from(row.pdfContent as unknown as Buffer));
   } catch (err) {
     logger.error({ err }, 'GET /erp/contracts/:contractId/pdf failed');

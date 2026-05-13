@@ -5,7 +5,7 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-12 — v4.5.0: template-driven contract PDF; standalone quotation PDF endpoint; AdminSettings signer fields; v4.5.0 resolutions block added
+> **Last updated:** 2026-05-14 — v4.5.2: contract PDF download forced to attachment; signer fields still require manual entry in AdminSettings (no code bug)
 > **Status:** Active — update when issues are resolved or new ones found
 
 ---
