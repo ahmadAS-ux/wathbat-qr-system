@@ -1982,117 +1982,40 @@ router.post("/erp/projects/:id/files", requireRole(...NO_SALES_NO_ACCT), uploadM
     const newFileId = row.id;
     const fileBuffer = uploadedFile.buffer;
 
-    // ── Post-save parsers (failure does NOT roll back the file upload) ────────
+    // ── v4.5.3: always refresh parsed data before mismatch check ────────────
+    // Unifies behaviour with PUT /files/:fileId (Replace File, v4.4.14).
+    // Replaces 4 duplicated inline parser blocks; runParsersForFile handles all types.
+    await runParsersForFile(fileType, fileBuffer, newFileId, projectId);
+
+    // 409 name-mismatch check — quotation only, AFTER parsed_quotations is fresh
     if (fileType === 'price_quotation' || fileType === 'quotation') {
-      try {
-        const parsed = parseQuotationDocx(fileBuffer);
+      const [parsedRow] = await db
+        .select({ projectNameInFile: parsedQuotationsTable.projectNameInFile })
+        .from(parsedQuotationsTable)
+        .where(eq(parsedQuotationsTable.projectId, projectId))
+        .limit(1);
 
-        // 409 Conflict: project name in file vs system name
-        const [project] = await db.select({ name: projectsTable.name }).from(projectsTable).where(eq(projectsTable.id, projectId));
-        if (parsed.projectName && project?.name && !namesMatch(parsed.projectName, project.name)) {
-          const confirmed = req.query.confirmNameMismatch === 'true';
-          if (!confirmed) {
-            // Rollback: mark file inactive (don't hard-delete so version history is preserved)
-            await db.update(projectFilesTable).set({ isActive: false }).where(eq(projectFilesTable.id, newFileId));
-            res.status(409).json({
-              error: 'PROJECT_NAME_MISMATCH',
-              message: 'Project name in file does not match project in system',
-              nameInFile: parsed.projectName,
-              nameInSystem: project.name,
-              hint: 'Re-submit with ?confirmNameMismatch=true to proceed, or cancel the upload',
-            });
-            return;
-          }
+      const [project] = await db
+        .select({ name: projectsTable.name })
+        .from(projectsTable)
+        .where(eq(projectsTable.id, projectId));
+
+      if (parsedRow?.projectNameInFile && project?.name &&
+          !namesMatch(parsedRow.projectNameInFile, project.name)) {
+        const confirmed = req.query.confirmNameMismatch === 'true';
+        if (!confirmed) {
+          // Rollback: mark file inactive (don't hard-delete so version history is preserved)
+          await db.update(projectFilesTable)
+            .set({ isActive: false })
+            .where(eq(projectFilesTable.id, newFileId));
+          return res.status(409).json({
+            error: 'PROJECT_NAME_MISMATCH',
+            message: 'Project name in file does not match project in system',
+            nameInFile: parsedRow.projectNameInFile,
+            nameInSystem: project.name,
+            hint: 'Re-submit with ?confirmNameMismatch=true to proceed, or cancel the upload',
+          });
         }
-
-        await db.delete(parsedQuotationsTable).where(eq(parsedQuotationsTable.projectId, projectId));
-        await db.insert(parsedQuotationsTable).values({
-          projectId,
-          sourceFileId: newFileId,
-          projectNameInFile: parsed.projectName,
-          quotationNumber: parsed.quotationNumber,
-          quotationDate: parsed.quotationDate,
-          positions: parsed.positions,
-          subtotalNet: parsed.subtotalNet,
-          taxRate: parsed.taxRate,
-          taxAmount: parsed.taxAmount,
-          grandTotal: parsed.grandTotal,
-          rawPositionCount: parsed.rawPositionCount,
-          dedupedPositionCount: parsed.dedupedPositionCount,
-        });
-      } catch (err) {
-        logger.warn({ err }, '[v2.5.1] Quotation parser failed — file saved but not parsed');
-      }
-    }
-
-    if (fileType === 'section') {
-      try {
-        const parsed = parseSectionDocx(fileBuffer);
-
-        const [project] = await db.select({ name: projectsTable.name }).from(projectsTable).where(eq(projectsTable.id, projectId));
-        const nameMatchesSection = parsed.projectName && project?.name
-          ? namesMatch(parsed.projectName, project.name)
-          : true;
-        if (!nameMatchesSection) {
-          logger.warn(`[v2.5.1] Section file project name mismatch: "${parsed.projectName}" vs "${project?.name}" — stored anyway`);
-        }
-
-        await db.delete(parsedSectionsTable).where(eq(parsedSectionsTable.projectId, projectId));
-
-        const [sectionRow] = await db.insert(parsedSectionsTable).values({
-          projectId,
-          sourceFileId: newFileId,
-          projectNameInFile: parsed.projectName,
-          system: parsed.system,
-          drawingCount: parsed.drawings.length,
-        }).returning();
-
-        const CHUNK = 50;
-        for (let i = 0; i < parsed.drawings.length; i += CHUNK) {
-          const chunk = parsed.drawings.slice(i, i + CHUNK).map(d => ({
-            parsedSectionId: sectionRow.id,
-            orderIndex: d.orderIndex,
-            positionCode: d.positionCode,
-            mediaFilename: d.mediaFilename,
-            mimeType: d.mimeType,
-            imageData: d.imageData,
-          }));
-          await db.insert(parsedSectionDrawingsTable).values(chunk);
-        }
-      } catch (err) {
-        logger.warn({ err }, '[v2.5.1] Section parser failed — file saved but not parsed');
-      }
-    }
-
-    if (fileType === 'assembly_list') {
-      try {
-        const parsed = parseAssemblyListDocx(fileBuffer);
-        await db.delete(parsedAssemblyListsTable).where(eq(parsedAssemblyListsTable.projectId, projectId));
-        await db.insert(parsedAssemblyListsTable).values({
-          projectId,
-          sourceFileId: newFileId,
-          projectNameInFile: parsed.projectName,
-          positionCount: parsed.positionCount,
-          positions: parsed.positions,
-        });
-      } catch (err) {
-        logger.warn({ err }, '[v2.5.3] Assembly list parser failed — file saved but not parsed');
-      }
-    }
-
-    if (fileType === 'cut_optimisation') {
-      try {
-        const parsed = parseCutOptimisationDocx(fileBuffer);
-        await db.delete(parsedCutOptimisationsTable).where(eq(parsedCutOptimisationsTable.projectId, projectId));
-        await db.insert(parsedCutOptimisationsTable).values({
-          projectId,
-          sourceFileId: newFileId,
-          projectNameInFile: parsed.projectName,
-          profileCount: parsed.profileCount,
-          profiles: parsed.profiles,
-        });
-      } catch (err) {
-        logger.warn({ err }, '[v2.5.3] Cut optimisation parser failed — file saved but not parsed');
       }
     }
 
