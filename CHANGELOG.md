@@ -4,6 +4,33 @@ All notable changes to the Wathbah QR Asset Manager are documented in this file.
 
 ---
 
+## v4.5.3 — Parser staleness fix + production template cleanup
+
+**Date:** 2026-05-14
+
+### Fixed
+- **Quotation parser staleness on batch upload.** Uploading a quotation file via the batch "Select files" button now correctly refreshes `parsed_quotations`. Previously, if the new file's internal project name did not match the system project name, the route returned 409 and rolled back WITHOUT updating parsed data — leaving stale numbers from a previous quotation. The 409 mismatch warning is preserved but now operates on accurate fresh data. Unifies behavior with the "Replace File" button (fixed in v4.4.14).
+
+### Changed
+- **Both contract templates (AR + EN) redesigned for production look:**
+  - Removed yellow "developer reference document" note boxes
+  - Removed "Template" / "نموذج" from titles
+  - Removed all helper text under placeholder fields ('← مثال:', 'example:', 'format:', 'optional — may be empty', etc.)
+  - Removed descriptive paragraphs explaining where each section's text comes from
+  - Removed Developer Notes sections at the bottom of both templates
+  - AR template: reduced font sizes (body 10pt → 9pt, headers 14pt → 12pt)
+
+### Preserved
+- All placeholders intact and validated end-to-end (python-docx + docxtemplater render test)
+- v4.5.1 loop syntax fix preserved: `{{#milestones}}...{{/milestones}}` with bare `{{amount}}`, `{{percent}}`, `{{label}}`, `{{index}}` accessors
+- v4.4.14 → v4.5.2 fixes all still apply
+
+### Internal
+- Replaced 4 duplicated inline parser blocks in single-file legacy upload path with a single `runParsersForFile()` call
+- Net code reduction in erp.ts; consistent parser invocation across all upload paths
+
+---
+
 ## v4.5.2 — Hotfix: contract PDF download forced to attachment
 
 **Date:** 2026-05-14

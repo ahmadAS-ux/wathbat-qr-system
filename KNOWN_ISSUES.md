@@ -5,8 +5,17 @@
 > identified but not yet fixed. Each issue lists severity, current
 > mitigation, and the planned version where it will be addressed.
 > **Audience:** Ahmad, Claude Code, future developers.
-> **Last updated:** 2026-05-14 — v4.5.2: contract PDF download forced to attachment; signer fields still require manual entry in AdminSettings (no code bug)
+> **Last updated:** 2026-05-14 — v4.5.3: parser staleness fix; production template cleanup; v4.5.2 resolutions below
 > **Status:** Active — update when issues are resolved or new ones found
+
+---
+
+## v4.5.3 resolutions
+
+**Date:** 2026-05-14
+
+- **Quotation parser staleness on batch upload (silent):** when a quotation was uploaded via the batch "Select files" button and its internal project name didn't fuzzy-match the system project name, the route returned 409 + rolled back without updating `parsed_quotations`. Old parsed data stayed stale silently. Fix: always call `runParsersForFile()` before mismatch check.
+- **Contract templates looked like developer-reference documents:** both AR and EN templates had yellow note boxes, "Template" in the title, helper text under every field, and Developer Notes sections at the bottom. Replaced with production-grade cleaned templates.
 
 ---
 
